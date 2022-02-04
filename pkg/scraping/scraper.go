@@ -40,8 +40,18 @@ func (e *heightEvent) node() string {
 	return e.n
 }
 
+type invalidHeightEvent struct {
+	n string
+	h int
+}
+
+func (e *invalidHeightEvent) node() string {
+	return e.n
+}
+
 type stateHashEvent struct {
 	n  string
+	h  int
 	sh *proto.StateHash
 }
 
@@ -104,8 +114,11 @@ func (s *Scraper) poll(ctx context.Context) {
 				log.Printf("[%s] Version: %s", e.node(), te.v)
 			case *heightEvent:
 				log.Printf("[%s] Height: %d", e.node(), te.h)
+			case *invalidHeightEvent:
+				log.Printf("[%s] Invalid height: %d", e.node(), te.h)
 			case *stateHashEvent:
-				log.Printf("[%s] State Hash of block '%s': %s", e.node(), te.sh.BlockID.ShortString(), te.sh.SumHash.ShortString())
+				log.Printf("[%s] State Hash of block '%s' at height %d: %s",
+					e.node(), te.sh.BlockID.ShortString(), te.h, te.sh.SumHash.ShortString())
 				wg.Done()
 			}
 		}
@@ -126,11 +139,16 @@ func (s *Scraper) queryNode(ctx context.Context, url string, events chan event) 
 		events <- &timeoutEvent{n: url}
 		return
 	}
+	if h < 2 {
+		events <- &invalidHeightEvent{n: url, h: h}
+		return
+	}
 	events <- &heightEvent{n: url, h: h}
-	sh, err := node.stateHash(ctx, h-1)
+	h = h - 1 // Go to prev height to request state hash
+	sh, err := node.stateHash(ctx, h)
 	if err != nil {
 		events <- &timeoutEvent{n: url}
 		return
 	}
-	events <- &stateHashEvent{n: url, sh: sh}
+	events <- &stateHashEvent{n: url, h: h, sh: sh}
 }
