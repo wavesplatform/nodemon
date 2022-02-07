@@ -2,6 +2,7 @@ package scraping
 
 import (
 	"context"
+	"log"
 	"net/http"
 	"time"
 
@@ -31,11 +32,14 @@ func newNodeClient(url string, timeout time.Duration) *nodeClient {
 func (c *nodeClient) version(ctx context.Context) (string, error) {
 	versionRequest, err := http.NewRequest("GET", c.cl.GetOptions().BaseUrl+"/node/version", nil)
 	if err != nil {
+		log.Printf("Version request failed: %v", err)
 		return "", err
 	}
+	versionRequest.Close = true
 	resp := new(versionResponse)
 	_, err = c.cl.Do(ctx, versionRequest, resp)
 	if err != nil {
+		log.Printf("Version request failed: %v", err)
 		return "", err
 	}
 	return resp.Version, nil

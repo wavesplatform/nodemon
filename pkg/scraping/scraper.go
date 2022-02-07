@@ -6,67 +6,18 @@ import (
 	"sync"
 	"time"
 
-	"github.com/wavesplatform/gowaves/pkg/proto"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/storing"
 )
 
-type event interface {
-	node() string
-}
-
-type timeoutEvent struct {
-	n string
-}
-
-func (e *timeoutEvent) node() string {
-	return e.n
-}
-
-type versionEvent struct {
-	n string
-	v string
-}
-
-func (e *versionEvent) node() string {
-	return e.n
-}
-
-type heightEvent struct {
-	n string
-	h int
-}
-
-func (e *heightEvent) node() string {
-	return e.n
-}
-
-type invalidHeightEvent struct {
-	n string
-	h int
-}
-
-func (e *invalidHeightEvent) node() string {
-	return e.n
-}
-
-type stateHashEvent struct {
-	n  string
-	h  int
-	sh *proto.StateHash
-}
-
-func (e *stateHashEvent) node() string {
-	return e.n
-}
-
 type Scraper struct {
-	cs       *storing.ConfigurationStorage
+	ns       *storing.NodesStorage
 	interval time.Duration
 	timeout  time.Duration
 }
 
-func NewScraper(cs *storing.ConfigurationStorage, interval, timeout time.Duration) (*Scraper, error) {
-	return &Scraper{cs: cs, interval: interval, timeout: timeout}, nil
+func NewScraper(ns *storing.NodesStorage, interval, timeout time.Duration) (*Scraper, error) {
+	return &Scraper{ns: ns, interval: interval, timeout: timeout}, nil
 }
 
 func (s *Scraper) Start(ctx context.Context) {
@@ -89,10 +40,10 @@ func (s *Scraper) poll(ctx context.Context) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	events := make(chan event)
+	events := make(chan entities.Event)
 	defer close(events)
 
-	nodes, err := s.cs.EnabledNodes()
+	nodes, err := s.ns.EnabledNodes()
 	if err != nil {
 		log.Printf("Failed to get nodes from storage: %v", err)
 	}
@@ -107,18 +58,18 @@ func (s *Scraper) poll(ctx context.Context) {
 		for e := range events {
 			// PUT events into ts storage here
 			switch te := e.(type) {
-			case *timeoutEvent:
-				log.Printf("[%s] Timeout", e.node())
+			case *entities.UnreachableEvent:
+				log.Printf("[%s] Unreachable", e.Node())
 				wg.Done()
-			case *versionEvent:
-				log.Printf("[%s] Version: %s", e.node(), te.v)
-			case *heightEvent:
-				log.Printf("[%s] Height: %d", e.node(), te.h)
-			case *invalidHeightEvent:
-				log.Printf("[%s] Invalid height: %d", e.node(), te.h)
-			case *stateHashEvent:
+			case *entities.VersionEvent:
+				log.Printf("[%s] Version: %s", e.Node(), te.Version())
+			case *entities.HeightEvent:
+				log.Printf("[%s] Height: %d", e.Node(), te.Height())
+			case *entities.InvalidHeightEvent:
+				log.Printf("[%s] Invalid height: %d", e.Node(), te.Height())
+			case *entities.StateHashEvent:
 				log.Printf("[%s] State Hash of block '%s' at height %d: %s",
-					e.node(), te.sh.BlockID.ShortString(), te.h, te.sh.SumHash.ShortString())
+					e.Node(), te.StateHash().BlockID.ShortString(), te.Height(), te.StateHash().SumHash.ShortString())
 				wg.Done()
 			}
 		}
@@ -126,29 +77,29 @@ func (s *Scraper) poll(ctx context.Context) {
 	wg.Wait()
 }
 
-func (s *Scraper) queryNode(ctx context.Context, url string, events chan event) {
+func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event) {
 	node := newNodeClient(url, s.timeout)
 	v, err := node.version(ctx)
 	if err != nil {
-		events <- &timeoutEvent{n: url}
+		events <- entities.NewUnreachableEvent(url)
 		return
 	}
-	events <- &versionEvent{n: url, v: v}
+	events <- entities.NewVersionEvent(url, v)
 	h, err := node.height(ctx)
 	if err != nil {
-		events <- &timeoutEvent{n: url}
+		events <- entities.NewUnreachableEvent(url)
 		return
 	}
 	if h < 2 {
-		events <- &invalidHeightEvent{n: url, h: h}
+		events <- entities.NewInvalidHeightEvent(url, h)
 		return
 	}
-	events <- &heightEvent{n: url, h: h}
-	h = h - 1 // Go to prev height to request state hash
+	events <- entities.NewHeightEvent(url, h)
+	h = h - 1 // Go to previous height to request state hash
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
-		events <- &timeoutEvent{n: url}
+		events <- entities.NewUnreachableEvent(url)
 		return
 	}
-	events <- &stateHashEvent{n: url, h: h, sh: sh}
+	events <- entities.NewStateHashEvent(url, h, sh)
 }

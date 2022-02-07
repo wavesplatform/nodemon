@@ -56,23 +56,23 @@ func QueryNodes(db *hare.Database, queryFn func(n Node) bool, limit int) ([]Node
 	return results, nil
 }
 
-type ConfigurationStorage struct {
+type NodesStorage struct {
 	db *hare.Database
 }
 
-func (cs *ConfigurationStorage) Close() error {
+func (cs *NodesStorage) Close() error {
 	return cs.db.Close()
 }
 
-func (cs *ConfigurationStorage) Nodes() ([]Node, error) {
+func (cs *NodesStorage) Nodes() ([]Node, error) {
 	return QueryNodes(cs.db, func(_ Node) bool { return true }, 0)
 }
 
-func (cs *ConfigurationStorage) EnabledNodes() ([]Node, error) {
+func (cs *NodesStorage) EnabledNodes() ([]Node, error) {
 	return QueryNodes(cs.db, func(n Node) bool { return n.Enabled }, 0)
 }
 
-func (cs *ConfigurationStorage) InsertIfNew(url string) error {
+func (cs *NodesStorage) InsertIfNew(url string) error {
 	ids, err := QueryNodes(cs.db, func(n Node) bool { return n.URL == url }, 0)
 	if err != nil {
 		return err
@@ -87,7 +87,7 @@ func (cs *ConfigurationStorage) InsertIfNew(url string) error {
 	return nil
 }
 
-func (cs *ConfigurationStorage) populate(nodes string) error {
+func (cs *NodesStorage) populate(nodes string) error {
 	for _, n := range strings.Fields(nodes) {
 		url, err := entities.ValidateNodeURL(n)
 		if err != nil {
@@ -101,21 +101,21 @@ func (cs *ConfigurationStorage) populate(nodes string) error {
 	return nil
 }
 
-func NewConfigurationStorage(path string, nodes string) (*ConfigurationStorage, error) {
+func NewNodesStorage(path string, nodes string) (*NodesStorage, error) {
 	ds, err := disk.New(path, defaultStorageExtension)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open configuration storage at '%s'", path)
+		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
 	}
 	db, err := hare.New(ds)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to open configuration storage at '%s'", path)
+		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
 	}
 	if !db.TableExists(nodesTableName) {
 		if err := db.CreateTable(nodesTableName); err != nil {
-			return nil, errors.Wrapf(err, "failed to initialize configuration storage at '%s'", path)
+			return nil, errors.Wrapf(err, "failed to initialize nodes storage at '%s'", path)
 		}
 	}
-	cs := &ConfigurationStorage{db: db}
+	cs := &NodesStorage{db: db}
 	err = cs.populate(nodes)
 	if err != nil {
 		return nil, err

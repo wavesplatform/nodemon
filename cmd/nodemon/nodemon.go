@@ -67,19 +67,19 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	cs, err := storing.NewConfigurationStorage(storage, nodes)
+	ns, err := storing.NewNodesStorage(storage, nodes)
 	if err != nil {
 		log.Printf("Storage failure: %v", err)
 		return err
 	}
-	defer func(cs *storing.ConfigurationStorage) {
+	defer func(cs *storing.NodesStorage) {
 		err := cs.Close()
 		if err != nil {
 			log.Printf("Failed to close configuration storage: %v", err)
 		}
-	}(cs)
+	}(ns)
 
-	a, err := api.NewAPI(bindAddress, cs)
+	a, err := api.NewAPI(bindAddress, ns)
 	if err != nil {
 		log.Printf("API failure: %v", err)
 		return err
@@ -89,7 +89,7 @@ func run() error {
 		return err
 	}
 
-	scraper, err := scraping.NewScraper(cs, interval, timeout)
+	scraper, err := scraping.NewScraper(ns, interval, timeout)
 	if err != nil {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
