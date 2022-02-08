@@ -6,6 +6,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1
+	github.com/tidwall/buntdb v1.2.9
 	github.com/wavesplatform/gowaves v0.9.1-0.20220131061926-c6996a436c9a
 )
 
@@ -16,6 +17,13 @@ require (
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/kilic/bls12-381 v0.0.0-20200820230200-6b2c19996391 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
+	github.com/tidwall/btree v1.1.0 // indirect
+	github.com/tidwall/gjson v1.12.1 // indirect
+	github.com/tidwall/grect v0.1.4 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/pretty v1.2.0 // indirect
+	github.com/tidwall/rtred v0.1.2 // indirect
+	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20210128110402-41364ca56ca8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/atomic v1.9.0 // indirect

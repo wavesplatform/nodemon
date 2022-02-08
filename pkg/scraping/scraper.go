@@ -12,12 +12,13 @@ import (
 
 type Scraper struct {
 	ns       *storing.NodesStorage
+	es       *storing.EventsStorage
 	interval time.Duration
 	timeout  time.Duration
 }
 
-func NewScraper(ns *storing.NodesStorage, interval, timeout time.Duration) (*Scraper, error) {
-	return &Scraper{ns: ns, interval: interval, timeout: timeout}, nil
+func NewScraper(ns *storing.NodesStorage, es *storing.EventsStorage, interval, timeout time.Duration) (*Scraper, error) {
+	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
 }
 
 func (s *Scraper) Start(ctx context.Context) {
@@ -36,6 +37,7 @@ func (s *Scraper) Start(ctx context.Context) {
 }
 
 func (s *Scraper) poll(ctx context.Context) {
+	ts := time.Now().Unix()
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -51,55 +53,49 @@ func (s *Scraper) poll(ctx context.Context) {
 	for i := range nodes {
 		n := nodes[i]
 		go func() {
-			s.queryNode(cc, n.URL, events)
+			s.queryNode(cc, n.URL, events, ts)
 		}()
 	}
 	go func() {
+		cnt := 0
 		for e := range events {
-			// PUT events into ts storage here
-			switch te := e.(type) {
-			case *entities.UnreachableEvent:
-				log.Printf("[%s] Unreachable", e.Node())
-				wg.Done()
-			case *entities.VersionEvent:
-				log.Printf("[%s] Version: %s", e.Node(), te.Version())
-			case *entities.HeightEvent:
-				log.Printf("[%s] Height: %d", e.Node(), te.Height())
-			case *entities.InvalidHeightEvent:
-				log.Printf("[%s] Invalid height: %d", e.Node(), te.Height())
-			case *entities.StateHashEvent:
-				log.Printf("[%s] State Hash of block '%s' at height %d: %s",
-					e.Node(), te.StateHash().BlockID.ShortString(), te.Height(), te.StateHash().SumHash.ShortString())
+			if err := s.es.PutEvent(e); err != nil {
+				log.Printf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err)
+			}
+			switch e.(type) {
+			case *entities.UnreachableEvent, *entities.InvalidHeightEvent, *entities.StateHashEvent:
 				wg.Done()
 			}
+			cnt++
 		}
+		log.Printf("Polling of %d nodes completed with %d events collected", len(nodes), cnt)
 	}()
 	wg.Wait()
 }
 
-func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event) {
+func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
 	node := newNodeClient(url, s.timeout)
 	v, err := node.version(ctx)
 	if err != nil {
-		events <- entities.NewUnreachableEvent(url)
+		events <- entities.NewUnreachableEvent(url, ts)
 		return
 	}
-	events <- entities.NewVersionEvent(url, v)
+	events <- entities.NewVersionEvent(url, ts, v)
 	h, err := node.height(ctx)
 	if err != nil {
-		events <- entities.NewUnreachableEvent(url)
+		events <- entities.NewUnreachableEvent(url, ts)
 		return
 	}
 	if h < 2 {
-		events <- entities.NewInvalidHeightEvent(url, h)
+		events <- entities.NewInvalidHeightEvent(url, ts, v, h)
 		return
 	}
-	events <- entities.NewHeightEvent(url, h)
+	events <- entities.NewHeightEvent(url, ts, v, h)
 	h = h - 1 // Go to previous height to request state hash
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
-		events <- entities.NewUnreachableEvent(url)
+		events <- entities.NewUnreachableEvent(url, ts)
 		return
 	}
-	events <- entities.NewStateHashEvent(url, h, sh)
+	events <- entities.NewStateHashEvent(url, ts, v, h, sh)
 }

@@ -69,15 +69,27 @@ func run() error {
 
 	ns, err := storing.NewNodesStorage(storage, nodes)
 	if err != nil {
-		log.Printf("Storage failure: %v", err)
+		log.Printf("Nodes storage failure: %v", err)
 		return err
 	}
 	defer func(cs *storing.NodesStorage) {
 		err := cs.Close()
 		if err != nil {
-			log.Printf("Failed to close configuration storage: %v", err)
+			log.Printf("Failed to close nodes storage: %v", err)
 		}
 	}(ns)
+
+	es, err := storing.NewEventsStorage()
+	if err != nil {
+		log.Printf("Events storage failure: %v", err)
+		return err
+	}
+	defer func(es *storing.EventsStorage) {
+		err := es.Close()
+		if err != nil {
+			log.Printf("Failed to close events storage: %v", err)
+		}
+	}(es)
 
 	a, err := api.NewAPI(bindAddress, ns)
 	if err != nil {
@@ -89,7 +101,7 @@ func run() error {
 		return err
 	}
 
-	scraper, err := scraping.NewScraper(ns, interval, timeout)
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
 	if err != nil {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
