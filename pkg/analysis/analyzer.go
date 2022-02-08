@@ -1,0 +1,32 @@
+package analysis
+
+import (
+	"log"
+
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing"
+)
+
+type Analyzer struct {
+	es *storing.EventsStorage
+}
+
+func NewAnalyzer(es *storing.EventsStorage) *Analyzer {
+	return &Analyzer{es: es}
+}
+
+func (a *Analyzer) Start(notifications <-chan entities.Notification) {
+	go func() {
+		for n := range notifications {
+			switch tn := n.(type) {
+			case *entities.OnPollingComplete:
+				log.Printf("On polling complete of %d nodes", len(tn.Nodes()))
+				cnt, err := a.es.StatementsCount()
+				if err != nil {
+					log.Printf("Failed to query statements: %v", err)
+				}
+				log.Printf("Total statemetns count: %d", cnt)
+			}
+		}
+	}()
+}

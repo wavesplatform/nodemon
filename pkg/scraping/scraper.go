@@ -11,14 +11,15 @@ import (
 )
 
 type Scraper struct {
-	ns       *storing.NodesStorage
-	es       *storing.EventsStorage
-	interval time.Duration
-	timeout  time.Duration
+	ns            *storing.NodesStorage
+	es            *storing.EventsStorage
+	interval      time.Duration
+	timeout       time.Duration
+	notifications chan entities.Notification
 }
 
 func NewScraper(ns *storing.NodesStorage, es *storing.EventsStorage, interval, timeout time.Duration) (*Scraper, error) {
-	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
+	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, notifications: make(chan entities.Notification)}, nil
 }
 
 func (s *Scraper) Start(ctx context.Context) {
@@ -30,10 +31,15 @@ func (s *Scraper) Start(ctx context.Context) {
 			case <-ticker.C:
 				continue
 			case <-ctx.Done():
+				close(s.notifications)
 				return
 			}
 		}
 	}()
+}
+
+func (s *Scraper) Notifications() <-chan entities.Notification {
+	return s.notifications
 }
 
 func (s *Scraper) poll(ctx context.Context) {
@@ -71,6 +77,11 @@ func (s *Scraper) poll(ctx context.Context) {
 		log.Printf("Polling of %d nodes completed with %d events collected", len(nodes), cnt)
 	}()
 	wg.Wait()
+	urls := make([]string, len(nodes))
+	for i := range nodes {
+		urls[i] = nodes[i].URL
+	}
+	s.notifications <- entities.NewOnPollingComplete(urls)
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {

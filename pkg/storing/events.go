@@ -49,6 +49,21 @@ func (s *EventsStorage) PutEvent(event entities.Event) error {
 	return nil
 }
 
+func (s *EventsStorage) StatementsCount() (int, error) {
+	cnt := 0
+	err := s.db.View(func(tx *buntdb.Tx) error {
+		err := tx.Ascend("", func(key, value string) bool {
+			cnt++
+			return true
+		})
+		return err
+	})
+	if err != nil {
+		return 0, errors.Wrap(err, "failed to query statements")
+	}
+	return cnt, nil
+}
+
 func (s *EventsStorage) key(e entities.Event) string {
 	return fmt.Sprintf("node:%s:ts:%d", e.Node(), e.Timestamp())
 }

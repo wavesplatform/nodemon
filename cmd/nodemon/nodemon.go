@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
 	"nodemon/pkg/scraping"
 	"nodemon/pkg/storing"
@@ -25,14 +26,15 @@ var (
 )
 
 func main() {
-	err := run()
-	switch err {
-	case context.Canceled:
-		os.Exit(130)
-	case errorInvalidParameters:
-		os.Exit(2)
-	default:
-		os.Exit(1)
+	if err := run(); err != nil {
+		switch err {
+		case context.Canceled:
+			os.Exit(130)
+		case errorInvalidParameters:
+			os.Exit(2)
+		default:
+			os.Exit(1)
+		}
 	}
 }
 
@@ -106,6 +108,10 @@ func run() error {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
 	}
+
+	analyzer := analysis.NewAnalyzer(es)
+	analyzer.Start(scraper.Notifications())
+
 	scraper.Start(ctx)
 
 	<-ctx.Done()
