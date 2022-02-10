@@ -13,10 +13,6 @@ const (
 	defaultRetentionDuration = 12 * time.Hour
 )
 
-const (
-	stateHashIndexName = entities.NodeStatementStateHashJSONFieldName
-)
-
 type EventsStorage struct {
 	db *buntdb.DB
 }
@@ -25,10 +21,6 @@ func NewEventsStorage() (*EventsStorage, error) {
 	db, err := buntdb.Open(":memory:")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
-	}
-	err = db.CreateIndex(stateHashIndexName, "*", buntdb.IndexJSON(entities.NodeStatementStateHashJSONFieldName))
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to create buntdb index %q", stateHashIndexName)
 	}
 	return &EventsStorage{db: db}, nil
 }
