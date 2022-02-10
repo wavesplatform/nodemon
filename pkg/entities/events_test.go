@@ -30,10 +30,10 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 	for _, test := range tests {
 		actual := test.iter.
 			Iterator().
-			Filter(func(statement NodeStatement) (take bool) {
-				return true
+			FilterMap(func(statement *NodeStatement) *NodeStatement {
+				return statement
 			}).
-			Map(func(statement NodeStatement) NodeStatement {
+			FilterMap(func(statement *NodeStatement) *NodeStatement {
 				statement.Height = 10 * statement.Height
 				return statement
 			}).

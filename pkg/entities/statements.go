@@ -280,69 +280,6 @@ func (i *NodeStatementsIterator) SplitByNodeVersion() NodeStatementsSplitByVersi
 	return split
 }
 
-// Map consumes iterator and returns new wrapped iterator.
-func (i *NodeStatementsIterator) Map(fn func(statement NodeStatement) NodeStatement) *NodeStatementsIterator {
-	var (
-		inner       = i.consume()
-		ch          = make(chan NodeStatement)
-		ctx, cancel = context.WithCancel(context.Background())
-	)
-	go func(inner NodeStatementsIterator, ch chan<- NodeStatement, ctx context.Context) {
-		defer func() {
-			close(ch)
-			inner.Close()
-		}()
-		for inner.Next() {
-			oldStatement := inner.Get()
-			newStatement := fn(oldStatement)
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- newStatement:
-				continue
-			}
-		}
-	}(inner, ch, ctx)
-	return &NodeStatementsIterator{
-		ch:     ch,
-		ctx:    ctx,
-		cancel: cancel,
-	}
-}
-
-// Filter consumes iterator and returns new wrapped iterator with filter func.
-func (i *NodeStatementsIterator) Filter(fn func(statement NodeStatement) (take bool)) *NodeStatementsIterator {
-	var (
-		inner       = i.consume()
-		ch          = make(chan NodeStatement)
-		ctx, cancel = context.WithCancel(context.Background())
-	)
-	go func(inner NodeStatementsIterator, ch chan<- NodeStatement, ctx context.Context) {
-		defer func() {
-			close(ch)
-			inner.Close()
-		}()
-		for inner.Next() {
-			statement := inner.Get()
-			// we should continue here in case if next==false
-			if take := fn(statement); !take {
-				continue
-			}
-			select {
-			case <-ctx.Done():
-				return
-			case ch <- statement:
-				continue
-			}
-		}
-	}(inner, ch, ctx)
-	return &NodeStatementsIterator{
-		ch:     ch,
-		ctx:    ctx,
-		cancel: cancel,
-	}
-}
-
 // FilterMap consumes iterator and returns new wrapped iterator with filter and map func.
 func (i *NodeStatementsIterator) FilterMap(fn func(statement *NodeStatement) *NodeStatement) *NodeStatementsIterator {
 	var (
