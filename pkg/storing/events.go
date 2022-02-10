@@ -2,7 +2,6 @@ package storing
 
 import (
 	"encoding/json"
-	"fmt"
 	"time"
 
 	"github.com/pkg/errors"
@@ -14,6 +13,10 @@ const (
 	defaultRetentionDuration = 12 * time.Hour
 )
 
+const (
+	stateHashIndexName = entities.NodeStatementStateHashJSONFieldName
+)
+
 type EventsStorage struct {
 	db *buntdb.DB
 }
@@ -22,6 +25,10 @@ func NewEventsStorage() (*EventsStorage, error) {
 	db, err := buntdb.Open(":memory:")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
+	}
+	err = db.CreateIndex(stateHashIndexName, "*", buntdb.IndexJSON(entities.NodeStatementStateHashJSONFieldName))
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create buntdb index %q", stateHashIndexName)
 	}
 	return &EventsStorage{db: db}, nil
 }
@@ -33,6 +40,26 @@ func (s *EventsStorage) Close() error {
 	return nil
 }
 
+func (s *EventsStorage) GetStatement(nodeURL string, timestamp int64) (entities.NodeStatement, error) {
+	var (
+		value     string
+		statement entities.NodeStatement
+		key       = StatementKey{nodeURL, timestamp}.String()
+	)
+	err := s.db.View(func(tx *buntdb.Tx) error {
+		var err error
+		value, err = tx.Get(key)
+		return err
+	})
+	if err != nil {
+		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get node statement from db by key %q", key)
+	}
+	if err := json.Unmarshal([]byte(value), &statement); err != nil {
+		return entities.NodeStatement{}, errors.Wrap(err, "failed to unmarshal node statement")
+	}
+	return statement, nil
+}
+
 func (s *EventsStorage) PutEvent(event entities.Event) error {
 	opts := &buntdb.SetOptions{Expires: true, TTL: defaultRetentionDuration}
 	err := s.db.Update(func(tx *buntdb.Tx) error {
@@ -40,7 +67,8 @@ func (s *EventsStorage) PutEvent(event entities.Event) error {
 		if err != nil {
 			return err
 		}
-		_, _, err = tx.Set(s.key(event), v, opts)
+		key := StatementKey{event.Node(), event.Timestamp()}
+		_, _, err = tx.Set(key.String(), v, opts)
 		return err
 	})
 	if err != nil {
@@ -52,20 +80,14 @@ func (s *EventsStorage) PutEvent(event entities.Event) error {
 func (s *EventsStorage) StatementsCount() (int, error) {
 	cnt := 0
 	err := s.db.View(func(tx *buntdb.Tx) error {
-		err := tx.Ascend("", func(key, value string) bool {
-			cnt++
-			return true
-		})
+		var err error
+		cnt, err = tx.Len()
 		return err
 	})
 	if err != nil {
 		return 0, errors.Wrap(err, "failed to query statements")
 	}
 	return cnt, nil
-}
-
-func (s *EventsStorage) key(e entities.Event) string {
-	return fmt.Sprintf("node:%s:ts:%d", e.Node(), e.Timestamp())
 }
 
 func (s *EventsStorage) makeValue(e entities.Event) (string, error) {

@@ -11,6 +11,10 @@ const (
 	InvalidVersion NodeStatus = "invalid_version"
 )
 
+const (
+	NodeStatementStateHashJSONFieldName = "state_hash"
+)
+
 type NodeStatement struct {
 	Node      string           `json:"node"`
 	Status    NodeStatus       `json:"status"`
