@@ -1,7 +1,6 @@
 package storing
 
 import (
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -20,11 +19,7 @@ type StatementKey struct {
 }
 
 func (s StatementKey) String() string {
-	return fmt.Sprintf("%s%s%s%s%d",
-		statementKeyNodePartPrefix, s.NodeUrl,
-		statementKeyPartSeparator,
-		statementKeyTimestampPartPrefix, s.Timestamp,
-	)
+	return newStatementKeyPattern(s.NodeUrl, strconv.FormatInt(s.Timestamp, 10))
 }
 
 func NewStatementKeyFromString(key string) (StatementKey, error) {
@@ -59,4 +54,19 @@ func NewStatementKeyFromString(key string) (StatementKey, error) {
 		Timestamp: ts,
 	}
 	return statementKey, nil
+}
+
+func newStatementKeyPattern(nodeURLPattern, timestampPattern string) string {
+	var buf strings.Builder
+	buf.Grow(
+		len(statementKeyNodePartPrefix) + len(nodeURLPattern) +
+			len(statementKeyPartSeparator) +
+			len(statementKeyTimestampPartPrefix) + len(timestampPattern),
+	)
+	buf.WriteString(statementKeyNodePartPrefix)
+	buf.WriteString(nodeURLPattern)
+	buf.WriteString(statementKeyPartSeparator)
+	buf.WriteString(statementKeyTimestampPartPrefix)
+	buf.WriteString(timestampPattern)
+	return buf.String()
 }

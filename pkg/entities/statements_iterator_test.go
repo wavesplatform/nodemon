@@ -12,11 +12,12 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 	defer goleak.VerifyNone(t)
 
 	tests := []struct {
-		iter     NodeStatementsIter
+		iterable NodeStatementsIterable
+		take     int
 		expected NodeStatements
 	}{
 		{
-			iter: NodeStatements{
+			iterable: NodeStatements{
 				{Node: "1", Height: 1, Version: "V3", Status: Incomplete},
 				{Node: "3", Height: 2, Version: "V2", Status: OK},
 				{Node: "2", Height: 3, Version: "V1", Status: OK},
@@ -24,12 +25,37 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 			expected: NodeStatements{
 				{Node: "1", Height: 10, Version: "V3", Status: Incomplete},
 				{Node: "2", Height: 30, Version: "V1", Status: OK},
+				{Node: "1", Height: 10, Version: "V3", Status: Incomplete},
+				{Node: "2", Height: 30, Version: "V1", Status: OK},
 			},
+			take: 4,
+		},
+		{
+			iterable: NodeStatements{
+				{Node: "1", Height: 1, Version: "V3", Status: Incomplete},
+				{Node: "3", Height: 2, Version: "V2", Status: OK},
+				{Node: "2", Height: 3, Version: "V1", Status: OK},
+			},
+			expected: NodeStatements{
+				{Node: "1", Height: 10, Version: "V3", Status: Incomplete},
+				{Node: "2", Height: 30, Version: "V1", Status: OK},
+				{Node: "1", Height: 10, Version: "V3", Status: Incomplete},
+				{Node: "2", Height: 30, Version: "V1", Status: OK},
+				{Node: "1", Height: 10, Version: "V3", Status: Incomplete},
+				{Node: "2", Height: 30, Version: "V1", Status: OK},
+			},
+			take: 100,
 		},
 	}
 	for _, test := range tests {
-		actual := test.iter.
+		actual := test.iterable.
 			Iterator().
+			Chain(
+				test.iterable.Iterator().FilterMap(func(statement *NodeStatement) *NodeStatement {
+					return statement
+				}),
+				NewNodeStatementsIteratorWrapper(test.iterable.Iterator()),
+			).
 			FilterMap(func(statement *NodeStatement) *NodeStatement {
 				return statement
 			}).
@@ -43,6 +69,7 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 				}
 				return nil
 			}).
+			Take(test.take).
 			SplitByNodeStatus().Iterator().
 			SplitByNodeVersion().Iterator().
 			SplitByNodeHeight().Iterator().
@@ -54,6 +81,6 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 		sort.Slice(test.expected, func(i, j int) bool {
 			return test.expected[i].Node > test.expected[j].Node
 		})
-		require.Equal(t, actual, test.expected)
+		require.Equal(t, test.expected, actual)
 	}
 }
