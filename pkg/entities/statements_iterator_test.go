@@ -73,8 +73,11 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 			SplitByNodeStatus().Iterator().
 			SplitByNodeVersion().Iterator().
 			SplitByNodeHeight().Iterator().
+			Collect().Iterator().
+			FilterMap(func(statement *NodeStatement) *NodeStatement {
+				return statement
+			}).
 			Collect()
-
 		sort.Slice(actual, func(i, j int) bool {
 			return actual[i].Node > actual[j].Node
 		})
@@ -82,5 +85,25 @@ func TestNodeStatementsIterWithCombinators(t *testing.T) {
 			return test.expected[i].Node > test.expected[j].Node
 		})
 		require.Equal(t, test.expected, actual)
+
+		iter := test.iterable.
+			Iterator().
+			FilterMap(func(statement *NodeStatement) *NodeStatement {
+				return statement
+			})
+		iter.Close() // check goroutine leaks
+
+		iter = test.iterable.
+			Iterator().
+			Chain(
+				test.iterable.Iterator().FilterMap(func(statement *NodeStatement) *NodeStatement {
+					return statement
+				}),
+				NewNodeStatementsIteratorWrapper(test.iterable.Iterator()),
+			).
+			FilterMap(func(statement *NodeStatement) *NodeStatement {
+				return statement
+			})
+		iter.Close() // check goroutine leaks
 	}
 }

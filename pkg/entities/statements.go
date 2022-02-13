@@ -1,6 +1,8 @@
 package entities
 
 import (
+	"context"
+
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
@@ -31,7 +33,13 @@ type NodeStatements []NodeStatement
 func (s NodeStatements) Iterator() *NodeStatementsIterator {
 	i := 0
 	return NewNodeStatementsIteratorClosure(
-		func() (NodeStatement, bool) {
+		func(ctx context.Context) (NodeStatement, bool) {
+			select {
+			case <-ctx.Done(): // fast path
+				return NodeStatement{}, false
+			default:
+				// continue
+			}
 			if i < len(s) {
 				statement := s[i]
 				i += 1

@@ -128,8 +128,15 @@ func NewNodeStatementsIteratorRoutine(routine func(ch chan<- NodeStatement, ctx 
 	}
 }
 
-func NewNodeStatementsIteratorClosure(iter func() (NodeStatement, bool)) *NodeStatementsIterator {
-	return &NodeStatementsIterator{iter: iter, iterType: closureIterator}
+func NewNodeStatementsIteratorClosure(iter func(ctx context.Context) (NodeStatement, bool)) *NodeStatementsIterator {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &NodeStatementsIterator{
+		iter: func() (NodeStatement, bool) {
+			return iter(ctx)
+		},
+		iterType: closureIterator,
+		cancel:   cancel,
+	}
 }
 
 func NewNodeStatementsIteratorWrapper(iter StatementsConsumableIterator) *NodeStatementsIterator {
@@ -179,9 +186,15 @@ func (i *NodeStatementsIterator) Get() NodeStatement {
 }
 
 func (i *NodeStatementsIterator) Close() {
-	if i.cancel != nil {
-		i.cancel()
+	if i.cancel == nil { // fast path
+		return
+	}
+	defer func() {
 		i.cancel = nil
+	}()
+	i.cancel()
+	if i.iterType == closureIterator {
+		_, _ = i.iter() // force cleanup after context cancel
 	}
 }
 
@@ -307,7 +320,27 @@ func (i *NodeStatementsIterator) FilterMap(fn func(statement *NodeStatement) *No
 		inner = i.consume()
 	)
 	if inner.iterType == closureIterator { // optimized iterator
-		return NewNodeStatementsIteratorClosure(func() (NodeStatement, bool) {
+		var (
+			done        = false
+			innerClosed = false
+		)
+		return NewNodeStatementsIteratorClosure(func(ctx context.Context) (NodeStatement, bool) {
+			defer func() {
+				if done && !innerClosed {
+					inner.Close()
+					innerClosed = true
+				}
+			}()
+			if done { // fast path
+				return NodeStatement{}, false
+			}
+			select {
+			case <-ctx.Done(): // cleanup: iterator has been closed by caller
+				done = true
+				return NodeStatement{}, false
+			default:
+				// continue
+			}
 			for inner.Next() {
 				statement := inner.Get()
 				newStatement := fn(&statement)
@@ -316,6 +349,7 @@ func (i *NodeStatementsIterator) FilterMap(fn func(statement *NodeStatement) *No
 				}
 				return *newStatement, true
 			}
+			done = true
 			return NodeStatement{}, false
 		})
 	}
