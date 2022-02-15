@@ -24,3 +24,15 @@ func (n *OnPollingComplete) Nodes() []string {
 func (n *OnPollingComplete) Timestamp() int64 {
 	return n.ts
 }
+
+type Alert struct {
+	Description string
+}
+
+func (a *Alert) Type() string {
+	return "Alert"
+}
+
+func (a *Alert) String() string {
+	return a.Description
+}

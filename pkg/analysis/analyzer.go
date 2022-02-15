@@ -15,14 +15,14 @@ func NewAnalyzer(es *storing.EventsStorage) *Analyzer {
 	return &Analyzer{es: es}
 }
 
-func (a *Analyzer) analyze(alerts chan<- Alert, pollingResult *entities.OnPollingComplete) error {
+func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
 	// TODO: analysis here
 	return nil
 }
 
-func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan Alert {
-	out := make(chan Alert)
-	go func(alerts chan<- Alert) {
+func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan entities.Alert {
+	out := make(chan entities.Alert)
+	go func(alerts chan<- entities.Alert) {
 		for n := range notifications {
 			switch tn := n.(type) {
 			case *entities.OnPollingComplete:
