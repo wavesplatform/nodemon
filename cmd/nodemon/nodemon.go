@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
@@ -43,12 +44,14 @@ func run() error {
 		bindAddress string
 		interval    time.Duration
 		timeout     time.Duration
+		nanomsgURL string
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "tcp://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
@@ -94,7 +97,12 @@ func run() error {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
 	}
-	scraper.Start(ctx)
+
+	socket, err := messaging.StartMessagingServer(nanomsgURL)
+	if err != nil {
+		log.Printf("faild to start messaging server")
+	}
+	scraper.Start(ctx, socket)
 
 	<-ctx.Done()
 	a.Shutdown()

@@ -2,7 +2,10 @@ package scraping
 
 import (
 	"context"
+	"encoding/json"
+	"go.nanomsg.org/mangos/v3/protocol"
 	"log"
+	"nodemon/pkg/common"
 	"sync"
 	"time"
 
@@ -69,11 +72,11 @@ func NewScraper(cs *storing.ConfigurationStorage, interval, timeout time.Duratio
 	return &Scraper{cs: cs, interval: interval, timeout: timeout}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context) {
+func (s *Scraper) Start(ctx context.Context, socket protocol.Socket) {
 	go func() {
 		ticker := time.NewTicker(s.interval)
 		for {
-			s.poll(ctx)
+			s.poll(ctx, socket)
 			select {
 			case <-ticker.C:
 				continue
@@ -82,9 +85,11 @@ func (s *Scraper) Start(ctx context.Context) {
 			}
 		}
 	}()
+
+
 }
 
-func (s *Scraper) poll(ctx context.Context) {
+func (s *Scraper) poll(ctx context.Context, socket protocol.Socket) {
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -109,21 +114,78 @@ func (s *Scraper) poll(ctx context.Context) {
 			switch te := e.(type) {
 			case *timeoutEvent:
 				log.Printf("[%s] Timeout", e.node())
+
+				event := &common.TimeoutEvent{Node: e.node()}
+				message, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("failed to marshal json, %v", err)
+				}
+				message = common.AddTypeByte(message, common.TimeoutEvnt)
+				if err := socket.Send(message); err != nil {
+					log.Printf("failed to sent message to telegram, %v", err)
+				}
+
 				wg.Done()
 			case *versionEvent:
 				log.Printf("[%s] Version: %s", e.node(), te.v)
+
+				event := &common.VersionEvent{Node: e.node(), Version: te.v}
+				message, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("failed to marshal json, %v", err)
+				}
+				message = common.AddTypeByte(message, common.VersionEvnt)
+				if err := socket.Send(message); err != nil {
+					log.Printf("failed to sent message to telegram, %v", err)
+				}
+
 			case *heightEvent:
 				log.Printf("[%s] Height: %d", e.node(), te.h)
+
+				event := &common.HeightEvent{Node: e.node(), Height: te.h}
+				message, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("failed to marshal json, %v", err)
+				}
+				message = common.AddTypeByte(message, common.HeightEvnt)
+
+				if err := socket.Send(message); err != nil {
+					log.Printf("failed to sent message to telegram, %v", err)
+				}
+
 			case *invalidHeightEvent:
 				log.Printf("[%s] Invalid height: %d", e.node(), te.h)
+
+				event := &common.InvalidHeightEvent{Node: e.node(), Height: te.h}
+				message, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("failed to marshal json, %v", err)
+				}
+				message = common.AddTypeByte(message, common.InvalidHeightEvnt)
+				if err := socket.Send([]byte(e.node())); err != nil {
+					log.Printf("failed to sent message to telegram, %v", err)
+				}
+
 			case *stateHashEvent:
 				log.Printf("[%s] State Hash of block '%s' at height %d: %s",
 					e.node(), te.sh.BlockID.ShortString(), te.h, te.sh.SumHash.ShortString())
+
+				event := &common.StateHashEvent{Node: e.node(), Height: te.h, StateHash: te.sh}
+				message, err := json.Marshal(event)
+				if err != nil {
+					log.Printf("failed to marshal json, %v", err)
+				}
+				message = common.AddTypeByte(message, common.StateHashEvnt)
+				if err := socket.Send(message); err != nil {
+					log.Printf("failed to sent message to telegram, %v", err)
+				}
 				wg.Done()
 			}
 		}
 	}()
 	wg.Wait()
+
+
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan event) {

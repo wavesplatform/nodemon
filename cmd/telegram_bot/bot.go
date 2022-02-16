@@ -2,78 +2,73 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
-	"github.com/asaskevich/govalidator"
-	//"github.com/joho/godotenv"
-	"go.uber.org/zap"
+	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
+	"log"
 	"nodemon/pkg/bots/telegram/config"
+	"nodemon/pkg/bots/telegram/handlers"
+	"nodemon/pkg/bots/telegram/messaging"
 	"os"
+	"os/signal"
 )
-
-const(
-	botToken = "5054144081:AAFeGslb-lhF3ujPAA2Ogtn1U5DbcC1U36U"
-)
-//func init() {
-func in() {
-	//err := godotenv.Load()
-	if err := config.InitLog(); err != nil {
-		panic(err)
-	}
-
-	//if err != nil {
-	//	zap.S().Infof("No .env file found: %v", err)
-	//}
-	govalidator.SetFieldsRequiredByDefault(true)
-}
 
 func main() {
 	err := run()
-		switch err {
-		case context.Canceled:
-			os.Exit(130)
-		case config.InvalidParameters:
-			os.Exit(2)
-		default:
-			os.Exit(1)
-		}
+	switch err {
+	case context.Canceled:
+		os.Exit(130)
+	case config.InvalidParameters:
+		os.Exit(2)
+	default:
+		os.Exit(1)
+	}
 }
 
 func run() error {
-	//appConfig, err := config.LoadAppConfig()
-	//if err != nil {
-	//	return config.InvalidParameters
-	//}
-	in()
-	webhook := &tele.Webhook{
-		Listen:   ":8081",
-		Endpoint: &tele.WebhookEndpoint{PublicURL: "https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot"}, // , Cert: "webhook_cert.pem"
-		//TLS:&tb.WebhookTLS{Key: "webhook_pkey.pem", Cert: "webhook_cert.pem"},
-	}
+	var (
+		nanomsgURL          string
+		behavior            string
+		webhookLocalAddress string // only for webhook method
+		publicURL           string // only for webhook method
+		botToken            string
+	)
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "tcp://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
+	flag.StringVar(&webhookLocalAddress, "webhook-local-address", "8081", "The application's webhook address is :8081 by default")
+	flag.StringVar(&botToken, "bot-token", "5054144081:AAFeGslb-lhF3ujPAA2Ogtn1U5DbcC1U36U", "Temporarily: the default token is the current token")
+	flag.StringVar(&publicURL, "public-url", "https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
+	flag.Parse()
 
-	botSettings := tele.Settings{
-		Token:  botToken,
-		Poller: webhook,
-	}
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer done()
 
-	bot, err := tele.NewBot(botSettings)
+
+	botConfig, err := config.NewBotConfig(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
-		zap.S().Fatalf("failed to start bot, %v", err)
+		return errors.Wrap(err, "failed to set up bot configuration")
+	}
+	fmt.Print("no errors afteer config")
+	bot, err := tele.NewBot(botConfig.Settings)
+	if err != nil {
+		return errors.Wrap(err, "failed to start bot")
 	}
 
-	bot.Handle("/hello", func(c tele.Context) error {
-		return c.Send("Hello!")
-	})
+	messagingEnv := &messaging.MessageEnvironment{ReceivedChat: false}
+	handlers.InitHandlers(bot, messagingEnv)
 
-	/**/
+	go func() {
+		err := messaging.StartMessagingClient(ctx, nanomsgURL, bot, messagingEnv)
+		if err != nil {
+			log.Printf("failed to start messaging service: %v", err)
+			return
+		}
+	}()
 
-	/**/
-	fmt.Println(bot.URL)
-	fmt.Print(bot.Token)
+	log.Println("started")
 	bot.Start()
 
-	zap.S().Info("finished")
+	log.Println("finished")
 	return nil
 }
-
-//curl -F "url=https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot" https://api.telegram.org/bot5054144081:AAFeGslb-lhF3ujPAA2Ogtn1U5DbcC1U36U/setWebhookq

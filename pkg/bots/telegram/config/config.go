@@ -1,16 +1,16 @@
 package config
 
 import (
+	"fmt"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
-	"os"
+	tele "gopkg.in/telebot.v3"
+	"net/http"
+	"time"
 )
 
 const (
-	EnvPort          = "BOT_ADDRESS"
-	EnvBotToken      = "BOT_TOKEN"
-	EnvBotWebhookUrl = "BOT_WEBHOOK_URL"
+	pollingMethod = "polling"
+	webhookMethod = "webhook"
 )
 
 var (
@@ -18,52 +18,46 @@ var (
 )
 
 type BotConfig struct {
-	port           string // default is 8081
-	botToken       string
-	webHookAddress string
+	Settings tele.Settings
 }
 
-func LoadAppConfig() (*BotConfig, error) {
-	port := os.Getenv(EnvPort)
-	if port == "" {
-		port = ":8081"
+func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string, botToken string, ) (*BotConfig, error) {
+
+	if behavior == webhookMethod {
+		if publicURL == "" {
+			return nil, errors.New("no public url for webhook method was provided")
+		}
+		webhook := &tele.Webhook{
+			Listen:   webhookLocalAddress,
+			Endpoint: &tele.WebhookEndpoint{PublicURL: publicURL},
+		}
+		fmt.Println(webhook.Endpoint)
+		botSettings := tele.Settings{
+			Token:  botToken,
+			Poller: webhook}
+		return &BotConfig{Settings: botSettings}, nil
 	}
-	botToken := os.Getenv(EnvBotToken)
-	if botToken == "" {
-		return nil, InvalidParameters
+	if behavior == pollingMethod {
+		// delete webhook if there is any
+		url := "https://api.telegram.org" + "/bot" + botToken + "/" + "setWebhook?remove"
+		resp, err := http.PostForm(url, nil)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to remove webhook")
+		}
+		resp.Close = true
+		defer resp.Body.Close()
+
+		if resp.StatusCode == http.StatusInternalServerError {
+			return nil, errors.Wrap(err, "failed to remove webhook")
+		}
+
+		botSettings := tele.Settings{
+			Token:  botToken,
+			Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+		}
+		return &BotConfig{Settings: botSettings}, nil
+
 	}
-	webHookAddress := os.Getenv(EnvBotWebhookUrl)
 
-	return &BotConfig{port: port, botToken: botToken, webHookAddress: webHookAddress}, nil
-
-}
-
-func (config *BotConfig) Port() string {
-	return config.port
-}
-
-func (config *BotConfig) BotToken() string {
-	return config.botToken
-}
-
-func (config *BotConfig) WebHookAddress() string {
-	return config.webHookAddress
-}
-
-
-func InitLog() error {
-	var zapLoglevel zapcore.Level
-	if err := zapLoglevel.Set("info"); err != nil {
-		return errors.Wrapf(err, "failed to  parse set log level")
-	}
-	zapLogConfig := zap.NewProductionConfig()
-	zapLogConfig.Level.SetLevel(zapLoglevel)
-
-	logger, err := zapLogConfig.Build()
-	if err != nil {
-		return errors.Wrapf(err, "failed to build logger")
-	}
-	zap.ReplaceGlobals(logger)
-
-	return nil
+	return nil, errors.New("wrong type of bot behavior was provided")
 }
