@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"log"
@@ -36,10 +35,14 @@ func run() error {
 	)
 	flag.StringVar(&nanomsgURL, "nano-msg-url", "tcp://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
-	flag.StringVar(&webhookLocalAddress, "webhook-local-address", "8081", "The application's webhook address is :8081 by default")
-	flag.StringVar(&botToken, "bot-token", "5054144081:AAFeGslb-lhF3ujPAA2Ogtn1U5DbcC1U36U", "Temporarily: the default token is the current token")
-	flag.StringVar(&publicURL, "public-url", "https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
+	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
+	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
+	flag.StringVar(&publicURL, "public-url", "", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
 	flag.Parse()
+
+	if botToken == "" || publicURL == "" {
+		return config.InvalidParameters
+	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
@@ -49,7 +52,6 @@ func run() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to set up bot configuration")
 	}
-	fmt.Print("no errors afteer config")
 	bot, err := tele.NewBot(botConfig.Settings)
 	if err != nil {
 		return errors.Wrap(err, "failed to start bot")
