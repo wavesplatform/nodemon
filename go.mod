@@ -12,5 +12,9 @@ require (
 	go.nanomsg.org/mangos/v3 v3.3.0
 	go.uber.org/goleak v1.1.12
 	go.uber.org/zap v1.21.0 // indirect
+	golang.org/x/crypto v0.0.0-20220112180741-5e0467b6c7ce // indirect
+	golang.org/x/lint v0.0.0-20210508222113-6edffad5e616 // indirect
+	golang.org/x/sys v0.0.0-20220209214540-3681064d5158 // indirect
+	golang.org/x/tools v0.1.9 // indirect
 	gopkg.in/telebot.v3 v3.0.0
 )

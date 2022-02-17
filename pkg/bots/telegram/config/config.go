@@ -12,7 +12,7 @@ const (
 	pollingMethod = "polling"
 	webhookMethod = "webhook"
 
-	telegramUrl = "https://api.telegram.org"
+	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
 )
 
 var (
@@ -41,8 +41,7 @@ func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string,
 	}
 	if behavior == pollingMethod {
 		// delete webhook if there is any
-		url := telegramUrl + "/bot" + botToken + "/" + "setWebhook?remove"
-		resp, err := http.PostForm(url, nil)
+		resp, err := http.PostForm(fmt.Sprintf(telegramRemoveWebhook, botToken), nil)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to remove webhook")
 		}
