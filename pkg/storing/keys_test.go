@@ -79,3 +79,11 @@ func BenchmarkStatementKey_String(b *testing.B) {
 		_ = StatementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
 	}
 }
+
+func BenchmarkNewStatementKeyFromString(b *testing.B) {
+	key := StatementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		_, _ = NewStatementKeyFromString(key)
+	}
+}
