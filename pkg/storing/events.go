@@ -14,6 +14,10 @@ const (
 	defaultRetentionDuration = 12 * time.Hour
 )
 
+var (
+	ErrNotFound = buntdb.ErrNotFound
+)
+
 type EventsStorage struct {
 	db *buntdb.DB
 }
@@ -106,13 +110,14 @@ func (s *EventsStorage) viewByKeyPatternWithDescendKeys(
 
 func (s *EventsStorage) PutEvent(event entities.Event) error {
 	opts := &buntdb.SetOptions{Expires: true, TTL: defaultRetentionDuration}
-	err := s.db.Update(func(tx *buntdb.Tx) error {
-		v, err := s.makeValue(event)
-		if err != nil {
-			return err
-		}
-		key := StatementKey{event.Node(), event.Timestamp()}
-		_, _, err = tx.Set(key.String(), v, opts)
+	v, err := s.makeValue(event)
+	if err != nil {
+		return err
+	}
+	key := StatementKey{event.Node(), event.Timestamp()}.String()
+	err = s.db.Update(func(tx *buntdb.Tx) error {
+		var err error
+		_, _, err = tx.Set(key, v, opts)
 		return err
 	})
 	if err != nil {
@@ -135,47 +140,7 @@ func (s *EventsStorage) StatementsCount() (int, error) {
 }
 
 func (s *EventsStorage) makeValue(e entities.Event) (string, error) {
-	var v entities.NodeStatement
-	switch te := e.(type) {
-	case *entities.UnreachableEvent:
-		v = entities.NodeStatement{
-			Node:      e.Node(),
-			Timestamp: e.Timestamp(),
-			Status:    entities.Unreachable,
-		}
-	case *entities.VersionEvent:
-		v = entities.NodeStatement{
-			Node:      e.Node(),
-			Timestamp: e.Timestamp(),
-			Status:    entities.Incomplete,
-			Version:   te.Version(),
-		}
-	case *entities.HeightEvent:
-		v = entities.NodeStatement{
-			Node:      e.Node(),
-			Timestamp: e.Timestamp(),
-			Status:    entities.Incomplete,
-			Version:   te.Version(),
-			Height:    te.Height(),
-		}
-	case *entities.InvalidHeightEvent:
-		v = entities.NodeStatement{
-			Node:      e.Node(),
-			Timestamp: e.Timestamp(),
-			Status:    entities.InvalidVersion,
-			Version:   te.Version(),
-			Height:    te.Height(),
-		}
-	case *entities.StateHashEvent:
-		v = entities.NodeStatement{
-			Node:      e.Node(),
-			Timestamp: e.Timestamp(),
-			Status:    entities.OK,
-			Version:   te.Version(),
-			Height:    te.Height(),
-			StateHash: te.StateHash(),
-		}
-	}
+	v := e.Statement()
 	b, err := json.Marshal(v)
 	if err != nil {
 		return "", err
