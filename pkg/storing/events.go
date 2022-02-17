@@ -85,7 +85,6 @@ func (s *EventsStorage) viewByKeyPatternWithDescendKeys(
 ) error {
 	return s.db.View(func(tx *buntdb.Tx) (err error) {
 		var (
-			statement    entities.NodeStatement
 			unmarshalErr error
 		)
 		defer func() {
@@ -98,11 +97,12 @@ func (s *EventsStorage) viewByKeyPatternWithDescendKeys(
 			}
 		}()
 		dbErr := tx.DescendKeys(pattern, func(key, value string) bool {
-			if unmarshalErr = json.Unmarshal([]byte(value), &statement); unmarshalErr != nil {
+			statement := new(entities.NodeStatement)
+			if unmarshalErr = json.Unmarshal([]byte(value), statement); unmarshalErr != nil {
 				unmarshalErr = errors.Wrapf(unmarshalErr, "failed to unmarshal NodeStatement by key %q", key)
 				return false
 			}
-			return iter(&statement)
+			return iter(statement)
 		})
 		return dbErr
 	})
