@@ -9,7 +9,7 @@ import (
 	"strings"
 )
 
-func StartMessagingServer(nanomsgURL string) (protocol.Socket,error) {
+func StartMessagingServer(nanomsgURL string) (protocol.Socket, error) {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL '%s'", nanomsgURL)
 		return nil, errors.New("invalid nanomsg IPC URL")
@@ -27,4 +27,3 @@ func StartMessagingServer(nanomsgURL string) (protocol.Socket,error) {
 
 	return socket, nil
 }
-

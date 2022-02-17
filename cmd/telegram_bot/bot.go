@@ -69,7 +69,7 @@ func run() error {
 
 	log.Println("started")
 	bot.Start()
-	//<-ctx.Done()
+	<-ctx.Done()
 	log.Println("finished")
 	return nil
 }
