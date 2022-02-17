@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
 	"nodemon/pkg/scraping"
 	"nodemon/pkg/storing"
@@ -26,14 +27,15 @@ var (
 )
 
 func main() {
-	err := run()
-	switch err {
-	case context.Canceled:
-		os.Exit(130)
-	case errorInvalidParameters:
-		os.Exit(2)
-	default:
-		os.Exit(1)
+	if err := run(); err != nil {
+		switch err {
+		case context.Canceled:
+			os.Exit(130)
+		case errorInvalidParameters:
+			os.Exit(2)
+		default:
+			os.Exit(1)
+		}
 	}
 }
 
@@ -44,7 +46,7 @@ func run() error {
 		bindAddress string
 		interval    time.Duration
 		timeout     time.Duration
-		nanomsgURL string
+		nanomsgURL  string
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
@@ -70,19 +72,31 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	cs, err := storing.NewConfigurationStorage(storage, nodes)
+	ns, err := storing.NewNodesStorage(storage, nodes)
 	if err != nil {
-		log.Printf("Storage failure: %v", err)
+		log.Printf("Nodes storage failure: %v", err)
 		return err
 	}
-	defer func(cs *storing.ConfigurationStorage) {
+	defer func(cs *storing.NodesStorage) {
 		err := cs.Close()
 		if err != nil {
-			log.Printf("Failed to close configuration storage: %v", err)
+			log.Printf("Failed to close nodes storage: %v", err)
 		}
-	}(cs)
+	}(ns)
 
-	a, err := api.NewAPI(bindAddress, cs)
+	es, err := storing.NewEventsStorage()
+	if err != nil {
+		log.Printf("Events storage failure: %v", err)
+		return err
+	}
+	defer func(es *storing.EventsStorage) {
+		err := es.Close()
+		if err != nil {
+			log.Printf("Failed to close events storage: %v", err)
+		}
+	}(es)
+
+	a, err := api.NewAPI(bindAddress, ns)
 	if err != nil {
 		log.Printf("API failure: %v", err)
 		return err
@@ -92,7 +106,7 @@ func run() error {
 		return err
 	}
 
-	scraper, err := scraping.NewScraper(cs, interval, timeout)
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
 	if err != nil {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
@@ -102,6 +116,15 @@ func run() error {
 	if err != nil {
 		log.Printf("faild to start messaging server")
 	}
+
+	analyzer := analysis.NewAnalyzer(es)
+	alerts := analyzer.Start(scraper.Notifications())
+	go func() {
+		for alert := range alerts {
+			log.Printf("Alert has been generated: %v", alert)
+		}
+	}()
+
 	scraper.Start(ctx, socket)
 
 	<-ctx.Done()

@@ -16,12 +16,12 @@ import (
 )
 
 type API struct {
-	srv     *http.Server
-	storage *storing.ConfigurationStorage
+	srv          *http.Server
+	nodesStorage *storing.NodesStorage
 }
 
-func NewAPI(bind string, storage *storing.ConfigurationStorage) (*API, error) {
-	a := &API{storage: storage}
+func NewAPI(bind string, nodesStorage *storing.NodesStorage) (*API, error) {
+	a := &API{nodesStorage: nodesStorage}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -29,7 +29,8 @@ func NewAPI(bind string, storage *storing.ConfigurationStorage) (*API, error) {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Mount("/", a.routes())
-	return &API{srv: &http.Server{Addr: bind, Handler: r}}, nil
+	a.srv = &http.Server{Addr: bind, Handler: r}
+	return a, nil
 }
 
 func (a *API) Start() error {
@@ -63,7 +64,7 @@ func (a *API) routes() chi.Router {
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
-	nodes, err := a.storage.Nodes()
+	nodes, err := a.nodesStorage.Nodes()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return
@@ -76,7 +77,7 @@ func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *API) enabled(w http.ResponseWriter, _ *http.Request) {
-	nodes, err := a.storage.EnabledNodes()
+	nodes, err := a.nodesStorage.EnabledNodes()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return

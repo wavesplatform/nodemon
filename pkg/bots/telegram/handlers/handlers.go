@@ -6,11 +6,10 @@ import (
 )
 
 func InitHandlers(bot *tele.Bot, environment *messaging.MessageEnvironment) {
-
-
 	bot.Handle("/hello", func(c tele.Context) error {
 		return c.Send("Hello!")
 	})
+
 	bot.Handle("/start", func(c tele.Context) error {
 		environment.Chat = c.Chat()
 		environment.ReceivedChat = true

@@ -47,7 +47,6 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-
 	botConfig, err := config.NewBotConfig(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return errors.Wrap(err, "failed to set up bot configuration")
@@ -70,7 +69,7 @@ func run() error {
 
 	log.Println("started")
 	bot.Start()
-
+	//<-ctx.Done()
 	log.Println("finished")
 	return nil
 }

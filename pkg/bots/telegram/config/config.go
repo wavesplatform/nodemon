@@ -21,7 +21,7 @@ type BotConfig struct {
 	Settings tele.Settings
 }
 
-func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string, botToken string, ) (*BotConfig, error) {
+func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*BotConfig, error) {
 
 	if behavior == webhookMethod {
 		if publicURL == "" {

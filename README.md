@@ -7,3 +7,4 @@
 * Add API paths to add, enable/disable and remove nodes under monitoring
 * Add incident detection logic
 * Add incident reporting to the message bus
+* Add network byte check upon node addition to monitoring
