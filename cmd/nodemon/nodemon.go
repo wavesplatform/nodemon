@@ -110,7 +110,12 @@ func run() error {
 	}
 
 	analyzer := analysis.NewAnalyzer(es)
-	analyzer.Start(scraper.Notifications())
+	alerts := analyzer.Start(scraper.Notifications())
+	go func() {
+		for alert := range alerts {
+			log.Printf("Alert has been generated: %v", alert)
+		}
+	}()
 
 	scraper.Start(ctx)
 

@@ -81,7 +81,7 @@ func (s *Scraper) poll(ctx context.Context) {
 	for i := range nodes {
 		urls[i] = nodes[i].URL
 	}
-	s.notifications <- entities.NewOnPollingComplete(urls)
+	s.notifications <- entities.NewOnPollingComplete(urls, ts)
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
