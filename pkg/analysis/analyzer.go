@@ -8,10 +8,10 @@ import (
 )
 
 type Analyzer struct {
-	es *storing.EventsStorage
+	es storing.EventsStorage
 }
 
-func NewAnalyzer(es *storing.EventsStorage) *Analyzer {
+func NewAnalyzer(es storing.EventsStorage) *Analyzer {
 	return &Analyzer{es: es}
 }
 

@@ -17,10 +17,10 @@ import (
 
 type API struct {
 	srv          *http.Server
-	nodesStorage *storing.NodesStorage
+	nodesStorage storing.NodesStorage
 }
 
-func NewAPI(bind string, nodesStorage *storing.NodesStorage) (*API, error) {
+func NewAPI(bind string, nodesStorage storing.NodesStorage) (*API, error) {
 	a := &API{nodesStorage: nodesStorage}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
