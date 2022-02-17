@@ -9,7 +9,7 @@ require (
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/buntdb v1.2.9
 	github.com/wavesplatform/gowaves v0.9.1-0.20220131061926-c6996a436c9a
-	go.uber.org/goleak v1.1.11
+	go.uber.org/goleak v1.1.12
 )
 
 require (
