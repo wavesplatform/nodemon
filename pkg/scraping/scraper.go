@@ -7,64 +7,62 @@ import (
 	"time"
 
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing"
+	"nodemon/pkg/storing/events"
+	"nodemon/pkg/storing/nodes"
 )
 
 type Scraper struct {
-	ns            *storing.NodesStorage
-	es            *storing.EventsStorage
-	interval      time.Duration
-	timeout       time.Duration
-	notifications chan entities.Notification
+	ns       *nodes.Storage
+	es       *events.Storage
+	interval time.Duration
+	timeout  time.Duration
 }
 
-func NewScraper(ns *storing.NodesStorage, es *storing.EventsStorage, interval, timeout time.Duration) (*Scraper, error) {
-	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, notifications: make(chan entities.Notification)}, nil
+func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Duration) (*Scraper, error) {
+	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context) {
-	go func() {
+func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
+	out := make(chan entities.Notification)
+	go func(notifications chan<- entities.Notification) {
 		ticker := time.NewTicker(s.interval)
 		for {
-			s.poll(ctx)
+			s.poll(ctx, notifications)
 			select {
 			case <-ticker.C:
 				continue
 			case <-ctx.Done():
-				close(s.notifications)
+				close(notifications)
 				return
 			}
 		}
-	}()
+	}(out)
+	return out
 }
 
-func (s *Scraper) Notifications() <-chan entities.Notification {
-	return s.notifications
-}
-
-func (s *Scraper) poll(ctx context.Context) {
+func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification) {
 	ts := time.Now().Unix()
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
 	var wg sync.WaitGroup
-	events := make(chan entities.Event)
-	defer close(events)
+	ec := make(chan entities.Event)
+	defer close(ec)
 
-	nodes, err := s.ns.EnabledNodes()
+	ns, err := s.ns.EnabledNodes()
 	if err != nil {
 		log.Printf("Failed to get nodes from storage: %v", err)
 	}
-	wg.Add(len(nodes))
-	for i := range nodes {
-		n := nodes[i]
+	wg.Add(len(ns))
+	for i := range ns {
+		n := ns[i]
 		go func() {
-			s.queryNode(cc, n.URL, events, ts)
+			s.queryNode(cc, n.URL, ec, ts)
 		}()
 	}
 	go func() {
 		cnt := 0
-		for e := range events {
+		for e := range ec {
 			if err := s.es.PutEvent(e); err != nil {
 				log.Printf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err)
 			}
@@ -74,14 +72,14 @@ func (s *Scraper) poll(ctx context.Context) {
 			}
 			cnt++
 		}
-		log.Printf("Polling of %d nodes completed with %d events collected", len(nodes), cnt)
+		log.Printf("Polling of %d nodes completed with %d events collected", len(ns), cnt)
 	}()
 	wg.Wait()
-	urls := make([]string, len(nodes))
-	for i := range nodes {
-		urls[i] = nodes[i].URL
+	urls := make([]string, len(ns))
+	for i := range ns {
+		urls[i] = ns[i].URL
 	}
-	s.notifications <- entities.NewOnPollingComplete(urls)
+	notifications <- entities.NewOnPollingComplete(urls, ts)
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {

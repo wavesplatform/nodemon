@@ -7,6 +7,7 @@ import (
 type Event interface {
 	Node() string
 	Timestamp() int64
+	Statement() NodeStatement
 }
 
 type UnreachableEvent struct {
@@ -24,6 +25,14 @@ func (e *UnreachableEvent) Node() string {
 
 func (e *UnreachableEvent) Timestamp() int64 {
 	return e.ts
+}
+
+func (e *UnreachableEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:      e.Node(),
+		Timestamp: e.Timestamp(),
+		Status:    Unreachable,
+	}
 }
 
 type VersionEvent struct {
@@ -46,6 +55,15 @@ func (e *VersionEvent) Timestamp() int64 {
 
 func (e *VersionEvent) Version() string {
 	return e.v
+}
+
+func (e *VersionEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:      e.Node(),
+		Timestamp: e.Timestamp(),
+		Status:    Incomplete,
+		Version:   e.Version(),
+	}
 }
 
 type HeightEvent struct {
@@ -75,6 +93,16 @@ func (e *HeightEvent) Height() int {
 	return e.h
 }
 
+func (e *HeightEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:      e.Node(),
+		Timestamp: e.Timestamp(),
+		Status:    Incomplete,
+		Version:   e.Version(),
+		Height:    e.Height(),
+	}
+}
+
 type InvalidHeightEvent struct {
 	node string
 	ts   int64
@@ -100,6 +128,16 @@ func (e *InvalidHeightEvent) Version() string {
 
 func (e *InvalidHeightEvent) Height() int {
 	return e.h
+}
+
+func (e *InvalidHeightEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:      e.Node(),
+		Timestamp: e.Timestamp(),
+		Status:    InvalidVersion,
+		Version:   e.Version(),
+		Height:    e.Height(),
+	}
 }
 
 type StateHashEvent struct {
@@ -132,4 +170,15 @@ func (e *StateHashEvent) Height() int {
 
 func (e *StateHashEvent) StateHash() *proto.StateHash {
 	return e.sh
+}
+
+func (e *StateHashEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:      e.Node(),
+		Timestamp: e.Timestamp(),
+		Status:    OK,
+		Version:   e.Version(),
+		Height:    e.Height(),
+		StateHash: e.StateHash(),
+	}
 }
