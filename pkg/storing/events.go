@@ -23,6 +23,10 @@ func NewEventsStorage() (*EventsStorage, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
 	}
+	err = db.CreateIndex("node_height", "*", buntdb.IndexJSON("height"))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to open event storage")
+	}
 	return &EventsStorage{db: db}, nil
 }
 
@@ -62,6 +66,24 @@ func (s *EventsStorage) StatementsCount() (int, error) {
 		return 0, errors.Wrap(err, "failed to query statements")
 	}
 	return cnt, nil
+}
+
+func (s *EventsStorage) LastStatementsAtHeight(node string, height int) (*entities.NodeStatement, error) {
+}
+
+func (s *EventsStorage) EarliestStatementHeight(node string) (int, error) {
+
+}
+
+func (s *EventsStorage) LatestStatementHeight(node string) (int, error) {
+	err := s.db.View(func(tx *buntdb.Tx) error {
+		err := tx.Descend("node_height", func(key, value string) bool {
+
+			fmt.Printf("%s: %s\n", key, value)
+			return true
+		})
+		return nil
+	})
 }
 
 func (s *EventsStorage) key(e entities.Event) string {
