@@ -13,7 +13,6 @@ import (
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
 	"nodemon/pkg/scraping"
-	"nodemon/pkg/storing"
 	eventsStorage "nodemon/pkg/storing/events"
 	nodesStorage "nodemon/pkg/storing/nodes"
 )
@@ -86,7 +85,7 @@ func run() error {
 		log.Printf("Nodes storage failure: %v", err)
 		return err
 	}
-	defer func(cs storing.NodesStorage) {
+	defer func(cs *nodesStorage.Storage) {
 		err := cs.Close()
 		if err != nil {
 			log.Printf("Failed to close nodes storage: %v", err)
@@ -98,7 +97,7 @@ func run() error {
 		log.Printf("Events storage failure: %v", err)
 		return err
 	}
-	defer func(es storing.EventsStorage) {
+	defer func(es *eventsStorage.Storage) {
 		if err := es.Close(); err != nil {
 			log.Printf("Failed to close events storage: %v", err)
 		}

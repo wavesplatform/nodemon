@@ -7,17 +7,18 @@ import (
 	"time"
 
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing"
+	"nodemon/pkg/storing/events"
+	"nodemon/pkg/storing/nodes"
 )
 
 type Scraper struct {
-	ns       storing.NodesStorage
-	es       storing.EventsStorage
+	ns       *nodes.Storage
+	es       *events.Storage
 	interval time.Duration
 	timeout  time.Duration
 }
 
-func NewScraper(ns storing.NodesStorage, es storing.EventsStorage, interval, timeout time.Duration) (*Scraper, error) {
+func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Duration) (*Scraper, error) {
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
 }
 
@@ -45,23 +46,23 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 	defer cancel()
 
 	var wg sync.WaitGroup
-	events := make(chan entities.Event)
-	defer close(events)
+	ec := make(chan entities.Event)
+	defer close(ec)
 
-	enabledNodes, err := s.ns.EnabledNodes()
+	ns, err := s.ns.EnabledNodes()
 	if err != nil {
 		log.Printf("Failed to get nodes from storage: %v", err)
 	}
-	wg.Add(len(enabledNodes))
-	for i := range enabledNodes {
-		n := enabledNodes[i]
+	wg.Add(len(ns))
+	for i := range ns {
+		n := ns[i]
 		go func() {
-			s.queryNode(cc, n.URL, events, ts)
+			s.queryNode(cc, n.URL, ec, ts)
 		}()
 	}
 	go func() {
 		cnt := 0
-		for e := range events {
+		for e := range ec {
 			if err := s.es.PutEvent(e); err != nil {
 				log.Printf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err)
 			}
@@ -71,12 +72,12 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 			}
 			cnt++
 		}
-		log.Printf("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt)
+		log.Printf("Polling of %d nodes completed with %d events collected", len(ns), cnt)
 	}()
 	wg.Wait()
-	urls := make([]string, len(enabledNodes))
-	for i := range enabledNodes {
-		urls[i] = enabledNodes[i].URL
+	urls := make([]string, len(ns))
+	for i := range ns {
+		urls[i] = ns[i].URL
 	}
 	notifications <- entities.NewOnPollingComplete(urls, ts)
 }

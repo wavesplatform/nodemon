@@ -12,15 +12,15 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
-	"nodemon/pkg/storing"
+	"nodemon/pkg/storing/nodes"
 )
 
 type API struct {
 	srv          *http.Server
-	nodesStorage storing.NodesStorage
+	nodesStorage *nodes.Storage
 }
 
-func NewAPI(bind string, nodesStorage storing.NodesStorage) (*API, error) {
+func NewAPI(bind string, nodesStorage *nodes.Storage) (*API, error) {
 	a := &API{nodesStorage: nodesStorage}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)

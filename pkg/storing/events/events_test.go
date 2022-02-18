@@ -8,12 +8,11 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing"
 )
 
 type EventsStorageTestSuite struct {
 	suite.Suite
-	es storing.EventsStorage
+	es *Storage
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
@@ -74,7 +73,7 @@ func (s *EventsStorageTestSuite) TestPutAndGetStatementRoundtrip() {
 
 func (s *EventsStorageTestSuite) TestGetStatementNotFound() {
 	_, err := s.es.GetStatement("some-url", 100500)
-	s.Assert().True(errors.Is(err, storing.ErrNotFound))
+	s.Assert().True(errors.Is(err, ErrNotFound))
 }
 
 type dummyEvent struct {

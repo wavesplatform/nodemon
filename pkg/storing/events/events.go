@@ -10,6 +10,10 @@ import (
 	"nodemon/pkg/entities"
 )
 
+var (
+	ErrNotFound = buntdb.ErrNotFound
+)
+
 type Storage struct {
 	db                *buntdb.DB
 	retentionDuration time.Duration
