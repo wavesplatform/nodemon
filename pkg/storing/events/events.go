@@ -1,4 +1,4 @@
-package storing
+package events
 
 import (
 	"encoding/json"
@@ -10,38 +10,35 @@ import (
 	"nodemon/pkg/entities"
 )
 
-const (
-	defaultRetentionDuration = 12 * time.Hour
-)
-
 var (
 	ErrNotFound = buntdb.ErrNotFound
 )
 
-type EventsStorage struct {
-	db *buntdb.DB
+type Storage struct {
+	db                *buntdb.DB
+	retentionDuration time.Duration
 }
 
-func NewEventsStorage() (*EventsStorage, error) {
+func NewStorage(retentionDuration time.Duration) (*Storage, error) {
 	db, err := buntdb.Open(":memory:")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
 	}
-	return &EventsStorage{db: db}, nil
+	return &Storage{db: db, retentionDuration: retentionDuration}, nil
 }
 
-func (s *EventsStorage) Close() error {
+func (s *Storage) Close() error {
 	if err := s.db.Close(); err != nil {
 		return errors.Wrap(err, "failed to close events storage")
 	}
 	return nil
 }
 
-func (s *EventsStorage) GetStatement(nodeURL string, timestamp int64) (entities.NodeStatement, error) {
+func (s *Storage) GetStatement(nodeURL string, timestamp int64) (entities.NodeStatement, error) {
 	var (
 		value     string
 		statement entities.NodeStatement
-		key       = StatementKey{nodeURL, timestamp}.String()
+		key       = statementKey{nodeURL, timestamp}.String()
 	)
 	err := s.db.View(func(tx *buntdb.Tx) error {
 		var err error
@@ -57,7 +54,7 @@ func (s *EventsStorage) GetStatement(nodeURL string, timestamp int64) (entities.
 	return statement, nil
 }
 
-func (s *EventsStorage) ViewStatementsByNodeURLWithDescendKeys(
+func (s *Storage) ViewStatementsByNodeURLWithDescendKeys(
 	nodeURL string,
 	iter func(*entities.NodeStatement) bool,
 ) error {
@@ -68,7 +65,7 @@ func (s *EventsStorage) ViewStatementsByNodeURLWithDescendKeys(
 	return nil
 }
 
-func (s *EventsStorage) ViewStatementsByTimestamp(
+func (s *Storage) ViewStatementsByTimestamp(
 	timestamp int64,
 	iter func(*entities.NodeStatement) bool,
 ) error {
@@ -79,7 +76,7 @@ func (s *EventsStorage) ViewStatementsByTimestamp(
 	return nil
 }
 
-func (s *EventsStorage) viewByKeyPatternWithDescendKeys(
+func (s *Storage) viewByKeyPatternWithDescendKeys(
 	pattern string,
 	iter func(*entities.NodeStatement) bool,
 ) error {
@@ -108,13 +105,13 @@ func (s *EventsStorage) viewByKeyPatternWithDescendKeys(
 	})
 }
 
-func (s *EventsStorage) PutEvent(event entities.Event) error {
-	opts := &buntdb.SetOptions{Expires: true, TTL: defaultRetentionDuration}
+func (s *Storage) PutEvent(event entities.Event) error {
+	opts := &buntdb.SetOptions{Expires: true, TTL: s.retentionDuration}
 	v, err := s.makeValue(event)
 	if err != nil {
 		return err
 	}
-	key := StatementKey{event.Node(), event.Timestamp()}.String()
+	key := statementKey{event.Node(), event.Timestamp()}.String()
 	err = s.db.Update(func(tx *buntdb.Tx) error {
 		var err error
 		_, _, err = tx.Set(key, v, opts)
@@ -126,7 +123,7 @@ func (s *EventsStorage) PutEvent(event entities.Event) error {
 	return nil
 }
 
-func (s *EventsStorage) StatementsCount() (int, error) {
+func (s *Storage) StatementsCount() (int, error) {
 	cnt := 0
 	err := s.db.View(func(tx *buntdb.Tx) error {
 		var err error
@@ -139,7 +136,7 @@ func (s *EventsStorage) StatementsCount() (int, error) {
 	return cnt, nil
 }
 
-func (s *EventsStorage) makeValue(e entities.Event) (string, error) {
+func (s *Storage) makeValue(e entities.Event) (string, error) {
 	v := e.Statement()
 	b, err := json.Marshal(v)
 	if err != nil {

@@ -1,4 +1,4 @@
-package storing
+package events
 
 import (
 	"testing"
@@ -9,42 +9,42 @@ import (
 func TestNewStatementKeyFromString(t *testing.T) {
 	tests := []struct {
 		stringKey string
-		expected  StatementKey
+		expected  statementKey
 		err       bool
 	}{
 		{
 			stringKey: "node:https://some-node-url.com|ts:100500",
-			expected:  StatementKey{"https://some-node-url.com", 100500},
+			expected:  statementKey{"https://some-node-url.com", 100500},
 			err:       false,
 		},
 		{
 			stringKey: "node:https://some-node-url.com|ts:-100500",
-			expected:  StatementKey{"https://some-node-url.com", -100500},
+			expected:  statementKey{"https://some-node-url.com", -100500},
 			err:       false,
 		},
 		{
 			stringKey: "node:https://some-node-url.comts:100500",
-			expected:  StatementKey{},
+			expected:  statementKey{},
 			err:       true,
 		},
 		{
 			stringKey: "node:https://some-node-url.com||ts:100500",
-			expected:  StatementKey{},
+			expected:  statementKey{},
 			err:       true,
 		},
 		{
 			stringKey: "nodehttps://some-node-url.com|ts:100500",
-			expected:  StatementKey{},
+			expected:  statementKey{},
 			err:       true,
 		},
 		{
 			stringKey: "node:https://some-node-url.com|ts100500",
-			expected:  StatementKey{},
+			expected:  statementKey{},
 			err:       true,
 		},
 	}
 	for i, test := range tests {
-		actual, err := NewStatementKeyFromString(test.stringKey)
+		actual, err := newStatementKeyFromString(test.stringKey)
 		require.Equal(t, test.expected, actual, "test_case#%d", i)
 		if test.err {
 			require.Error(t, err, "test_case#%d", i)
@@ -57,15 +57,15 @@ func TestNewStatementKeyFromString(t *testing.T) {
 
 func TestStatementKey_String(t *testing.T) {
 	tests := []struct {
-		key      StatementKey
+		key      statementKey
 		expected string
 	}{
 		{
-			key:      StatementKey{NodeUrl: "https://some-node-url.com", Timestamp: 100500},
+			key:      statementKey{NodeUrl: "https://some-node-url.com", Timestamp: 100500},
 			expected: "node:https://some-node-url.com|ts:100500",
 		},
 		{
-			key:      StatementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100},
+			key:      statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100},
 			expected: "node:https://kek.some-node-url.com|ts:500100",
 		},
 	}
@@ -76,14 +76,14 @@ func TestStatementKey_String(t *testing.T) {
 
 func BenchmarkStatementKey_String(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = StatementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
+		_ = statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
 	}
 }
 
 func BenchmarkNewStatementKeyFromString(b *testing.B) {
-	key := StatementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
+	key := statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_, _ = NewStatementKeyFromString(key)
+		_, _ = newStatementKeyFromString(key)
 	}
 }

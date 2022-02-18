@@ -1,28 +1,49 @@
 package analysis
 
 import (
+	"fmt"
 	"log"
+	"time"
 
+	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing"
+	"nodemon/pkg/storing/events"
 )
 
 type Analyzer struct {
-	es *storing.EventsStorage
+	es *events.Storage
 }
 
-func NewAnalyzer(es *storing.EventsStorage) *Analyzer {
+func NewAnalyzer(es *events.Storage) *Analyzer {
 	return &Analyzer{es: es}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
 	// TODO: analysis here
+	nodes := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
+	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
+		nodes = append(nodes, *statement)
+		return true
+	})
+	if err != nil {
+		return errors.Wrap(err, "failed to analyze nodes statements")
+	}
+	statusSplit := nodes.Iterator().SplitByNodeStatus()
+
+	for _, unreachable := range statusSplit[entities.Unreachable] {
+		alerts <- entities.Alert{Description: fmt.Sprintf(
+			"[%s] Node %q is UNREACHABLE.",
+			time.Unix(unreachable.Timestamp, 0).String(), unreachable.Node,
+		)}
+	}
+
 	return nil
 }
 
 func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan entities.Alert {
 	out := make(chan entities.Alert)
 	go func(alerts chan<- entities.Alert) {
+		defer close(alerts)
 		for n := range notifications {
 			switch tn := n.(type) {
 			case *entities.OnPollingComplete:
@@ -40,7 +61,6 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 				log.Printf("Unknown alanyzer notification (%T)", tn)
 			}
 		}
-		close(alerts)
 	}(out)
 	return out
 }

@@ -1,9 +1,10 @@
-package storing
+package events
 
 import (
 	"errors"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/suite"
 	"nodemon/pkg/entities"
@@ -11,11 +12,11 @@ import (
 
 type EventsStorageTestSuite struct {
 	suite.Suite
-	es *EventsStorage
+	es *Storage
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
-	es, err := NewEventsStorage()
+	es, err := NewStorage(time.Minute)
 	s.Require().NoError(err)
 	s.es = es
 }
