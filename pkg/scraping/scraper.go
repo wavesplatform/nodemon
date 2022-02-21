@@ -2,7 +2,6 @@ package scraping
 
 import (
 	"context"
-	"go.nanomsg.org/mangos/v3/protocol"
 	"log"
 	"sync"
 	"time"
@@ -23,7 +22,7 @@ func NewScraper(ns *storing.NodesStorage, es *storing.EventsStorage, interval, t
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, notifications: make(chan entities.Notification)}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context, socket protocol.Socket) {
+func (s *Scraper) Start(ctx context.Context) {
 	go func() {
 		ticker := time.NewTicker(s.interval)
 		for {
@@ -79,7 +78,6 @@ func (s *Scraper) poll(ctx context.Context) {
 		log.Printf("Polling of %d nodes completed with %d events collected", len(nodes), cnt)
 	}()
 	wg.Wait()
-
 	urls := make([]string, len(nodes))
 	for i := range nodes {
 		urls[i] = nodes[i].URL

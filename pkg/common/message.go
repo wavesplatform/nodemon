@@ -1,9 +1,5 @@
 package common
 
-import (
-	"github.com/wavesplatform/gowaves/pkg/proto"
-)
-
 type EventType byte
 
 const (
@@ -13,31 +9,6 @@ const (
 	InvalidHeightEvnt
 	StateHashEvnt
 )
-
-type TimeoutEvent struct {
-	Node string
-}
-
-type VersionEvent struct {
-	Node    string
-	Version string
-}
-
-type HeightEvent struct {
-	Node   string
-	Height int
-}
-
-type InvalidHeightEvent struct {
-	Node   string
-	Height int
-}
-
-type StateHashEvent struct {
-	Node      string
-	Height    int
-	StateHash *proto.StateHash
-}
 
 func AddTypeByte(u []byte, event EventType) []byte {
 	u = append(u, byte(event))

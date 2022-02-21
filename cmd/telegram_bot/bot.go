@@ -15,13 +15,13 @@ import (
 
 func main() {
 	err := run()
-	switch err {
-	case context.Canceled:
-		os.Exit(130)
-	case config.InvalidParameters:
-		os.Exit(2)
-	default:
-		os.Exit(1)
+	if err != nil {
+		switch err {
+		case context.Canceled:
+			os.Exit(130)
+		default:
+			os.Exit(1)
+		}
 	}
 }
 
@@ -33,7 +33,7 @@ func run() error {
 		publicURL           string // only for webhook method
 		botToken            string
 	)
-	flag.StringVar(&nanomsgURL, "nano-msg-url", "tcp://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
@@ -41,17 +41,18 @@ func run() error {
 	flag.Parse()
 
 	if botToken == "" || publicURL == "" {
+		log.Println("Invalid bot token or public URL")
 		return config.InvalidParameters
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	botConfig, err := config.NewBotConfig(behavior, webhookLocalAddress, publicURL, botToken)
+	botSettings, err := config.NewBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return errors.Wrap(err, "failed to set up bot configuration")
 	}
-	bot, err := tele.NewBot(botConfig.Settings)
+	bot, err := tele.NewBot(*botSettings)
 	if err != nil {
 		return errors.Wrap(err, "failed to start bot")
 	}
@@ -67,9 +68,9 @@ func run() error {
 		}
 	}()
 
-	log.Println("started")
+	log.Println("Telegram bot started")
 	bot.Start()
 	<-ctx.Done()
-	log.Println("finished")
+	log.Println("Telegram bot finished")
 	return nil
 }

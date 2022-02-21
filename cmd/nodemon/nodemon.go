@@ -53,7 +53,7 @@ func run() error {
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.StringVar(&nanomsgURL, "nano-msg-url", "tcp://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
@@ -114,10 +114,10 @@ func run() error {
 
 	socket, err := messaging.StartMessagingServer(nanomsgURL)
 	if err != nil {
-		log.Printf("faild to start messaging server")
+		log.Printf("Failed to start messaging server, %v", err)
 	}
 
-	analyzer := analysis.NewAnalyzer(es)
+	analyzer := analysis.NewAnalyzer(es, socket)
 	alerts := analyzer.Start(scraper.Notifications())
 	go func() {
 		for alert := range alerts {
@@ -125,7 +125,7 @@ func run() error {
 		}
 	}()
 
-	scraper.Start(ctx, socket)
+	scraper.Start(ctx)
 
 	<-ctx.Done()
 	a.Shutdown()

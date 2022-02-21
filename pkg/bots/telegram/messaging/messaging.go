@@ -2,9 +2,6 @@ package messaging
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/sub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
@@ -16,50 +13,6 @@ import (
 type MessageEnvironment struct {
 	Chat         *telebot.Chat
 	ReceivedChat bool
-}
-
-func ReadMessage(msg []byte) (string, error) {
-	msg, eventType := common.ReadTypeByte(msg)
-	switch eventType {
-	case common.TimeoutEvnt:
-		event := common.TimeoutEvent{}
-		err := json.Unmarshal(msg, &event)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to unmarshal timeout event")
-		}
-		return fmt.Sprintf("From node %s: timeout!", event.Node), nil
-	case common.VersionEvnt:
-		event := &common.VersionEvent{}
-		err := json.Unmarshal(msg, &event)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to unmarshal version event")
-		}
-		return fmt.Sprintf("From the node %s: the version is %s", event.Node, event.Version), nil
-	case common.HeightEvnt:
-		event := &common.HeightEvent{}
-		err := json.Unmarshal(msg, &event)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to unmarshal version event")
-		}
-		return fmt.Sprintf("From the node %s: the height is %d", event.Node, event.Height), nil
-	case common.InvalidHeightEvnt:
-		event := &common.InvalidHeightEvent{}
-		err := json.Unmarshal(msg, &event)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to unmarshal version event")
-		}
-		return fmt.Sprintf("From the node %s: invalid height %d!", event.Node, event.Height), nil
-	case common.StateHashEvnt:
-		event := &common.StateHashEvent{}
-		err := json.Unmarshal(msg, &event)
-		if err != nil {
-			return "", errors.Wrap(err, "failed to unmarshal version event")
-		}
-		return fmt.Sprintf("From the node %s: on the height %d state hash is %s", event.Node, event.Height, event.StateHash.SumHash.ShortString()), nil // TODO add an opportunity for viewing short and full state hashes
-	default:
-		return "", errors.New("failed to read byte type: wrong type")
-	}
-
 }
 
 func StartMessagingClient(ctx context.Context, nanomsgURL string, bot *telebot.Bot, botEnv *MessageEnvironment) error {

@@ -19,11 +19,7 @@ var (
 	InvalidParameters = errors.New("invalid parameters ")
 )
 
-type BotConfig struct {
-	Settings tele.Settings
-}
-
-func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*BotConfig, error) {
+func NewBotSettings(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*tele.Settings, error) {
 
 	if behavior == webhookMethod {
 		if publicURL == "" {
@@ -33,11 +29,10 @@ func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string,
 			Listen:   webhookLocalAddress,
 			Endpoint: &tele.WebhookEndpoint{PublicURL: publicURL},
 		}
-		fmt.Println(webhook.Endpoint)
 		botSettings := tele.Settings{
 			Token:  botToken,
 			Poller: webhook}
-		return &BotConfig{Settings: botSettings}, nil
+		return &botSettings, nil
 	}
 	if behavior == pollingMethod {
 		// delete webhook if there is any
@@ -56,7 +51,7 @@ func NewBotConfig(behavior string, webhookLocalAddress string, publicURL string,
 			Token:  botToken,
 			Poller: &tele.LongPoller{Timeout: 10 * time.Second},
 		}
-		return &BotConfig{Settings: botSettings}, nil
+		return &botSettings, nil
 
 	}
 
