@@ -6,7 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
+	"github.com/wavesplatform/gowaves/pkg/crypto"
+	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/entities"
 )
 
@@ -152,7 +156,7 @@ func (s *EventsStorageTestSuite) TestViewStatementsByNodeURLWithDescendKeys() {
 		}
 
 		var actual entities.NodeStatements
-		err := s.es.ViewStatementsByNodeURLWithDescendKeys(test.node, func(statement *entities.NodeStatement) bool {
+		err := s.es.ViewStatementsByNodeWithDescendKeys(test.node, func(statement *entities.NodeStatement) bool {
 			actual = append(actual, *statement)
 			return true
 		})
@@ -284,4 +288,116 @@ func (s *EventsStorageTestSuite) TestStatementsCount() {
 
 func TestEventsStorage(t *testing.T) {
 	suite.Run(t, new(EventsStorageTestSuite))
+}
+
+func TestEarliestHeight(t *testing.T) {
+	for _, test := range []struct {
+		node     string
+		events   []entities.Event
+		error    bool
+		expected int
+	}{
+		{"A", events(she("A", 1, 100), she("A", 1, 200), she("A", 2, 300), she("A", 3, 400)), false, 1},
+		{"A", events(she("B", 1, 100), she("B", 2, 200), she("B", 3, 300)), true, 0},
+		{"A", events(she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), she("A", 3, 310)), false, 2},
+		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
+		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 2},
+	} {
+		storage, err := NewStorage(time.Minute)
+		require.NoError(t, err)
+		loadEvents(t, storage, test.events)
+		h, err := storage.EarliestHeight(test.node)
+		if test.error {
+			assert.Error(t, err)
+		} else {
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, h)
+		}
+	}
+}
+
+func TestLatestHeight(t *testing.T) {
+	for _, test := range []struct {
+		node     string
+		events   []entities.Event
+		error    bool
+		expected int
+	}{
+		{"A", events(she("A", 1, 100), she("A", 1, 200), she("A", 2, 300), she("A", 3, 400)), false, 3},
+		{"A", events(she("B", 1, 100), she("B", 2, 200), she("B", 3, 300)), true, 0},
+		{"A", events(she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), she("A", 3, 310)), false, 3},
+		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
+		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 3},
+	} {
+		storage, err := NewStorage(time.Minute)
+		require.NoError(t, err)
+		loadEvents(t, storage, test.events)
+		h, err := storage.LatestHeight(test.node)
+		if test.error {
+			assert.Error(t, err)
+		} else {
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, h)
+		}
+	}
+}
+
+func TestLastStateHashAtHeight(t *testing.T) {
+	d1 := crypto.Digest([32]byte{0x01})
+	d2 := crypto.Digest([32]byte{0x02})
+	d3 := crypto.Digest([32]byte{0x03})
+	b1 := proto.NewBlockIDFromDigest(d1)
+	b2 := proto.NewBlockIDFromDigest(d2)
+	b3 := proto.NewBlockIDFromDigest(d3)
+	sh1 := &proto.StateHash{BlockID: b1, SumHash: d1}
+	sh2 := &proto.StateHash{BlockID: b2, SumHash: d2}
+	sh3 := &proto.StateHash{BlockID: b3, SumHash: d3}
+	for _, test := range []struct {
+		node     string
+		events   []entities.Event
+		height   int
+		error    bool
+		expected proto.StateHash
+	}{
+		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 2, 200, sh2), fshe("A", 3, 300, sh3)), 3, false, *sh3},
+		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 2, 200, sh2), fshe("A", 2, 300, sh3)), 2, false, *sh3},
+		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 1, 110, sh2), fshe("A", 2, 200, sh3)), 1, false, *sh2},
+		{"A", events(he("A", 1, 100), he("A", 1, 110), he("A", 2, 200)), 1, true, proto.StateHash{}},
+		{"A", events(he("A", 1, 100), he("A", 1, 110), he("A", 2, 200)), 2, true, proto.StateHash{}},
+		{"A", events(fshe("A", 1, 100, sh1), he("A", 1, 110), he("A", 2, 200)), 1, false, *sh1},
+	} {
+		storage, err := NewStorage(time.Minute)
+		require.NoError(t, err)
+		loadEvents(t, storage, test.events)
+		sh, err := storage.LastStateHashAtHeight(test.node, test.height)
+		if test.error {
+			assert.Error(t, err)
+		} else {
+			require.NoError(t, err)
+			assert.Equal(t, test.expected, sh)
+		}
+	}
+}
+
+func events(es ...entities.Event) []entities.Event {
+	return es
+}
+
+func she(n string, h int, ts int64) entities.Event {
+	return fshe(n, h, ts, &proto.StateHash{})
+}
+
+func fshe(n string, h int, ts int64, sh *proto.StateHash) entities.Event {
+	return entities.NewStateHashEvent(n, ts, "", h, sh)
+}
+
+func he(n string, h int, ts int64) entities.Event {
+	return entities.NewStateHashEvent(n, ts, "", h, nil)
+}
+
+func loadEvents(t *testing.T, st *Storage, events []entities.Event) {
+	for _, ev := range events {
+		err := st.PutEvent(ev)
+		require.NoError(t, err)
+	}
 }

@@ -61,11 +61,11 @@ func TestStatementKey_String(t *testing.T) {
 		expected string
 	}{
 		{
-			key:      statementKey{NodeUrl: "https://some-node-url.com", Timestamp: 100500},
+			key:      statementKey{node: "https://some-node-url.com", timestamp: 100500},
 			expected: "node:https://some-node-url.com|ts:100500",
 		},
 		{
-			key:      statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100},
+			key:      statementKey{node: "https://kek.some-node-url.com", timestamp: 500100},
 			expected: "node:https://kek.some-node-url.com|ts:500100",
 		},
 	}
@@ -76,12 +76,12 @@ func TestStatementKey_String(t *testing.T) {
 
 func BenchmarkStatementKey_String(b *testing.B) {
 	for i := 0; i < b.N; i++ {
-		_ = statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
+		_ = statementKey{node: "https://kek.some-node-url.com", timestamp: 500100}.String()
 	}
 }
 
 func BenchmarkNewStatementKeyFromString(b *testing.B) {
-	key := statementKey{NodeUrl: "https://kek.some-node-url.com", Timestamp: 500100}.String()
+	key := statementKey{node: "https://kek.some-node-url.com", timestamp: 500100}.String()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_, _ = newStatementKeyFromString(key)

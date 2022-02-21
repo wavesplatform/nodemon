@@ -14,12 +14,12 @@ const (
 )
 
 type statementKey struct {
-	NodeUrl   string
-	Timestamp int64
+	node      string
+	timestamp int64
 }
 
 func (s statementKey) String() string {
-	return newStatementKeyPattern(s.NodeUrl, strconv.FormatInt(s.Timestamp, 10))
+	return newStatementKey(s.node, strconv.FormatInt(s.timestamp, 10))
 }
 
 func newStatementKeyFromString(key string) (statementKey, error) {
@@ -50,23 +50,23 @@ func newStatementKeyFromString(key string) (statementKey, error) {
 		return statementKey{}, errors.Wrapf(err, "failed to parse timestamp value to int from statement key %q", key)
 	}
 	statementKey := statementKey{
-		NodeUrl:   nodeURL,
-		Timestamp: ts,
+		node:      nodeURL,
+		timestamp: ts,
 	}
 	return statementKey, nil
 }
 
-func newStatementKeyPattern(nodeURLPattern, timestampPattern string) string {
+func newStatementKey(node, timestamp string) string {
 	var buf strings.Builder
 	buf.Grow(
-		len(statementKeyNodePartPrefix) + len(nodeURLPattern) +
+		len(statementKeyNodePartPrefix) + len(node) +
 			len(statementKeyPartSeparator) +
-			len(statementKeyTimestampPartPrefix) + len(timestampPattern),
+			len(statementKeyTimestampPartPrefix) + len(timestamp),
 	)
 	buf.WriteString(statementKeyNodePartPrefix)
-	buf.WriteString(nodeURLPattern)
+	buf.WriteString(node)
 	buf.WriteString(statementKeyPartSeparator)
 	buf.WriteString(statementKeyTimestampPartPrefix)
-	buf.WriteString(timestampPattern)
+	buf.WriteString(timestamp)
 	return buf.String()
 }
