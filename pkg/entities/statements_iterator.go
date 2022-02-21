@@ -2,6 +2,7 @@ package entities
 
 import (
 	"context"
+	"math"
 
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 )
@@ -77,6 +78,25 @@ func (s NodeStatementsSplitByHeight) Iterator() *NodeStatementsIterator {
 			}
 		}
 	})
+}
+
+func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	var (
+		min = math.MaxInt
+		max = math.MinInt
+	)
+	for height := range s {
+		if max < height {
+			max = height
+		}
+		if min > height {
+			min = height
+		}
+	}
+	return min, max
 }
 
 func (s NodeStatementsSplitByStateHash) Iterator() *NodeStatementsIterator {

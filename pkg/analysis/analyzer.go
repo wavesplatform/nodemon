@@ -2,13 +2,11 @@ package analysis
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	"github.com/pkg/errors"
-	"nodemon/pkg/analysis/criterions"
+	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -33,31 +31,24 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	}
 	statusSplit := nodes.Iterator().SplitByNodeStatus()
 
-	routines := [...]func(alerts chan<- entities.Alert) error{
+	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
-			criterion := criterions.NewUnreachableCriterion(a.es, nil)
-			if err := criterion.Analyze(in, statusSplit[entities.Unreachable]); err != nil {
-				return err
-			}
-			return nil
+			criterion := criteria.NewUnreachableCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			for _, nodeStatement := range statusSplit[entities.Incomplete] {
-				in <- entities.NewSimpleAlert(fmt.Sprintf(
-					"[%s] Node %q is INCOMPLETE",
-					time.Unix(nodeStatement.Timestamp, 0).String(), nodeStatement.Node,
-				))
-			}
-			return nil
+			criterion := criteria.NewIncompleteCriterion(a.es)
+			return criterion.Analyze(in, statusSplit[entities.Incomplete])
 		},
 		func(in chan<- entities.Alert) error {
-			for _, nodeStatement := range statusSplit[entities.InvalidVersion] {
-				in <- entities.NewSimpleAlert(fmt.Sprintf("[%s] Node %q has INVALID HEIGHT",
-					time.Unix(nodeStatement.Timestamp, 0).String(), nodeStatement.Node,
-				))
-			}
-			return nil
+			criterion := criteria.NewInvalidHeightCriterion(a.es)
+			return criterion.Analyze(in, statusSplit[entities.InvalidHeight])
+		},
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criteria.NewHeightCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.OK])
 		},
 	}
 	var (
