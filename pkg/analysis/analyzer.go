@@ -1,11 +1,14 @@
 package analysis
 
 import (
+	"context"
 	"fmt"
 	"log"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
+	"nodemon/pkg/analysis/criterions"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -30,13 +33,77 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	}
 	statusSplit := nodes.Iterator().SplitByNodeStatus()
 
-	for _, unreachable := range statusSplit[entities.Unreachable] {
-		alerts <- entities.Alert{Description: fmt.Sprintf(
-			"[%s] Node %q is UNREACHABLE.",
-			time.Unix(unreachable.Timestamp, 0).String(), unreachable.Node,
-		)}
+	routines := [...]func(alerts chan<- entities.Alert) error{
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criterions.NewUnreachableCriterion(a.es, nil)
+			if err := criterion.Analyze(in, statusSplit[entities.Unreachable]); err != nil {
+				return err
+			}
+			return nil
+		},
+		func(in chan<- entities.Alert) error {
+			for _, nodeStatement := range statusSplit[entities.Incomplete] {
+				in <- entities.NewSimpleAlert(fmt.Sprintf(
+					"[%s] Node %q is INCOMPLETE",
+					time.Unix(nodeStatement.Timestamp, 0).String(), nodeStatement.Node,
+				))
+			}
+			return nil
+		},
+		func(in chan<- entities.Alert) error {
+			for _, nodeStatement := range statusSplit[entities.InvalidVersion] {
+				in <- entities.NewSimpleAlert(fmt.Sprintf("[%s] Node %q has INVALID HEIGHT",
+					time.Unix(nodeStatement.Timestamp, 0).String(), nodeStatement.Node,
+				))
+			}
+			return nil
+		},
 	}
+	var (
+		wg              = new(sync.WaitGroup)
+		criteriaOut     = make(chan entities.Alert)
+		ctx, cancel     = context.WithCancel(context.Background())
+		alertsProxyDone = make(chan struct{})
+	)
+	defer func() {
+		wg.Wait()
+		cancel()
+		<-alertsProxyDone
+	}()
 
+	// run criterion routines
+	wg.Add(len(routines))
+	for _, f := range routines {
+		go func(f func(alerts chan<- entities.Alert) error) {
+			defer wg.Done()
+			if err := f(criteriaOut); err != nil {
+				log.Printf("Error occured on criterion routine: %v", err)
+			}
+		}(f)
+	}
+	// run analyzer proxy
+	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert, done chan<- struct{}) {
+		defer func() {
+			done <- struct{}{}
+		}()
+		for {
+			select {
+			case alert := <-criteriaOut:
+				if err := a.sendAlert(alertsIn, alert); err != nil {
+					log.Printf("Some error orrured on analyzer proxy routine: %v", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx, alerts, criteriaOut, alertsProxyDone)
+	return nil
+}
+
+func (a *Analyzer) sendAlert(alerts chan<- entities.Alert, alert entities.Alert) error {
+	// TODO(nickeskov): handle ignore rules
+	alerts <- alert
 	return nil
 }
 
