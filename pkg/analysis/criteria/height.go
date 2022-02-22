@@ -2,7 +2,6 @@ package criteria
 
 import (
 	"fmt"
-	"sort"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -32,19 +31,14 @@ func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, statements entit
 	if min == max { // all nodes on same height
 		return nil
 	}
-	sortedMaxGroup := split[max].Nodes()
-	sort.Strings(sortedMaxGroup)
-
+	sortedMaxGroup := split[max].Nodes().Sort()
 	for height, nodeStatements := range split {
 		if diff := max - height; diff > c.opts.MaxHeightDiff {
-			sortedGroup := nodeStatements.Nodes()
-			sort.Strings(sortedGroup)
-
 			// TODO(nickeskov): create alert type for this criterion
 			alerts <- entities.NewSimpleAlert(fmt.Sprintf(
 				"Too big height (%d - %d = %d > %d) diff between nodes groups: max=%v, other=%v",
 				max, height, diff, c.opts.MaxHeightDiff,
-				sortedMaxGroup, sortedGroup,
+				sortedMaxGroup, nodeStatements.Nodes().Sort(),
 			))
 		}
 	}

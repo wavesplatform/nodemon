@@ -29,7 +29,15 @@ type NodeStatement struct {
 	StateHash *proto.StateHash `json:"state_hash,omitempty"`
 }
 
-type NodeStatements []NodeStatement
+type (
+	NodeStatements []NodeStatement
+	Nodes          []string
+)
+
+func (n Nodes) Sort() Nodes {
+	sort.Strings(n)
+	return n
+}
 
 func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
 	sort.Slice(s, func(i, j int) bool { return less(&s[i], &s[j]) })
@@ -40,7 +48,7 @@ func (s NodeStatements) SortByNodeAsc() NodeStatements {
 	return s.Sort(func(left, right *NodeStatement) bool { return left.Node < right.Node })
 }
 
-func (s NodeStatements) Nodes() []string {
+func (s NodeStatements) Nodes() Nodes {
 	if len(s) == 0 {
 		return nil
 	}

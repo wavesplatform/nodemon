@@ -50,6 +50,11 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			criterion := criteria.NewHeightCriterion(a.es, nil)
 			return criterion.Analyze(in, statusSplit[entities.OK])
 		},
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criteria.NewStateHashCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.OK])
+		},
 	}
 	var (
 		wg              = new(sync.WaitGroup)
