@@ -6,18 +6,16 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	"go.nanomsg.org/mangos/v3/protocol"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
 
 type Analyzer struct {
-	es     *events.Storage
-	socket protocol.Socket
+	es *events.Storage
 }
 
-func NewAnalyzer(es *events.Storage, socket protocol.Socket) *Analyzer {
-	return &Analyzer{es: es, socket: socket}
+func NewAnalyzer(es *events.Storage) *Analyzer {
+	return &Analyzer{es: es}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {

@@ -7,7 +7,6 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"gopkg.in/telebot.v3"
 	"log"
-	"nodemon/pkg/common"
 )
 
 type MessageEnvironment struct {
@@ -47,12 +46,6 @@ func StartMessagingClient(ctx context.Context, nanomsgURL string, bot *telebot.B
 					log.Println("haven't received a chat id yet")
 					continue
 				}
-				//message, err := ReadMessage(msg) // TODO make the message more user friendly
-				//if err != nil {
-				//	log.Printf("failed to extract message from nodemon service, %v", err)
-				//	return
-				//}
-				msg, _ = common.ReadTypeByte(msg)
 
 				_, err = bot.Send(botEnv.Chat, string(msg))
 				if err != nil {

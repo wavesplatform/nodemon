@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
@@ -123,16 +122,17 @@ func run() error {
 	}
 	notifications := scraper.Start(ctx)
 
-	socket, err := messaging.StartMessagingServer(nanomsgURL)
-	if err != nil {
-		log.Printf("Failed to start messaging server, %v", err)
-	}
+	//socket, err := messaging.StartMessagingServer(nanomsgURL)
+	//if err != nil {
+	//	log.Printf("Failed to start messaging server, %v", err)
+	//}
 
-	analyzer := analysis.NewAnalyzer(es, socket)
+	analyzer := analysis.NewAnalyzer(es)
 
 	alerts := analyzer.Start(notifications)
 	go func() {
 		for alert := range alerts {
+			//socket.Send([]byte(alert.Description))
 			log.Printf("Alert has been generated: %v", alert)
 		}
 	}()
