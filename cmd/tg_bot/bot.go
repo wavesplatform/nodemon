@@ -34,7 +34,7 @@ func run() error {
 		publicURL           string // only for webhook method
 		botToken            string
 	)
-	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
@@ -43,7 +43,7 @@ func run() error {
 
 	if botToken == "" || publicURL == "" {
 		log.Println("Invalid bot token or public URL")
-		return config.InvalidParameters
+		return errors.New("invalid parameters")
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)

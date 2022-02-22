@@ -15,10 +15,6 @@ const (
 	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
 )
 
-var (
-	InvalidParameters = errors.New("invalid parameters ")
-)
-
 func NewBotSettings(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*tele.Settings, error) {
 
 	if behavior == webhookMethod {
