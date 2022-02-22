@@ -17,10 +17,6 @@ const (
 	InvalidHeight NodeStatus = "invalid_height"
 )
 
-const (
-	NodeStatementStateHashJSONFieldName = "state_hash"
-)
-
 type NodeStatement struct {
 	Node      string           `json:"node"`
 	Timestamp int64            `json:"timestamp"`
