@@ -57,15 +57,13 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		},
 	}
 	var (
-		wg              = new(sync.WaitGroup)
-		criteriaOut     = make(chan entities.Alert)
-		ctx, cancel     = context.WithCancel(context.Background())
-		alertsProxyDone = make(chan struct{})
+		wg          = new(sync.WaitGroup)
+		criteriaOut = make(chan entities.Alert)
+		ctx, cancel = context.WithCancel(context.Background())
 	)
 	defer func() {
 		wg.Wait()
 		cancel()
-		<-alertsProxyDone
 	}()
 
 	// run criterion routines
@@ -79,10 +77,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		}(f)
 	}
 	// run analyzer proxy
-	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert, done chan<- struct{}) {
-		defer func() {
-			done <- struct{}{}
-		}()
+	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert) {
 		for {
 			select {
 			case alert := <-criteriaOut:
@@ -93,7 +88,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 				return
 			}
 		}
-	}(ctx, alerts, criteriaOut, alertsProxyDone)
+	}(ctx, alerts, criteriaOut)
 	return nil
 }
 
