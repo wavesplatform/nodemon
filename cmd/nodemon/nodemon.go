@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
@@ -50,6 +51,7 @@ func run() error {
 		bindAddress string
 		interval    time.Duration
 		timeout     time.Duration
+		nanomsgURL  string
 		retention   time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
@@ -57,6 +59,7 @@ func run() error {
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
+	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.Parse()
 
@@ -121,10 +124,20 @@ func run() error {
 	notifications := scraper.Start(ctx)
 
 	analyzer := analysis.NewAnalyzer(es)
+
 	alerts := analyzer.Start(notifications)
+
+	socket, err := messaging.StartMessagingServer(nanomsgURL)
+	if err != nil {
+		log.Printf("Failed to start messaging server, %v", err)
+	}
 	go func() {
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
+			err := socket.Send([]byte(alert.Message()))
+			if err != nil {
+				log.Printf("failed to send a message to socket, %v", err)
+			}
 		}
 	}()
 
