@@ -1,9 +1,10 @@
 package entities
 
 import (
-	"context"
+	"math"
 	"sort"
 
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
@@ -16,10 +17,6 @@ const (
 	InvalidHeight NodeStatus = "invalid_height"
 )
 
-const (
-	NodeStatementStateHashJSONFieldName = "state_hash"
-)
-
 type NodeStatement struct {
 	Node      string           `json:"node"`
 	Timestamp int64            `json:"timestamp"`
@@ -29,15 +26,21 @@ type NodeStatement struct {
 	StateHash *proto.StateHash `json:"state_hash,omitempty"`
 }
 
-type (
-	NodeStatements []NodeStatement
-	Nodes          []string
-)
+type Nodes []string
 
 func (n Nodes) Sort() Nodes {
 	sort.Strings(n)
 	return n
 }
+
+type NodeStatements []NodeStatement
+
+type (
+	NodeStatementsSplitByStatus    map[NodeStatus]NodeStatements
+	NodeStatementsSplitByVersion   map[string]NodeStatements
+	NodeStatementsSplitByHeight    map[int]NodeStatements
+	NodeStatementsSplitByStateHash map[crypto.Digest]NodeStatements
+)
 
 func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
 	sort.Slice(s, func(i, j int) bool { return less(&s[i], &s[j]) })
@@ -59,22 +62,65 @@ func (s NodeStatements) Nodes() Nodes {
 	return out
 }
 
-func (s NodeStatements) Iterator() *NodeStatementsIterator {
-	i := 0
-	return NewNodeStatementsIteratorClosure(
-		func(ctx context.Context) (NodeStatement, bool) {
-			select {
-			case <-ctx.Done(): // fast path
-				return NodeStatement{}, false
-			default:
-				// continue
-			}
-			if i < len(s) {
-				statement := s[i]
-				i += 1
-				return statement, true
-			}
-			return NodeStatement{}, false
-		},
+func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, NodeStatements) {
+	var (
+		split            = make(NodeStatementsSplitByStateHash, len(s))
+		withoutStateHash NodeStatements
 	)
+	for _, statement := range s {
+		switch statement.Status {
+		case OK:
+			sumHash := statement.StateHash.SumHash
+			split[sumHash] = append(split[sumHash], statement)
+		default:
+			withoutStateHash = append(withoutStateHash, statement)
+		}
+	}
+	return split, withoutStateHash
+}
+
+func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
+	split := make(NodeStatementsSplitByStatus, len(s))
+	for _, statement := range s {
+		status := statement.Status
+		split[status] = append(split[status], statement)
+	}
+	return split
+}
+
+func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
+	split := make(NodeStatementsSplitByHeight, len(s))
+	for _, statement := range s {
+		height := statement.Height
+		split[height] = append(split[height], statement)
+	}
+	return split
+}
+
+func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
+	split := make(NodeStatementsSplitByVersion, len(s))
+	for _, statement := range s {
+		version := statement.Version
+		split[version] = append(split[version], statement)
+	}
+	return split
+}
+
+func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	var (
+		min = math.MaxInt
+		max = math.MinInt
+	)
+	for height := range s {
+		if max < height {
+			max = height
+		}
+		if min > height {
+			min = height
+		}
+	}
+	return min, max
 }
