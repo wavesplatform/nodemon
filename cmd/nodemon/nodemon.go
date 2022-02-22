@@ -14,12 +14,17 @@ import (
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
 	"nodemon/pkg/scraping"
-	"nodemon/pkg/storing"
+	eventsStorage "nodemon/pkg/storing/events"
+	nodesStorage "nodemon/pkg/storing/nodes"
 )
 
 const (
 	defaultNetworkTimeout  = 15 * time.Second
 	defaultPollingInterval = 60 * time.Second
+)
+
+const (
+	defaultRetentionDuration = 12 * time.Hour
 )
 
 var (
@@ -47,6 +52,7 @@ func run() error {
 		interval    time.Duration
 		timeout     time.Duration
 		nanomsgURL  string
+		retention   time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
@@ -54,6 +60,7 @@ func run() error {
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
 	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc://:8000", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
@@ -68,30 +75,33 @@ func run() error {
 		log.Printf("Invalid network timout '%s'", timeout.String())
 		return errorInvalidParameters
 	}
+	if retention <= 0 {
+		log.Printf("Invalid retention duration '%s'", retention.String())
+		return errorInvalidParameters
+	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := storing.NewNodesStorage(storage, nodes)
+	ns, err := nodesStorage.NewStorage(storage, nodes)
 	if err != nil {
 		log.Printf("Nodes storage failure: %v", err)
 		return err
 	}
-	defer func(cs *storing.NodesStorage) {
+	defer func(cs *nodesStorage.Storage) {
 		err := cs.Close()
 		if err != nil {
 			log.Printf("Failed to close nodes storage: %v", err)
 		}
 	}(ns)
 
-	es, err := storing.NewEventsStorage()
+	es, err := eventsStorage.NewStorage(retention)
 	if err != nil {
 		log.Printf("Events storage failure: %v", err)
 		return err
 	}
-	defer func(es *storing.EventsStorage) {
-		err := es.Close()
-		if err != nil {
+	defer func(es *eventsStorage.Storage) {
+		if err := es.Close(); err != nil {
 			log.Printf("Failed to close events storage: %v", err)
 		}
 	}(es)
@@ -111,6 +121,7 @@ func run() error {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
 	}
+	notifications := scraper.Start(ctx)
 
 	socket, err := messaging.StartMessagingServer(nanomsgURL)
 	if err != nil {
@@ -118,14 +129,13 @@ func run() error {
 	}
 
 	analyzer := analysis.NewAnalyzer(es, socket)
-	alerts := analyzer.Start(scraper.Notifications())
+
+	alerts := analyzer.Start(notifications)
 	go func() {
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
 		}
 	}()
-
-	scraper.Start(ctx)
 
 	<-ctx.Done()
 	a.Shutdown()
