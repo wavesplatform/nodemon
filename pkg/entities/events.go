@@ -134,7 +134,7 @@ func (e *InvalidHeightEvent) Statement() NodeStatement {
 	return NodeStatement{
 		Node:      e.Node(),
 		Timestamp: e.Timestamp(),
-		Status:    InvalidVersion,
+		Status:    InvalidHeight,
 		Version:   e.Version(),
 		Height:    e.Height(),
 	}
