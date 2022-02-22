@@ -3,14 +3,15 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/pkg/errors"
-	tele "gopkg.in/telebot.v3"
 	"log"
-	"nodemon/pkg/bots/telegram/config"
-	"nodemon/pkg/bots/telegram/handlers"
-	"nodemon/pkg/bots/telegram/messaging"
 	"os"
 	"os/signal"
+
+	"github.com/pkg/errors"
+	tele "gopkg.in/telebot.v3"
+	"nodemon/cmd/tg_bot/internal/config"
+	"nodemon/cmd/tg_bot/internal/handlers"
+	"nodemon/cmd/tg_bot/internal/messaging"
 )
 
 func main() {
