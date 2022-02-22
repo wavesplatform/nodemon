@@ -1,9 +1,10 @@
 package entities
 
 import (
-	"context"
+	"math"
 	"sort"
 
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
@@ -29,15 +30,21 @@ type NodeStatement struct {
 	StateHash *proto.StateHash `json:"state_hash,omitempty"`
 }
 
-type (
-	NodeStatements []NodeStatement
-	Nodes          []string
-)
+type Nodes []string
 
 func (n Nodes) Sort() Nodes {
 	sort.Strings(n)
 	return n
 }
+
+type NodeStatements []NodeStatement
+
+type (
+	NodeStatementsSplitByStatus    map[NodeStatus]NodeStatements
+	NodeStatementsSplitByVersion   map[string]NodeStatements
+	NodeStatementsSplitByHeight    map[int]NodeStatements
+	NodeStatementsSplitByStateHash map[crypto.Digest]NodeStatements
+)
 
 func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
 	sort.Slice(s, func(i, j int) bool { return less(&s[i], &s[j]) })
@@ -103,22 +110,21 @@ func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
 	return split
 }
 
-func (s NodeStatements) Iterator() *NodeStatementsIterator {
-	i := 0
-	return NewNodeStatementsIteratorClosure(
-		func(ctx context.Context) (NodeStatement, bool) {
-			select {
-			case <-ctx.Done(): // fast path
-				return NodeStatement{}, false
-			default:
-				// continue
-			}
-			if i < len(s) {
-				statement := s[i]
-				i += 1
-				return statement, true
-			}
-			return NodeStatement{}, false
-		},
+func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
+	if len(s) == 0 {
+		return 0, 0
+	}
+	var (
+		min = math.MaxInt
+		max = math.MinInt
 	)
+	for height := range s {
+		if max < height {
+			max = height
+		}
+		if min > height {
+			min = height
+		}
+	}
+	return min, max
 }
