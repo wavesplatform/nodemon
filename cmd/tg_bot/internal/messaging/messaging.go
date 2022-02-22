@@ -14,6 +14,7 @@ type MessageEnvironment struct {
 	ReceivedChat bool
 }
 
+// TODO make this function common for all bots
 func StartMessagingClient(ctx context.Context, nanomsgURL string, bot *telebot.Bot, botEnv *MessageEnvironment) error {
 	socket, err := sub.NewSocket()
 	if err != nil {
