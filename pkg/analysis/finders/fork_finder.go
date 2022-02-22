@@ -1,4 +1,4 @@
-package analysis
+package finders
 
 import (
 	"github.com/pkg/errors"
@@ -14,23 +14,23 @@ func NewForkFinder(es *events.Storage) *ForkFinder {
 	return &ForkFinder{storage: es}
 }
 
-func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, []byte, error) {
+func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockID, error) {
 	startA, err := f.storage.EarliestHeight(nodeA)
 	if err != nil {
-		return 0, nil, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
+		return 0, proto.BlockID{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
 	}
 	startB, err := f.storage.EarliestHeight(nodeB)
 	if err != nil {
-		return 0, nil, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
+		return 0, proto.BlockID{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
 	}
 	start := max(startA, startB)
 	stopA, err := f.storage.LatestHeight(nodeA)
 	if err != nil {
-		return 0, nil, errors.Wrapf(err, "no latest statement for node '%s'", nodeA)
+		return 0, proto.BlockID{}, errors.Wrapf(err, "no latest statement for node '%s'", nodeA)
 	}
 	stopB, err := f.storage.LatestHeight(nodeB)
 	if err != nil {
-		return 0, nil, errors.Wrapf(err, "no latest statement for node '%s'", nodeB)
+		return 0, proto.BlockID{}, errors.Wrapf(err, "no latest statement for node '%s'", nodeB)
 	}
 	stop := min(stopA, stopB)
 
@@ -39,7 +39,7 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, []byte, erro
 		middle := (start + stop) / 2
 		different, err := f.differentBlocksAt(nodeA, nodeB, middle)
 		if err != nil {
-			return 0, nil, err
+			return 0, proto.BlockID{}, err
 		}
 		if different {
 			stop = middle - 1
@@ -52,13 +52,13 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, []byte, erro
 	initialStart := max(startA, startB)
 	initialStop := min(stopA, stopB)
 	if r < initialStart {
-		return 0, nil, errors.Errorf("no common blocks in range [%d, %d]", initialStart, initialStop)
+		return 0, proto.BlockID{}, errors.Errorf("no common blocks in range [%d, %d]", initialStart, initialStop)
 	}
 	sh, err := f.storage.LastStateHashAtHeight(nodeA, r)
 	if err != nil {
-		return 0, nil, errors.Wrapf(err, "no block ID at height %d", r)
+		return 0, proto.BlockID{}, errors.Wrapf(err, "no block ID at height %d", r)
 	}
-	return r, sh.BlockID.Bytes(), nil
+	return r, sh.BlockID, nil
 }
 
 func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.StateHash, error) {

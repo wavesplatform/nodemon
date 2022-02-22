@@ -1,11 +1,12 @@
 package analysis
 
 import (
-	"fmt"
+	"context"
 	"log"
-	"time"
+	"sync"
 
 	"github.com/pkg/errors"
+	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -30,13 +31,70 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	}
 	statusSplit := nodes.Iterator().SplitByNodeStatus()
 
-	for _, unreachable := range statusSplit[entities.Unreachable] {
-		alerts <- entities.Alert{Description: fmt.Sprintf(
-			"[%s] Node %q is UNREACHABLE.",
-			time.Unix(unreachable.Timestamp, 0).String(), unreachable.Node,
-		)}
+	routines := [...]func(in chan<- entities.Alert) error{
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criteria.NewUnreachableCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.Unreachable])
+		},
+		func(in chan<- entities.Alert) error {
+			criterion := criteria.NewIncompleteCriterion(a.es)
+			return criterion.Analyze(in, statusSplit[entities.Incomplete])
+		},
+		func(in chan<- entities.Alert) error {
+			criterion := criteria.NewInvalidHeightCriterion(a.es)
+			return criterion.Analyze(in, statusSplit[entities.InvalidHeight])
+		},
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criteria.NewHeightCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.OK])
+		},
+		func(in chan<- entities.Alert) error {
+			// TODO(nickeskov): configure it
+			criterion := criteria.NewStateHashCriterion(a.es, nil)
+			return criterion.Analyze(in, statusSplit[entities.OK])
+		},
 	}
+	var (
+		wg          = new(sync.WaitGroup)
+		criteriaOut = make(chan entities.Alert)
+		ctx, cancel = context.WithCancel(context.Background())
+	)
+	defer func() {
+		wg.Wait()
+		cancel()
+	}()
 
+	// run criterion routines
+	wg.Add(len(routines))
+	for _, f := range routines {
+		go func(f func(alerts chan<- entities.Alert) error) {
+			defer wg.Done()
+			if err := f(criteriaOut); err != nil {
+				log.Printf("Error occured on criterion routine: %v", err)
+			}
+		}(f)
+	}
+	// run analyzer proxy
+	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert) {
+		for {
+			select {
+			case alert := <-criteriaOut:
+				if err := a.sendAlert(alertsIn, alert); err != nil {
+					log.Printf("Some error orrured on analyzer proxy routine: %v", err)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}(ctx, alerts, criteriaOut)
+	return nil
+}
+
+func (a *Analyzer) sendAlert(alerts chan<- entities.Alert, alert entities.Alert) error {
+	// TODO(nickeskov): handle ignore rules
+	alerts <- alert
 	return nil
 }
 

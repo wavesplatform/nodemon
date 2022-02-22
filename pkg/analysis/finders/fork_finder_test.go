@@ -1,4 +1,4 @@
-package analysis
+package finders
 
 import (
 	"fmt"
@@ -112,7 +112,7 @@ func TestFindLastCommonBlock(t *testing.T) {
 		} else {
 			require.NoError(t, err, testN)
 			require.Equal(t, test.expectedHeight, h, testN)
-			require.ElementsMatch(t, test.expectedBlockID.Bytes(), id, testN)
+			require.Equal(t, test.expectedBlockID, id, testN)
 		}
 	}
 }
