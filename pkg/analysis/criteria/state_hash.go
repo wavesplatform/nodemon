@@ -28,7 +28,7 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions) 
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, statements entities.NodeStatements) error {
-	splitHeight := statements.Iterator().SplitByNodeHeight()
+	splitHeight := statements.SplitByNodeHeight()
 	for height, nodeStatements := range splitHeight {
 		if err := c.analyzeNodesOnSameHeight(alerts, height, nodeStatements); err != nil {
 			return err
@@ -38,7 +38,7 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, statements en
 }
 
 func (c *StateHashCriterion) analyzeNodesOnSameHeight(alerts chan<- entities.Alert, groupHeight int, statements entities.NodeStatements) error {
-	splitStateHash, others := statements.Iterator().SplitBySumStateHash()
+	splitStateHash, others := statements.SplitBySumStateHash()
 	if l := len(others); l != 0 {
 		return errors.Errorf("failed to analyze nodes at height %d by statehash criterion %v",
 			groupHeight, others.Nodes(),

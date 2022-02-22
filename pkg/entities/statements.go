@@ -59,6 +59,50 @@ func (s NodeStatements) Nodes() Nodes {
 	return out
 }
 
+func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, NodeStatements) {
+	var (
+		split            = make(NodeStatementsSplitByStateHash, len(s))
+		withoutStateHash NodeStatements
+	)
+	for _, statement := range s {
+		switch statement.Status {
+		case OK:
+			sumHash := statement.StateHash.SumHash
+			split[sumHash] = append(split[sumHash], statement)
+		default:
+			withoutStateHash = append(withoutStateHash, statement)
+		}
+	}
+	return split, withoutStateHash
+}
+
+func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
+	split := make(NodeStatementsSplitByStatus, len(s))
+	for _, statement := range s {
+		status := statement.Status
+		split[status] = append(split[status], statement)
+	}
+	return split
+}
+
+func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
+	split := make(NodeStatementsSplitByHeight, len(s))
+	for _, statement := range s {
+		height := statement.Height
+		split[height] = append(split[height], statement)
+	}
+	return split
+}
+
+func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
+	split := make(NodeStatementsSplitByVersion, len(s))
+	for _, statement := range s {
+		version := statement.Version
+		split[version] = append(split[version], statement)
+	}
+	return split
+}
+
 func (s NodeStatements) Iterator() *NodeStatementsIterator {
 	i := 0
 	return NewNodeStatementsIteratorClosure(

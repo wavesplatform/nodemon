@@ -29,7 +29,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	if err != nil {
 		return errors.Wrap(err, "failed to analyze nodes statements")
 	}
-	statusSplit := nodes.Iterator().SplitByNodeStatus()
+	statusSplit := nodes.SplitByNodeStatus()
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
