@@ -26,7 +26,7 @@ func NewHeightCriterion(es *events.Storage, opts *HeightCriterionOptions) *Heigh
 }
 
 func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, statements entities.NodeStatements) error {
-	split := statements.Iterator().SplitByNodeHeight()
+	split := statements.SplitByNodeHeight()
 	min, max := split.MinMaxHeight()
 	if min == max { // all nodes on same height
 		return nil
