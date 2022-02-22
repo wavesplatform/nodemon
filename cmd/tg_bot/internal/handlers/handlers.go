@@ -2,7 +2,7 @@ package handlers
 
 import (
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/telegram_bot/internal/messaging"
+	"nodemon/cmd/tg_bot/internal/messaging"
 )
 
 func InitHandlers(bot *tele.Bot, environment *messaging.MessageEnvironment) {
