@@ -2,6 +2,7 @@ package entities
 
 import (
 	"context"
+	"sort"
 
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
@@ -9,10 +10,10 @@ import (
 type NodeStatus string
 
 const (
-	OK             NodeStatus = "OK"
-	Incomplete     NodeStatus = "incomplete"
-	Unreachable    NodeStatus = "unreachable"
-	InvalidVersion NodeStatus = "invalid_version"
+	OK            NodeStatus = "OK"
+	Incomplete    NodeStatus = "incomplete"
+	Unreachable   NodeStatus = "unreachable"
+	InvalidHeight NodeStatus = "invalid_height"
 )
 
 const (
@@ -28,7 +29,35 @@ type NodeStatement struct {
 	StateHash *proto.StateHash `json:"state_hash,omitempty"`
 }
 
-type NodeStatements []NodeStatement
+type (
+	NodeStatements []NodeStatement
+	Nodes          []string
+)
+
+func (n Nodes) Sort() Nodes {
+	sort.Strings(n)
+	return n
+}
+
+func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
+	sort.Slice(s, func(i, j int) bool { return less(&s[i], &s[j]) })
+	return s
+}
+
+func (s NodeStatements) SortByNodeAsc() NodeStatements {
+	return s.Sort(func(left, right *NodeStatement) bool { return left.Node < right.Node })
+}
+
+func (s NodeStatements) Nodes() Nodes {
+	if len(s) == 0 {
+		return nil
+	}
+	out := make([]string, len(s))
+	for i := range s {
+		out[i] = s[i].Node
+	}
+	return out
+}
 
 func (s NodeStatements) Iterator() *NodeStatementsIterator {
 	i := 0

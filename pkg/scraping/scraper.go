@@ -26,13 +26,16 @@ func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
 	out := make(chan entities.Notification)
 	go func(notifications chan<- entities.Notification) {
 		ticker := time.NewTicker(s.interval)
+		defer func() {
+			ticker.Stop()
+			close(notifications)
+		}()
 		for {
 			s.poll(ctx, notifications)
 			select {
 			case <-ticker.C:
 				continue
 			case <-ctx.Done():
-				close(notifications)
 				return
 			}
 		}
