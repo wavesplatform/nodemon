@@ -1,10 +1,6 @@
 package criteria
 
 import (
-	"encoding/json"
-	"fmt"
-
-	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -30,12 +26,6 @@ func (c *IncompleteCriterion) analyzeNodeStatement(alerts chan<- entities.Alert,
 	if statement.Status != entities.Incomplete { // fast path
 		return nil
 	}
-	v, err := json.Marshal(&statement)
-	if err != nil {
-		return errors.Wrap(err, "failed to analyzeNodeStatement by IncompleteCriterion")
-	}
-	alerts <- entities.NewSimpleAlert(fmt.Sprintf("Node %q (%s) has incomplete statement info %q",
-		statement.Node, statement.Version, string(v),
-	))
+	alerts <- &entities.IncompleteAlert{NodeStatement: statement}
 	return nil
 }
