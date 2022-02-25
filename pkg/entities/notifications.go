@@ -1,6 +1,8 @@
 package entities
 
-import "fmt"
+const (
+	OnPollingCompleteNotificationType = "OnPollingComplete"
+)
 
 type Notification interface {
 	Type() string
@@ -16,7 +18,7 @@ func NewOnPollingComplete(nodes []string, ts int64) *OnPollingComplete {
 }
 
 func (n *OnPollingComplete) Type() string {
-	return "OnPollingComplete"
+	return OnPollingCompleteNotificationType
 }
 
 func (n *OnPollingComplete) Nodes() []string {
@@ -25,29 +27,4 @@ func (n *OnPollingComplete) Nodes() []string {
 
 func (n *OnPollingComplete) Timestamp() int64 {
 	return n.ts
-}
-
-type Alert interface {
-	Notification
-	Message() string
-}
-
-type SimpleAlert struct {
-	message string
-}
-
-func NewSimpleAlert(message string) *SimpleAlert {
-	return &SimpleAlert{message: message}
-}
-
-func (a *SimpleAlert) Type() string {
-	return "SimpleAlert"
-}
-
-func (a *SimpleAlert) Message() string {
-	return a.message
-}
-
-func (a *SimpleAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
 }
