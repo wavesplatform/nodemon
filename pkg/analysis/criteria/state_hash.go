@@ -1,8 +1,6 @@
 package criteria
 
 import (
-	"fmt"
-
 	"github.com/pkg/errors"
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
@@ -27,17 +25,22 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions) 
 	return &StateHashCriterion{opts: opts, es: es}
 }
 
-func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, statements entities.NodeStatements) error {
+func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
 	splitHeight := statements.SplitByNodeHeight()
 	for height, nodeStatements := range splitHeight {
-		if err := c.analyzeNodesOnSameHeight(alerts, height, nodeStatements); err != nil {
+		if err := c.analyzeNodesOnSameHeight(alerts, height, timestamp, nodeStatements); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *StateHashCriterion) analyzeNodesOnSameHeight(alerts chan<- entities.Alert, groupHeight int, statements entities.NodeStatements) error {
+func (c *StateHashCriterion) analyzeNodesOnSameHeight(
+	alerts chan<- entities.Alert,
+	groupHeight int,
+	timestamp int64,
+	statements entities.NodeStatements,
+) error {
 	splitStateHash, others := statements.SplitBySumStateHash()
 	if l := len(others); l != 0 {
 		return errors.Errorf("failed to analyze nodes at height %d by statehash criterion %v",
@@ -59,24 +62,27 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(alerts chan<- entities.Ale
 			if first.Node == second.Node {
 				continue
 			}
-			forkHeight, commonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
+			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
 			if err != nil {
 				return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
 					first.Node, second.Node,
 				)
 			}
-			if groupHeight-forkHeight > c.opts.MaxForkDepth {
-				alerts <- entities.NewSimpleAlert(fmt.Sprintf(
-					"Different state hash between nodes on same height %d: %q=%v, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
-					groupHeight,
-					first.StateHash.SumHash.String(),
-					splitStateHash[first.StateHash.SumHash].Nodes().Sort(),
-					second.StateHash.SumHash.String(),
-					splitStateHash[second.StateHash.SumHash].Nodes().Sort(),
-					forkHeight,
-					commonStateHash.SumHash.String(),
-					commonStateHash.BlockID.String(),
-				))
+			if groupHeight-lastCommonStateHashHeight > c.opts.MaxForkDepth {
+				alerts <- &entities.StateHashAlert{
+					Timestamp:                 timestamp,
+					CurrentGroupsHeight:       groupHeight,
+					LastCommonStateHashHeight: lastCommonStateHashHeight,
+					LastCommonStateHash:       lastCommonStateHash,
+					FirstGroup: entities.StateHashGroup{
+						Nodes:     splitStateHash[first.StateHash.SumHash].Nodes().Sort(),
+						StateHash: *first.StateHash,
+					},
+					SecondGroup: entities.StateHashGroup{
+						Nodes:     splitStateHash[second.StateHash.SumHash].Nodes().Sort(),
+						StateHash: *second.StateHash,
+					},
+				}
 			}
 		}
 	}

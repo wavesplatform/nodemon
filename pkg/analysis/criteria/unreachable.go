@@ -1,9 +1,6 @@
 package criteria
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -23,7 +20,7 @@ func NewUnreachableCriterion(es *events.Storage, opts *UnreachableCriterionOptio
 	if opts == nil { // by default
 		opts = &UnreachableCriterionOptions{
 			Streak: 3,
-			Depth:  10,
+			Depth:  5,
 		}
 	}
 	return &UnreachableCriterion{opts: opts, es: es}
@@ -40,23 +37,16 @@ func (c *UnreachableCriterion) Analyze(alerts chan<- entities.Alert, statements 
 
 func (c *UnreachableCriterion) analyzeNodeStatement(alerts chan<- entities.Alert, statement entities.NodeStatement) error {
 	var (
-		streak                 = 0
-		depth                  = 0
-		streakStart, streakEnd *entities.NodeStatement
+		streak = 0
+		depth  = 0
 	)
 	err := c.es.ViewStatementsByNodeWithDescendKeys(statement.Node, func(statement *entities.NodeStatement) bool {
-		switch statement.Status {
-		case entities.Unreachable:
-			if streak == 0 {
-				streakEnd = statement
-			}
+		if statement.Status == entities.Unreachable {
 			streak += 1
-			streakStart = statement
-		default:
+		} else {
 			streak = 0
-			streakEnd, streakStart = nil, nil
 		}
-		depth++
+		depth += 1
 		if streak >= c.opts.Streak || depth > c.opts.Depth {
 			return false
 		}
@@ -66,11 +56,7 @@ func (c *UnreachableCriterion) analyzeNodeStatement(alerts chan<- entities.Alert
 		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", statement.Node)
 	}
 	if streak >= c.opts.Streak {
-		// TODO(nickeskov): create alert type for this criterion
-		alerts <- entities.NewSimpleAlert(fmt.Sprintf("Node %q (%s) is UNREACHABLE since %q to %q",
-			statement.Node, statement.Version,
-			time.Unix(streakStart.Timestamp, 0), time.Unix(streakEnd.Timestamp, 0),
-		))
+		alerts <- &entities.UnreachableAlert{NodeStatement: statement}
 	}
 	return nil
 }

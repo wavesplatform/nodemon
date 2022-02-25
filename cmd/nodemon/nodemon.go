@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
@@ -13,6 +12,7 @@ import (
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
+	"nodemon/pkg/messaging"
 	"nodemon/pkg/scraping"
 	eventsStorage "nodemon/pkg/storing/events"
 	nodesStorage "nodemon/pkg/storing/nodes"

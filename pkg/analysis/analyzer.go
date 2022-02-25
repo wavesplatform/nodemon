@@ -21,15 +21,15 @@ func NewAnalyzer(es *events.Storage) *Analyzer {
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
 	// TODO: analysis here
-	nodes := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
+	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
-		nodes = append(nodes, *statement)
+		statements = append(statements, *statement)
 		return true
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to analyze nodes statements")
 	}
-	statusSplit := nodes.SplitByNodeStatus()
+	statusSplit := statements.SplitByNodeStatus()
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
@@ -48,12 +48,12 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
 			criterion := criteria.NewHeightCriterion(a.es, nil)
-			return criterion.Analyze(in, statusSplit[entities.OK])
+			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
 			criterion := criteria.NewStateHashCriterion(a.es, nil)
-			return criterion.Analyze(in, statusSplit[entities.OK])
+			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}
 	var (

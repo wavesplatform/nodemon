@@ -68,11 +68,10 @@ func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, N
 		withoutStateHash NodeStatements
 	)
 	for _, statement := range s {
-		switch statement.Status {
-		case OK:
+		if statement.Status == OK {
 			sumHash := statement.StateHash.SumHash
 			split[sumHash] = append(split[sumHash], statement)
-		default:
+		} else {
 			withoutStateHash = append(withoutStateHash, statement)
 		}
 	}
