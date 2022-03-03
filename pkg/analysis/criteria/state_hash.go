@@ -1,6 +1,8 @@
 package criteria
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
@@ -57,9 +59,14 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	}
 	ff := finders.NewForkFinder(c.es)
 
+	skip := make(map[string]struct{})
 	for _, first := range samples {
 		for _, second := range samples {
 			if first.Node == second.Node {
+				continue
+			}
+			skipKey := strings.Join(entities.Nodes{first.Node, second.Node}.Sort(), "")
+			if _, in := skip[skipKey]; in {
 				continue
 			}
 			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
@@ -69,6 +76,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 				)
 			}
 			if groupHeight-lastCommonStateHashHeight > c.opts.MaxForkDepth {
+				skip[skipKey] = struct{}{}
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,
 					CurrentGroupsHeight:       groupHeight,

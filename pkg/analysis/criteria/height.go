@@ -2,7 +2,6 @@ package criteria
 
 import (
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/events"
 )
 
 type HeightCriterionOptions struct {
@@ -11,23 +10,22 @@ type HeightCriterionOptions struct {
 
 type HeightCriterion struct {
 	opts *HeightCriterionOptions
-	es   *events.Storage
 }
 
-func NewHeightCriterion(es *events.Storage, opts *HeightCriterionOptions) *HeightCriterion {
+func NewHeightCriterion(opts *HeightCriterionOptions) *HeightCriterion {
 	if opts == nil { // default
 		opts = &HeightCriterionOptions{
 			MaxHeightDiff: 20,
 		}
 	}
-	return &HeightCriterion{opts: opts, es: es}
+	return &HeightCriterion{opts: opts}
 }
 
-func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
+func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) {
 	split := statements.SplitByNodeHeight()
 	min, max := split.MinMaxHeight()
 	if min == max { // all nodes on same height
-		return nil
+		return
 	}
 	sortedMaxGroup := split[max].Nodes().Sort()
 	for height, nodeStatements := range split {
@@ -45,5 +43,4 @@ func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64,
 			}
 		}
 	}
-	return nil
 }

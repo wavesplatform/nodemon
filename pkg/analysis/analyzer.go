@@ -20,7 +20,6 @@ func NewAnalyzer(es *events.Storage) *Analyzer {
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
-	// TODO: analysis here
 	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)
@@ -33,22 +32,27 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
+			for _, statement := range statusSplit[entities.Incomplete] {
+				in <- &entities.IncompleteAlert{NodeStatement: statement}
+			}
+			return nil
+		},
+		func(in chan<- entities.Alert) error {
+			for _, statement := range statusSplit[entities.InvalidHeight] {
+				in <- &entities.InvalidHeightAlert{NodeStatement: statement}
+			}
+			return nil
+		},
+		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
 			criterion := criteria.NewUnreachableCriterion(a.es, nil)
 			return criterion.Analyze(in, statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewIncompleteCriterion(a.es)
-			return criterion.Analyze(in, statusSplit[entities.Incomplete])
-		},
-		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewInvalidHeightCriterion(a.es)
-			return criterion.Analyze(in, statusSplit[entities.InvalidHeight])
-		},
-		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
-			criterion := criteria.NewHeightCriterion(a.es, nil)
-			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			criterion := criteria.NewHeightCriterion(nil)
+			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			return nil
 		},
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
