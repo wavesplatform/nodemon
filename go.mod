@@ -2,13 +2,17 @@ module nodemon
 
 go 1.17
 
+// exclude vulnerable dependency: github.com/wavesplatform/gowaves ->
+// -> github.com/prometheus/client_golang -> github.com/prometheus/common@v0.4.1 -> vulnerable
+exclude github.com/gogo/protobuf v1.1.1
+
 require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tidwall/buntdb v1.2.9
-	github.com/wavesplatform/gowaves v0.9.1-0.20220131061926-c6996a436c9a
+	github.com/wavesplatform/gowaves v0.9.1-0.20220303094153-0e3aec83b7a6
 	go.nanomsg.org/mangos/v3 v3.3.0
 	gopkg.in/telebot.v3 v3.0.0
 )
