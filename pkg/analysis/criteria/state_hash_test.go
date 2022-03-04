@@ -94,6 +94,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	var (
 		forkA             = generateStateHashes(0, 5)
 		forkB             = generateStateHashes(50, 5)
+		forkC             = generateStateHashes(100, 5)
 		commonStateHashes = generateStateHashes(250, 5)
 	)
 	tests := []struct {
@@ -128,11 +129,54 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 				},
 			},
 		},
+		{
+			opts: &StateHashCriterionOptions{MaxForkDepth: 1},
+			historyData: mergeEvents(
+				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:1])...),
+				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
+				mkEvents("bb", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
+				mkEvents("bc", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
+			),
+			data: eventsToStatements(mergeEvents(
+				mkEvents("a", 4, forkA[1:2]...),
+				mkEvents("b", 4, forkB[1:2]...),
+				mkEvents("bb", 4, forkB[1:2]...),
+				mkEvents("bc", 4, forkC[1:2]...),
+			)),
+			expectedAlerts: []entities.StateHashAlert{
+				{
+					CurrentGroupsHeight:       4,
+					LastCommonStateHashHeight: 2,
+					LastCommonStateHash:       commonStateHashes[1].sh,
+					FirstGroup: entities.StateHashGroup{
+						Nodes:     entities.Nodes{"a"},
+						StateHash: forkA[1].sh,
+					},
+					SecondGroup: entities.StateHashGroup{
+						Nodes:     entities.Nodes{"b", "bb"},
+						StateHash: forkB[1].sh,
+					},
+				},
+				{
+					CurrentGroupsHeight:       4,
+					LastCommonStateHashHeight: 2,
+					LastCommonStateHash:       commonStateHashes[1].sh,
+					FirstGroup: entities.StateHashGroup{
+						Nodes:     entities.Nodes{"a"},
+						StateHash: forkA[1].sh,
+					},
+					SecondGroup: entities.StateHashGroup{
+						Nodes:     entities.Nodes{"bc"},
+						StateHash: forkC[1].sh,
+					},
+				},
+			},
+		},
 	}
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute)
+			es, err := events.NewStorage(time.Hour)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
@@ -153,7 +197,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 				case actualAlert := <-alerts:
 					stateHashAlert := *actualAlert.(*entities.StateHashAlert)
 					require.Contains(t, test.expectedAlerts, stateHashAlert, "test case #%d", j+1)
-				case <-time.After(5 * time.Second):
+				case <-time.After(5 * time.Hour):
 					require.Fail(t, "timeout exceeded")
 				}
 			}
