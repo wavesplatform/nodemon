@@ -176,12 +176,16 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Hour)
+			es, err := events.NewStorage(time.Minute)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
-				<-done
-				require.NoError(t, es.Close())
+				select {
+				case <-done:
+					require.NoError(t, es.Close())
+				case <-time.After(5 * time.Second):
+					require.Fail(t, "timeout exceeded")
+				}
 			}()
 			fillEventsStorage(t, es, test.historyData)
 
@@ -197,7 +201,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 				case actualAlert := <-alerts:
 					stateHashAlert := *actualAlert.(*entities.StateHashAlert)
 					require.Contains(t, test.expectedAlerts, stateHashAlert, "test case #%d", j+1)
-				case <-time.After(5 * time.Hour):
+				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")
 				}
 			}

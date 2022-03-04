@@ -126,12 +126,16 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Second)
+			es, err := events.NewStorage(time.Minute)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
-				<-done
-				require.NoError(t, es.Close())
+				select {
+				case <-done:
+					require.NoError(t, es.Close())
+				case <-time.After(5 * time.Second):
+					require.Fail(t, "timeout exceeded")
+				}
 			}()
 			fillEventsStorage(t, es, test.historyData)
 

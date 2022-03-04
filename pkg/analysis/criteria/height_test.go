@@ -70,7 +70,17 @@ func TestHeightCriterion_Analyze(t *testing.T) {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
 			alerts := make(chan entities.Alert)
+			done := make(chan struct{})
+			defer func() {
+				select {
+				case <-done:
+					// ok
+				case <-time.After(5 * time.Second):
+					require.Fail(t, "timeout exceeded")
+				}
+			}()
 			go func() {
+				defer close(done)
 				criterion := NewHeightCriterion(test.opts)
 				criterion.Analyze(alerts, 0, test.data)
 			}()

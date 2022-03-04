@@ -64,8 +64,12 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
-				<-done
-				require.NoError(t, es.Close())
+				select {
+				case <-done:
+					require.NoError(t, es.Close())
+				case <-time.After(5 * time.Second):
+					require.Fail(t, "timeout exceeded")
+				}
 			}()
 			fillEventsStorage(t, es, test.historyData)
 
