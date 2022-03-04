@@ -83,7 +83,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	// run criterion routines
 	wg.Add(len(routines))
 	for _, f := range routines {
-		go func(f func(alerts chan<- entities.Alert) error) {
+		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
 				log.Printf("Error occured on criterion routine: %v", err)
