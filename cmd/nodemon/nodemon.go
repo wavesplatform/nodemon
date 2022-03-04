@@ -123,7 +123,7 @@ func run() error {
 	}
 	notifications := scraper.Start(ctx)
 
-	analyzer := analysis.NewAnalyzer(es)
+	analyzer := analysis.NewAnalyzer(es, nil)
 
 	alerts := analyzer.Start(notifications)
 

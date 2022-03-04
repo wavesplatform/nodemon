@@ -1,4 +1,4 @@
-package criteria
+package analysis
 
 import (
 	"encoding/binary"
@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -74,14 +75,6 @@ func mergeEvents(slices ...[]entities.Event) []entities.Event {
 	return out
 }
 
-func eventsToStatements(events []entities.Event) entities.NodeStatements {
-	out := make(entities.NodeStatements, len(events))
-	for i := range events {
-		out[i] = events[i].Statement()
-	}
-	return out
-}
-
 func mergeShInfo(slices ...[]shInfo) []shInfo {
 	var out []shInfo
 	for _, slice := range slices {
@@ -90,30 +83,31 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 	return out
 }
 
-func TestStateHashCriterion_Analyze(t *testing.T) {
+func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	var (
 		forkA             = generateStateHashes(0, 5)
 		forkB             = generateStateHashes(50, 5)
 		commonStateHashes = generateStateHashes(250, 5)
 	)
 	tests := []struct {
-		opts           *StateHashCriterionOptions
+		opts           *AnalyzerCriteriaOptions
 		historyData    []entities.Event
-		data           entities.NodeStatements
+		data           []entities.Event
+		nodes          entities.Nodes
+		height         int
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &StateHashCriterionOptions{MaxForkDepth: 1},
+			opts: &AnalyzerCriteriaOptions{StateHashOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1}},
 			historyData: mergeEvents(
-				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:1])...),
-				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
+				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:2])...),
+				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:2])...),
 			),
-			data: eventsToStatements(mergeEvents(
-				mkEvents("a", 4, forkA[1:2]...),
-				mkEvents("b", 4, forkB[1:2]...),
-			)),
+			nodes:  entities.Nodes{"a", "b"},
+			height: 4,
 			expectedAlerts: []entities.StateHashAlert{
 				{
+					Timestamp:                 mkTimestamp(4),
 					CurrentGroupsHeight:       4,
 					LastCommonStateHashHeight: 2,
 					LastCommonStateHash:       commonStateHashes[1].sh,
@@ -132,7 +126,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute)
+			es, err := events.NewStorage(time.Second)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
@@ -144,8 +138,9 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewStateHashCriterion(es, test.opts)
-				err := criterion.Analyze(alerts, 0, test.data)
+				analyzer := NewAnalyzer(es, test.opts)
+				event := entities.NewOnPollingComplete(test.nodes, mkTimestamp(test.height))
+				err := analyzer.analyze(alerts, event)
 				require.NoError(t, err)
 			}()
 			for j := range test.expectedAlerts {

@@ -29,7 +29,7 @@ func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64,
 	}
 	sortedMaxGroup := split[max].Nodes().Sort()
 	for height, nodeStatements := range split {
-		if diff := max - height; diff > c.opts.MaxHeightDiff {
+		if max-height > c.opts.MaxHeightDiff {
 			alerts <- &entities.HeightAlert{
 				Timestamp: timestamp,
 				MaxHeightGroup: entities.HeightGroup{

@@ -57,6 +57,8 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	for _, nodeStatements := range splitStateHash {
 		samples = append(samples, nodeStatements[0]) // group contains at least one node statement
 	}
+	samples.SortByNodeAsc() // sort for predictable alert result
+
 	ff := finders.NewForkFinder(c.es)
 
 	skip := make(map[string]struct{})

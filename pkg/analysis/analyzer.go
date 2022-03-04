@@ -11,12 +11,22 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
-type Analyzer struct {
-	es *events.Storage
+type AnalyzerCriteriaOptions struct {
+	UnreachableOpts *criteria.UnreachableCriterionOptions
+	HeightOpts      *criteria.HeightCriterionOptions
+	StateHashOpts   *criteria.StateHashCriterionOptions
 }
 
-func NewAnalyzer(es *events.Storage) *Analyzer {
-	return &Analyzer{es: es}
+type Analyzer struct {
+	es   *events.Storage
+	opts *AnalyzerCriteriaOptions
+}
+
+func NewAnalyzer(es *events.Storage, opts *AnalyzerCriteriaOptions) *Analyzer {
+	if opts == nil {
+		opts = &AnalyzerCriteriaOptions{} // use default
+	}
+	return &Analyzer{es: es, opts: opts}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
@@ -45,18 +55,18 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		},
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
-			criterion := criteria.NewUnreachableCriterion(a.es, nil)
-			return criterion.Analyze(in, statusSplit[entities.Unreachable])
+			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableOpts)
+			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
-			criterion := criteria.NewHeightCriterion(nil)
+			criterion := criteria.NewHeightCriterion(a.opts.HeightOpts)
 			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
 			// TODO(nickeskov): configure it
-			criterion := criteria.NewStateHashCriterion(a.es, nil)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashOpts)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}
