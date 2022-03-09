@@ -5,11 +5,12 @@ import (
 	"flag"
 	"github.com/pkg/errors"
 	"log"
+	"os"
+	"os/signal"
+
 	tgBot "nodemon/cmd/bots/internal/tg_bot"
 	"nodemon/cmd/bots/internal/tg_bot/config"
 	"nodemon/pkg/messaging"
-	"os"
-	"os/signal"
 )
 
 func main() {

@@ -1,8 +1,9 @@
 package messaging
 
 import (
-	"gopkg.in/telebot.v3"
 	"log"
+
+	"gopkg.in/telebot.v3"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/chats"
 )

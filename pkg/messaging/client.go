@@ -2,10 +2,11 @@ package messaging
 
 import (
 	"context"
+	"log"
+
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol/sub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
-	"log"
 )
 
 func StartMessagingClient(ctx context.Context, nanomsgURL string, bots *Bots) error {
