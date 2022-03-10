@@ -24,8 +24,8 @@ type Alert interface {
 }
 
 type SimpleAlert struct {
-	Timestamp   int64
-	Description string
+	Timestamp   int64  `json:"timestamp"`
+	Description string `json:"description"`
 }
 
 func (a *SimpleAlert) Type() string {
@@ -45,7 +45,8 @@ func (a *SimpleAlert) String() string {
 }
 
 type UnreachableAlert struct {
-	NodeStatement
+	Timestamp int64  `json:"timestamp"`
+	Node      string `json:"node"`
 }
 
 func (a *UnreachableAlert) Type() string {
@@ -53,7 +54,7 @@ func (a *UnreachableAlert) Type() string {
 }
 
 func (a *UnreachableAlert) Message() string {
-	return fmt.Sprintf("Node %q (%s) is UNREACHABLE", a.Node, a.Version)
+	return fmt.Sprintf("Node %q is UNREACHABLE", a.Node)
 }
 
 func (a *UnreachableAlert) Time() time.Time {
