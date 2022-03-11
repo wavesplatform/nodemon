@@ -1,9 +1,12 @@
 package entities
 
 import (
+	"bytes"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
@@ -14,10 +17,12 @@ const (
 	InvalidHeightAlertNotificationType = "InvalidHeightAlert"
 	HeightAlertNotificationType        = "HeightAlert"
 	StateHashAlertNotificationType     = "StateHashAlert"
+	AlertFixedNotificationType         = "AlertFixed"
 )
 
 type Alert interface {
 	Notification
+	ID() string
 	Message() string
 	Time() time.Time
 	fmt.Stringer
@@ -40,6 +45,11 @@ func (a *SimpleAlert) Time() time.Time {
 	return time.Unix(a.Timestamp, 0)
 }
 
+func (a *SimpleAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.Type() + a.Description))
+	return digest.String()
+}
+
 func (a *SimpleAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
 }
@@ -59,6 +69,11 @@ func (a *UnreachableAlert) Message() string {
 
 func (a *UnreachableAlert) Time() time.Time {
 	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *UnreachableAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.Type() + a.Node))
+	return digest.String()
 }
 
 func (a *UnreachableAlert) String() string {
@@ -85,6 +100,11 @@ func (a *IncompleteAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
 }
 
+func (a *IncompleteAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.Type() + a.Node))
+	return digest.String()
+}
+
 type InvalidHeightAlert struct {
 	NodeStatement
 }
@@ -103,6 +123,11 @@ func (a *InvalidHeightAlert) Time() time.Time {
 
 func (a *InvalidHeightAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
+}
+
+func (a *InvalidHeightAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.Type() + a.Node))
+	return digest.String()
 }
 
 type HeightGroup struct {
@@ -136,6 +161,22 @@ func (a *HeightAlert) Time() time.Time {
 
 func (a *HeightAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
+}
+
+func (a *HeightAlert) ID() string {
+	var buff bytes.Buffer
+	buff.WriteString(a.Type())
+
+	for _, node := range a.MaxHeightGroup.Nodes {
+		buff.WriteString(node)
+	}
+	for _, node := range a.OtherHeightGroup.Nodes {
+		buff.WriteString(node)
+	}
+	buff.WriteString(strconv.Itoa(a.OtherHeightGroup.Height))
+
+	digest := crypto.MustFastHash(buff.Bytes())
+	return digest.String()
 }
 
 type StateHashGroup struct {
@@ -175,5 +216,49 @@ func (a *StateHashAlert) Time() time.Time {
 }
 
 func (a *StateHashAlert) String() string {
+	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
+}
+
+func (a *StateHashAlert) ID() string {
+	var buff bytes.Buffer
+	buff.WriteString(a.Type())
+
+	buff.WriteString(strconv.Itoa(a.LastCommonStateHashHeight))
+	buff.WriteString(a.LastCommonStateHash.SumHash.String())
+
+	for _, node := range a.FirstGroup.Nodes {
+		buff.WriteString(node)
+	}
+	for _, node := range a.SecondGroup.Nodes {
+		buff.WriteString(node)
+	}
+
+	digest := crypto.MustFastHash(buff.Bytes())
+	return digest.String()
+}
+
+type AlertFixed struct {
+	Timestamp int64 `json:"timestamp"`
+	Fixed     Alert `json:"fixed"`
+}
+
+func (a *AlertFixed) Type() string {
+	return AlertFixedNotificationType
+}
+
+func (a *AlertFixed) ID() string {
+	digest := crypto.MustFastHash([]byte(a.Type() + a.Fixed.ID()))
+	return digest.String()
+}
+
+func (a *AlertFixed) Message() string {
+	return fmt.Sprintf("Alert has been FIXED: %s", a.Fixed.Message())
+}
+
+func (a *AlertFixed) Time() time.Time {
+	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *AlertFixed) String() string {
 	return fmt.Sprintf("%s: %s", a.Type(), a.Message())
 }

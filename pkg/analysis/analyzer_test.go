@@ -90,7 +90,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 		commonStateHashes = generateStateHashes(250, 5)
 	)
 	tests := []struct {
-		opts           *AnalyzerCriteriaOptions
+		opts           *AnalyzerOptions
 		historyData    []entities.Event
 		data           []entities.Event
 		nodes          entities.Nodes
@@ -98,7 +98,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &AnalyzerCriteriaOptions{StateHashOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1}},
+			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1}},
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:2])...),
 				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:2])...),

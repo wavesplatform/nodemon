@@ -129,7 +129,8 @@ func run() error {
 
 	socket, err := messaging.StartMessagingServer(nanomsgURL)
 	if err != nil {
-		log.Printf("Failed to start messaging server, %v", err)
+		log.Printf("Failed to start messaging server: %v", err)
+		return err
 	}
 	go func() {
 		for alert := range alerts {

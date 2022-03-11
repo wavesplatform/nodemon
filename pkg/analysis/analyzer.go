@@ -11,22 +11,33 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
-type AnalyzerCriteriaOptions struct {
-	UnreachableOpts *criteria.UnreachableCriterionOptions
-	HeightOpts      *criteria.HeightCriterionOptions
-	StateHashOpts   *criteria.StateHashCriterionOptions
+type AnalyzerOptions struct {
+	AlertBackoff            int
+	AlertVacuumQuota        int
+	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
+	HeightCriteriaOpts      *criteria.HeightCriterionOptions
+	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
 }
 
 type Analyzer struct {
 	es   *events.Storage
-	opts *AnalyzerCriteriaOptions
+	as   *alertsStorage
+	opts *AnalyzerOptions
 }
 
-func NewAnalyzer(es *events.Storage, opts *AnalyzerCriteriaOptions) *Analyzer {
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
 	if opts == nil {
-		opts = &AnalyzerCriteriaOptions{} // use default
+		opts = &AnalyzerOptions{}
 	}
-	return &Analyzer{es: es, opts: opts}
+	if opts.AlertBackoff == 0 {
+		opts.AlertBackoff = defaultAlertBackoff
+	}
+	if opts.AlertVacuumQuota == 0 {
+		opts.AlertVacuumQuota = defaultAlertVacuumQuota
+	}
+
+	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
+	return &Analyzer{es: es, as: as, opts: opts}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
@@ -54,19 +65,16 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableOpts)
+			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewHeightCriterion(a.opts.HeightOpts)
+			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts)
 			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashOpts)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}
@@ -74,10 +82,12 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		wg          = new(sync.WaitGroup)
 		criteriaOut = make(chan entities.Alert)
 		ctx, cancel = context.WithCancel(context.Background())
+		proxyDone   = make(chan struct{})
 	)
 	defer func() {
-		wg.Wait()
-		cancel()
+		wg.Wait()   // wait for all criterion routines
+		cancel()    // stop analyzer proxy
+		<-proxyDone // wait for analyzer proxy
 	}()
 
 	// run criterion routines
@@ -92,23 +102,31 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	}
 	// run analyzer proxy
 	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert) {
+		defer close(proxyDone)
+		defer func() {
+			// we have to vacuum alerts storage each time and send alerts about fixed alerts :)
+			// also we perform vacuum here to prevent data race condition
+			ts := pollingResult.Timestamp()
+			vacuumedAlerts := a.as.Vacuum()
+			for _, alert := range vacuumedAlerts {
+				alertsIn <- &entities.AlertFixed{
+					Timestamp: ts,
+					Fixed:     alert,
+				}
+			}
+		}()
 		for {
 			select {
 			case alert := <-criteriaOut:
-				if err := a.sendAlert(alertsIn, alert); err != nil {
-					log.Printf("Some error orrured on analyzer proxy routine: %v", err)
+				sendAlertNow := a.as.PutAlert(alert)
+				if sendAlertNow {
+					alertsIn <- alert
 				}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}(ctx, alerts, criteriaOut)
-	return nil
-}
-
-func (a *Analyzer) sendAlert(alerts chan<- entities.Alert, alert entities.Alert) error {
-	// TODO(nickeskov): handle ignore rules
-	alerts <- alert
 	return nil
 }
 
