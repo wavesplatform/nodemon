@@ -7,7 +7,7 @@ import (
 	"nodemon/pkg/entities"
 )
 
-func TestAlertsStorage_PutAlert(t *testing.T) {
+func TestAlertsStorage(t *testing.T) {
 	var (
 		alert1 = &entities.SimpleAlert{Description: "first simple alert"}
 		alert2 = &entities.SimpleAlert{Description: "second simple alert"}
@@ -16,7 +16,7 @@ func TestAlertsStorage_PutAlert(t *testing.T) {
 	tests := []struct {
 		alertBackoff        int
 		alertVacuumQuota    int
-		vacuumRuns          int
+		vacuumResults       [][]entities.Alert
 		initialAlerts       []entities.Alert
 		alerts              []entities.Alert
 		sendAlertNowResults []bool
@@ -25,7 +25,7 @@ func TestAlertsStorage_PutAlert(t *testing.T) {
 		{
 			alertBackoff:        defaultAlertBackoff,
 			alertVacuumQuota:    4,
-			vacuumRuns:          3,
+			vacuumResults:       [][]entities.Alert{{}, {}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2},
 			alerts:              []entities.Alert{alert3, alert1, alert1},
 			sendAlertNowResults: []bool{true, false, true},
@@ -50,23 +50,66 @@ func TestAlertsStorage_PutAlert(t *testing.T) {
 				},
 			},
 		},
+		{
+			alertBackoff:        defaultAlertBackoff,
+			alertVacuumQuota:    2,
+			vacuumResults:       [][]entities.Alert{{}, {alert1, alert2}, {}},
+			initialAlerts:       []entities.Alert{alert1, alert2},
+			alerts:              []entities.Alert{alert3, alert3, alert1, alert1, alert1},
+			sendAlertNowResults: []bool{true, false, true, false, true},
+			expectedAlertsInfo: []alertInfo{
+				{
+					vacuumQuota:      2,
+					repeats:          0,
+					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					alert:            alert1,
+				},
+				{
+					vacuumQuota:      2,
+					repeats:          1,
+					backoffThreshold: defaultAlertBackoff,
+					alert:            alert3,
+				},
+			},
+		},
+		{
+			alertBackoff:        defaultAlertBackoff,
+			alertVacuumQuota:    0,
+			vacuumResults:       nil,
+			initialAlerts:       nil,
+			alerts:              []entities.Alert{alert1, alert1, alert1, alert2, alert3},
+			sendAlertNowResults: []bool{true, true, true, true, true},
+			expectedAlertsInfo:  nil,
+		},
+		{
+			alertBackoff:        defaultAlertBackoff,
+			alertVacuumQuota:    1,
+			vacuumResults:       nil,
+			initialAlerts:       nil,
+			alerts:              []entities.Alert{alert1, alert1, alert1, alert2, alert3},
+			sendAlertNowResults: []bool{true, true, true, true, true},
+			expectedAlertsInfo:  nil,
+		},
 	}
 	for i, test := range tests {
 		tcNum := i + 1
+		require.Equal(t, len(test.alerts), len(test.sendAlertNowResults),
+			"failed constraint in test case#%d", tcNum,
+		)
 
 		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota)
 		for _, alert := range test.initialAlerts {
 			storage.PutAlert(alert)
 		}
-		for j := 0; j < test.vacuumRuns; j++ {
-			storage.Vacuum()
+		for j, expectedVacuumed := range test.vacuumResults {
+			actualVacuumed := storage.Vacuum()
+			require.ElementsMatch(t, expectedVacuumed, actualVacuumed, "test case#%d vacuum#%d", tcNum, j+1)
 		}
 		for j, alert := range test.alerts {
 			sendAlertNow := storage.PutAlert(alert)
 			require.Equal(t, test.sendAlertNowResults[j], sendAlertNow, "test case#%d alert#%d", tcNum, j+1)
 		}
 		actualInfos := storage.internalStorage.infos()
-		require.ElementsMatch(t, test.expectedAlertsInfo, actualInfos)
+		require.ElementsMatch(t, test.expectedAlertsInfo, actualInfos, "test case#%d", tcNum)
 	}
-
 }

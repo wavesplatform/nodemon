@@ -55,6 +55,9 @@ func newAlertsStorage(alertBackoff, alertVacuumQuota int) *alertsStorage {
 }
 
 func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
+	if s.alertVacuumQuota <= 1 { // no need to save alerts which can't outlive even one vacuum stage
+		return true
+	}
 	alertID := alert.ID()
 	old, in := s.internalStorage[alertID]
 	if !in { // first time alert
