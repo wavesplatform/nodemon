@@ -5,10 +5,10 @@ import (
 	"flag"
 	"github.com/pkg/errors"
 	"log"
+	tgBot "nodemon/cmd/bots/internal/tg_bot/init"
 	"os"
 	"os/signal"
 
-	tgBot "nodemon/cmd/bots/internal/tg_bot"
 	"nodemon/cmd/bots/internal/tg_bot/config"
 	"nodemon/pkg/messaging"
 )
@@ -72,9 +72,9 @@ func run() error {
 		}
 	}()
 
-	log.Println("Telegram bot started")
-	bots.TgBotEnvironment.Bot.Start()
+	for _, bot := range bots {
+		bot.Start()
+	}
 	<-ctx.Done()
-	log.Println("Telegram bot finished")
 	return nil
 }

@@ -1,13 +1,14 @@
 package handlers
 
 import (
-	tele "gopkg.in/telebot.v3"
 	"log"
+	"nodemon/cmd/bots/internal/tg_bot"
+
+	tele "gopkg.in/telebot.v3"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
 )
 
-func InitHandlers(bot *tele.Bot, environment *messaging.TelegramBotEnvironment) {
+func InitHandlers(bot *tele.Bot, environment *tg_bot.TelegramBotEnvironment) {
 	bot.Handle("/hello", func(c tele.Context) error {
 		oldChatID, err := environment.ChatStorage.FindChatID(entities.TelegramPlatform)
 		if err != nil {
