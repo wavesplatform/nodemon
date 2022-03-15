@@ -3,6 +3,7 @@ package handlers
 import (
 	"log"
 	"nodemon/cmd/bots/internal/tg_bot"
+	"nodemon/cmd/bots/internal/tg_bot/base_messages"
 
 	tele "gopkg.in/telebot.v3"
 	"nodemon/pkg/entities"
@@ -40,5 +41,19 @@ func InitHandlers(bot *tele.Bot, environment *tg_bot.TelegramBotEnvironment) {
 	bot.Handle("/mute", func(c tele.Context) error {
 		environment.ShutUp = false
 		return c.Send("Say no more..")
+	})
+
+	bot.Handle("/help", func(c tele.Context) error {
+		replyKeyboard := base_messages.HelpCommandKeyboard()
+		return c.Send(
+			base_messages.HelpInfoText2,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+				ReplyMarkup: &tele.ReplyMarkup{
+					OneTimeKeyboard: true,
+					ResizeKeyboard:  true,
+					ReplyKeyboard:   replyKeyboard,
+				},
+			})
 	})
 }
