@@ -16,25 +16,49 @@ type alertInfo struct {
 	alert            entities.Alert
 }
 
+type alertsInternalStorage map[string]alertInfo
+
+func (s alertsInternalStorage) ids() []string {
+	if len(s) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(s))
+	for id := range s {
+		ids = append(ids, id)
+	}
+	return ids
+}
+
+func (s alertsInternalStorage) infos() []alertInfo {
+	if len(s) == 0 {
+		return nil
+	}
+	infos := make([]alertInfo, 0, len(s))
+	for _, info := range s {
+		infos = append(infos, info)
+	}
+	return infos
+}
+
 type alertsStorage struct {
 	alertBackoff     int
 	alertVacuumQuota int
-	storage          map[string]alertInfo
+	internalStorage  alertsInternalStorage
 }
 
 func newAlertsStorage(alertBackoff, alertVacuumQuota int) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:     alertBackoff,
 		alertVacuumQuota: alertVacuumQuota,
-		storage:          make(map[string]alertInfo),
+		internalStorage:  make(alertsInternalStorage),
 	}
 }
 
 func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	alertID := alert.ID()
-	old, in := s.storage[alertID]
+	old, in := s.internalStorage[alertID]
 	if !in { // first time alert
-		s.storage[alertID] = alertInfo{
+		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,
 			repeats:          0,
 			backoffThreshold: s.alertBackoff,
@@ -44,7 +68,7 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	}
 	old.repeats += 1
 	if old.repeats >= old.backoffThreshold { // backoff exceeded
-		s.storage[alertID] = alertInfo{
+		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,
 			repeats:          0,
 			backoffThreshold: s.alertBackoff * old.backoffThreshold,
@@ -54,31 +78,20 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	}
 	// we have to update quota for vacuum stage due to alert repeat
 	old.vacuumQuota = s.alertVacuumQuota
-	s.storage[alertID] = old
+	s.internalStorage[alertID] = old
 	return false
-}
-
-func (s *alertsStorage) ids() []string {
-	if len(s.storage) == 0 {
-		return nil
-	}
-	ids := make([]string, 0, len(s.storage))
-	for id := range s.storage {
-		ids = append(ids, id)
-	}
-	return ids
 }
 
 func (s *alertsStorage) Vacuum() []entities.Alert {
 	var alertsFixed []entities.Alert
-	for _, id := range s.ids() {
-		info := s.storage[id]
+	for _, id := range s.internalStorage.ids() {
+		info := s.internalStorage[id]
 		info.vacuumQuota -= 1
 		if info.vacuumQuota <= 0 {
 			alertsFixed = append(alertsFixed, info.alert)
-			delete(s.storage, id)
+			delete(s.internalStorage, id)
 		} else {
-			s.storage[id] = info
+			s.internalStorage[id] = info
 		}
 	}
 	return alertsFixed
