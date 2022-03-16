@@ -26,37 +26,40 @@ func NewUnreachableCriterion(es *events.Storage, opts *UnreachableCriterionOptio
 	return &UnreachableCriterion{opts: opts, es: es}
 }
 
-func (c *UnreachableCriterion) Analyze(alerts chan<- entities.Alert, statements entities.NodeStatements) error {
+func (c *UnreachableCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
 	for _, statement := range statements {
-		if err := c.analyzeNodeStatement(alerts, statement); err != nil {
+		if err := c.analyzeNode(alerts, timestamp, statement.Node); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (c *UnreachableCriterion) analyzeNodeStatement(alerts chan<- entities.Alert, statement entities.NodeStatement) error {
+func (c *UnreachableCriterion) analyzeNode(alerts chan<- entities.Alert, timestamp int64, node string) error {
 	var (
 		streak = 0
 		depth  = 0
 	)
-	err := c.es.ViewStatementsByNodeWithDescendKeys(statement.Node, func(statement *entities.NodeStatement) bool {
+	err := c.es.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
 		if statement.Status == entities.Unreachable {
 			streak += 1
 		} else {
 			streak = 0
 		}
 		depth += 1
-		if streak >= c.opts.Streak || depth > c.opts.Depth {
+		if streak >= c.opts.Streak || depth >= c.opts.Depth {
 			return false
 		}
 		return true
 	})
 	if err != nil {
-		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", statement.Node)
+		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", node)
 	}
 	if streak >= c.opts.Streak {
-		alerts <- &entities.UnreachableAlert{NodeStatement: statement}
+		alerts <- &entities.UnreachableAlert{
+			Node:      node,
+			Timestamp: timestamp,
+		}
 	}
 	return nil
 }
