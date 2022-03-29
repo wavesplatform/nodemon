@@ -13,17 +13,17 @@ require (
 	github.com/stretchr/testify v1.7.1
 	github.com/tidwall/buntdb v1.2.9
 	github.com/wavesplatform/gowaves v0.9.1-0.20220303094153-0e3aec83b7a6
-	go.nanomsg.org/mangos/v3 v3.3.0
+	go.nanomsg.org/mangos/v3 v3.4.1
 	gopkg.in/telebot.v3 v3.0.0
 )
 
 require (
 	filippo.io/edwards25519 v1.0.0-rc.1 // indirect
-	github.com/Microsoft/go-winio v0.5.0 // indirect
+	github.com/Microsoft/go-winio v0.5.2 // indirect
 	github.com/btcsuite/btcd v0.22.0-beta // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
-	github.com/gorilla/websocket v1.4.2 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/jinzhu/copier v0.3.5 // indirect
 	github.com/kilic/bls12-381 v0.0.0-20200820230200-6b2c19996391 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
