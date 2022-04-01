@@ -63,17 +63,16 @@ func run() error {
 		log.Println("failed to initialize telegram bot")
 		return errors.Wrap(err, "failed to init tg bot")
 	}
-	var bot messaging.Bot
-	bot = tgBotEnv
+
 	go func() {
-		err := messaging.StartMessagingClient(ctx, nanomsgURL, bot)
+		err := messaging.StartMessagingClient(ctx, nanomsgURL, tgBotEnv)
 		if err != nil {
 			log.Printf("failed to start messaging service: %v", err)
 			return
 		}
 	}()
 
-	bot.Start()
+	tgBotEnv.Start()
 	<-ctx.Done()
 	return nil
 }
