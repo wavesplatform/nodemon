@@ -123,13 +123,14 @@ func run() error {
 	}
 	notifications := scraper.Start(ctx)
 
-	analyzer := analysis.NewAnalyzer(es)
+	analyzer := analysis.NewAnalyzer(es, nil)
 
 	alerts := analyzer.Start(notifications)
 
 	socket, err := messaging.StartMessagingServer(nanomsgURL)
 	if err != nil {
-		log.Printf("Failed to start messaging server, %v", err)
+		log.Printf("Failed to start messaging server: %v", err)
+		return err
 	}
 	go func() {
 		for alert := range alerts {

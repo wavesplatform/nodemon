@@ -11,16 +11,36 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
-type Analyzer struct {
-	es *events.Storage
+type AnalyzerOptions struct {
+	AlertBackoff            int
+	AlertVacuumQuota        int
+	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
+	HeightCriteriaOpts      *criteria.HeightCriterionOptions
+	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
 }
 
-func NewAnalyzer(es *events.Storage) *Analyzer {
-	return &Analyzer{es: es}
+type Analyzer struct {
+	es   *events.Storage
+	as   *alertsStorage
+	opts *AnalyzerOptions
+}
+
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
+	if opts == nil {
+		opts = &AnalyzerOptions{}
+	}
+	if opts.AlertBackoff == 0 {
+		opts.AlertBackoff = defaultAlertBackoff
+	}
+	if opts.AlertVacuumQuota == 0 {
+		opts.AlertVacuumQuota = defaultAlertVacuumQuota
+	}
+
+	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
+	return &Analyzer{es: es, as: as, opts: opts}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
-	// TODO: analysis here
 	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)
@@ -33,26 +53,28 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewUnreachableCriterion(a.es, nil)
-			return criterion.Analyze(in, statusSplit[entities.Unreachable])
+			for _, statement := range statusSplit[entities.Incomplete] {
+				in <- &entities.IncompleteAlert{NodeStatement: statement}
+			}
+			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewIncompleteCriterion(a.es)
-			return criterion.Analyze(in, statusSplit[entities.Incomplete])
+			for _, statement := range statusSplit[entities.InvalidHeight] {
+				in <- &entities.InvalidHeightAlert{NodeStatement: statement}
+			}
+			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewInvalidHeightCriterion(a.es)
-			return criterion.Analyze(in, statusSplit[entities.InvalidHeight])
+			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts)
+			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewHeightCriterion(a.es, nil)
-			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts)
+			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			// TODO(nickeskov): configure it
-			criterion := criteria.NewStateHashCriterion(a.es, nil)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}
@@ -60,16 +82,18 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		wg          = new(sync.WaitGroup)
 		criteriaOut = make(chan entities.Alert)
 		ctx, cancel = context.WithCancel(context.Background())
+		proxyDone   = make(chan struct{})
 	)
 	defer func() {
-		wg.Wait()
-		cancel()
+		wg.Wait()   // wait for all criterion routines
+		cancel()    // stop analyzer proxy
+		<-proxyDone // wait for analyzer proxy
 	}()
 
 	// run criterion routines
 	wg.Add(len(routines))
 	for _, f := range routines {
-		go func(f func(alerts chan<- entities.Alert) error) {
+		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
 				log.Printf("Error occured on criterion routine: %v", err)
@@ -78,23 +102,31 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	}
 	// run analyzer proxy
 	go func(ctx context.Context, alertsIn chan<- entities.Alert, criteriaOut <-chan entities.Alert) {
+		defer close(proxyDone)
+		defer func() {
+			// we have to vacuum alerts storage each time and send alerts about fixed alerts :)
+			// also we perform vacuum here to prevent data race condition
+			ts := pollingResult.Timestamp()
+			vacuumedAlerts := a.as.Vacuum()
+			for _, alert := range vacuumedAlerts {
+				alertsIn <- &entities.AlertFixed{
+					Timestamp: ts,
+					Fixed:     alert,
+				}
+			}
+		}()
 		for {
 			select {
 			case alert := <-criteriaOut:
-				if err := a.sendAlert(alertsIn, alert); err != nil {
-					log.Printf("Some error orrured on analyzer proxy routine: %v", err)
+				sendAlertNow := a.as.PutAlert(alert)
+				if sendAlertNow {
+					alertsIn <- alert
 				}
 			case <-ctx.Done():
 				return
 			}
 		}
 	}(ctx, alerts, criteriaOut)
-	return nil
-}
-
-func (a *Analyzer) sendAlert(alerts chan<- entities.Alert, alert entities.Alert) error {
-	// TODO(nickeskov): handle ignore rules
-	alerts <- alert
 	return nil
 }
 
