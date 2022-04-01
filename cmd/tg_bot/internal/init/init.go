@@ -3,9 +3,9 @@ package init
 import (
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/bots/internal/tg_bot"
-	"nodemon/cmd/bots/internal/tg_bot/config"
-	"nodemon/cmd/bots/internal/tg_bot/handlers"
+	"nodemon/cmd/tg_bot/internal"
+	"nodemon/cmd/tg_bot/internal/config"
+	"nodemon/cmd/tg_bot/internal/handlers"
 	"nodemon/pkg/storing/chats"
 )
 
@@ -14,7 +14,7 @@ func InitTgBot(behavior string,
 	publicURL string,
 	botToken string,
 	storagePath string,
-) (*tg_bot.TelegramBotEnvironment, error) {
+) (*internal.TelegramBotEnvironment, error) {
 	botSettings, err := config.NewBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up bot configuration")
@@ -29,7 +29,7 @@ func InitTgBot(behavior string,
 		return nil, errors.Wrap(err, "failed to initialize storage")
 	}
 
-	tgBotEnv := tg_bot.NewTelegramBotEnvironment(bot, stor, false)
+	tgBotEnv := internal.NewTelegramBotEnvironment(bot, stor, false)
 	handlers.InitHandlers(bot, tgBotEnv)
 	return tgBotEnv, nil
 }

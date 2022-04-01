@@ -9,7 +9,7 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
-func StartMessagingClient(ctx context.Context, nanomsgURL string, bots Bots) error {
+func StartMessagingClient(ctx context.Context, nanomsgURL string, bot Bot) error {
 	socket, err := sub.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new sub socket: %v", err)
@@ -36,9 +36,7 @@ func StartMessagingClient(ctx context.Context, nanomsgURL string, bots Bots) err
 					log.Printf("failed to receive message: %v", err)
 					return
 				}
-				for _, bot := range bots {
-					bot.SendMessage(msg)
-				}
+				bot.SendMessage(msg)
 			}
 		}
 	}()

@@ -10,12 +10,9 @@ const (
 		"/mute -  the command to make the bot <b>stop listening to alerts</b>"
 )
 
-func getCommands() []string {
-	return []string{"/ping", "/hello", "/start", "/mute", "/help"}
-}
+var commands = []string{"/ping", "/hello", "/start", "/mute", "/help"}
 
 func HelpCommandKeyboard() [][]tele.ReplyButton {
-	commands := getCommands()
 	var keyboard = make([][]tele.ReplyButton, 0)
 	for i, command := range commands {
 		if i%2 == 0 {

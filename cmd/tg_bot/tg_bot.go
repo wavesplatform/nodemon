@@ -5,11 +5,11 @@ import (
 	"flag"
 	"github.com/pkg/errors"
 	"log"
-	tgBot "nodemon/cmd/bots/internal/tg_bot/init"
+	"nodemon/cmd/tg_bot/internal/config"
+	tgBot "nodemon/cmd/tg_bot/internal/init"
 	"os"
 	"os/signal"
 
-	"nodemon/cmd/bots/internal/tg_bot/config"
 	"nodemon/pkg/messaging"
 )
 
@@ -63,18 +63,17 @@ func run() error {
 		log.Println("failed to initialize telegram bot")
 		return errors.Wrap(err, "failed to init tg bot")
 	}
-	bots := messaging.NewBots(tgBotEnv)
+	var bot messaging.Bot
+	bot = tgBotEnv
 	go func() {
-		err := messaging.StartMessagingClient(ctx, nanomsgURL, bots)
+		err := messaging.StartMessagingClient(ctx, nanomsgURL, bot)
 		if err != nil {
 			log.Printf("failed to start messaging service: %v", err)
 			return
 		}
 	}()
 
-	for _, bot := range bots {
-		bot.Start()
-	}
+	bot.Start()
 	<-ctx.Done()
 	return nil
 }

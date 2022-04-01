@@ -1,4 +1,4 @@
-package tg_bot
+package internal
 
 import (
 	"gopkg.in/telebot.v3"
@@ -10,11 +10,11 @@ import (
 type TelegramBotEnvironment struct {
 	ChatStorage *chats.Storage
 	Bot         *telebot.Bot
-	ShutUp      bool
+	Mute        bool
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, storage *chats.Storage, shutUp bool) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatStorage: storage, ShutUp: shutUp}
+	return &TelegramBotEnvironment{Bot: bot, ChatStorage: storage, Mute: shutUp}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() {
@@ -24,7 +24,7 @@ func (tgEnv *TelegramBotEnvironment) Start() {
 }
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
-	if tgEnv.ShutUp {
+	if tgEnv.Mute {
 		return
 	}
 

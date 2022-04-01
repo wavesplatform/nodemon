@@ -2,14 +2,14 @@ package handlers
 
 import (
 	"log"
-	"nodemon/cmd/bots/internal/tg_bot"
-	"nodemon/cmd/bots/internal/tg_bot/base_messages"
+	"nodemon/cmd/tg_bot/internal"
+	"nodemon/cmd/tg_bot/internal/base_messages"
 
 	tele "gopkg.in/telebot.v3"
 	"nodemon/pkg/entities"
 )
 
-func InitHandlers(bot *tele.Bot, environment *tg_bot.TelegramBotEnvironment) {
+func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	bot.Handle("/hello", func(c tele.Context) error {
 		oldChatID, err := environment.ChatStorage.FindChatID(entities.TelegramPlatform)
 		if err != nil {
@@ -34,12 +34,12 @@ func InitHandlers(bot *tele.Bot, environment *tg_bot.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/start", func(c tele.Context) error {
-		environment.ShutUp = true
+		environment.Mute = true
 		return c.Send("Started working...")
 	})
 
 	bot.Handle("/mute", func(c tele.Context) error {
-		environment.ShutUp = false
+		environment.Mute = false
 		return c.Send("Say no more..")
 	})
 
