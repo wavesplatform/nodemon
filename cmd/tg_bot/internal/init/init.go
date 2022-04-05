@@ -30,6 +30,7 @@ func InitTgBot(behavior string,
 	}
 
 	tgBotEnv := internal.NewTelegramBotEnvironment(bot, stor, false)
+
 	handlers.InitHandlers(bot, tgBotEnv)
 	return tgBotEnv, nil
 }

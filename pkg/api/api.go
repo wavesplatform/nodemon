@@ -27,7 +27,7 @@ func NewAPI(bind string, nodesStorage *nodes.Storage) (*API, error) {
 	r.Use(middleware.RealIP)
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
-	r.Use(middleware.SetHeader("Content-Type", "application/json"))
+	r.Use(middleware.SetHeader("Content-ShortDescription", "application/json"))
 	r.Mount("/", a.routes())
 	a.srv = &http.Server{Addr: bind, Handler: r}
 	return a, nil

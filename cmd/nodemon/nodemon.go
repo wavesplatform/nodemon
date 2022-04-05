@@ -135,7 +135,10 @@ func run() error {
 	go func() {
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
-			err := socket.Send([]byte(alert.Message()))
+			message := make([]byte, len(alert.Message())+1)
+			message[0] = byte(alert.Type())
+			copy(message[1:], alert.Message())
+			err := socket.Send(message)
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}
