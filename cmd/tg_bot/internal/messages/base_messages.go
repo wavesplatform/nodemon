@@ -10,7 +10,7 @@ const (
 		"/hello - the command to make the bot <b>save this chat for alerts</b>. Needs to be done first time\n" +
 		"/start - the command to make the bot <b>start getting alerts</b>\n" +
 		"/mute -  the command to make the bot <b>stop listening to alerts</b>" +
-		"/help -  the command to see information about bot and available commands</b>"
+		"/help -  the command to see <b>information about bot</b> and available commands"
 
 	MuteText  = "Say no more..." + SleepingMsg
 	PongText  = "Pong!" + PongMsg

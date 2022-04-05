@@ -46,11 +46,6 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	bot.Handle("/help", func(c tele.Context) error {
 		return c.Send(
 			messages.HelpInfoText,
-			&tele.SendOptions{
-				ParseMode: tele.ModeHTML,
-				ReplyMarkup: &tele.ReplyMarkup{
-					RemoveKeyboard: true,
-				},
-			})
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
 	})
 }

@@ -38,7 +38,7 @@ func run() error {
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
-	flag.StringVar(&publicURL, "public-url", "", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
+	flag.StringVar(&publicURL, "public-url", "", "")
 	flag.StringVar(&storagePath, "storage", "", "Path to storage")
 	flag.Parse()
 
