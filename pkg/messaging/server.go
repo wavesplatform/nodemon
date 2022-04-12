@@ -2,11 +2,12 @@ package messaging
 
 import (
 	"github.com/pkg/errors"
+	"log"
+	"strings"
+
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
-	"log"
-	"strings"
 )
 
 func StartMessagingServer(nanomsgURL string) (protocol.Socket, error) {

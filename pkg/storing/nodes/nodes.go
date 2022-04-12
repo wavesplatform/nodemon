@@ -8,11 +8,11 @@ import (
 	"github.com/jameycribbs/hare/datastores/disk"
 	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/common"
 )
 
 const (
-	nodesTableName          = "nodes"
-	defaultStorageExtension = ".json"
+	nodesTableName = "nodes"
 )
 
 type node struct {
@@ -38,7 +38,7 @@ type Storage struct {
 }
 
 func NewStorage(path string, nodes string) (*Storage, error) {
-	ds, err := disk.New(path, defaultStorageExtension)
+	ds, err := disk.New(path, common.DefaultStorageExtension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
 	}
