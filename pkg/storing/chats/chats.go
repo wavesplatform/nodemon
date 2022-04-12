@@ -1,16 +1,21 @@
 package chats
 
 import (
+	"log"
+
 	"github.com/jameycribbs/hare"
 	"github.com/jameycribbs/hare/datastores/disk"
 	"github.com/pkg/errors"
-	"log"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/common"
 )
 
 const (
 	chatsTableName = "chats"
+)
+
+var (
+	ErrorChatNotFound = errors.New("Chat ID is not found")
 )
 
 type chat struct {
@@ -81,5 +86,5 @@ func (cs *Storage) FindChatID(platform entities.Platform) (*entities.ChatID, err
 			return &chat.Chat.ChatID, nil
 		}
 	}
-	return nil, nil
+	return nil, ErrorChatNotFound
 }

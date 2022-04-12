@@ -1,8 +1,9 @@
 package internal
 
 import (
-	"gopkg.in/telebot.v3"
 	"log"
+
+	"gopkg.in/telebot.v3"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/chats"
 )
@@ -29,12 +30,12 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 	}
 
 	chatID, err := tgEnv.ChatStorage.FindChatID(entities.TelegramPlatform)
-	if err != nil {
+	if err != nil && err != chats.ErrorChatNotFound {
 		log.Printf("failed to find chat id: %v", err)
 		return
 	}
 
-	if chatID == nil {
+	if err == chats.ErrorChatNotFound {
 		log.Println("have not received a chat id yet")
 		return
 	}

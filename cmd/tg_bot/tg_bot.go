@@ -3,14 +3,18 @@ package main
 import (
 	"context"
 	"flag"
-	"github.com/pkg/errors"
 	"log"
-	"nodemon/cmd/tg_bot/internal/config"
-	tgBot "nodemon/cmd/tg_bot/internal/init"
 	"os"
 	"os/signal"
 
+	"github.com/pkg/errors"
+	"nodemon/cmd/tg_bot/internal/config"
+	tgBot "nodemon/cmd/tg_bot/internal/init"
 	"nodemon/pkg/messaging"
+)
+
+var (
+	errorInvalidParameters = errors.New("invalid parameters for telegram bot")
 )
 
 func main() {
@@ -44,15 +48,15 @@ func run() error {
 
 	if botToken == "" {
 		log.Println("Invalid bot token")
-		return errors.New("invalid parameters")
+		return errorInvalidParameters
 	}
 	if behavior == config.WebhookMethod && publicURL == "" {
 		log.Println("invalid public url")
-		return errors.New("invalid parameters")
+		return errorInvalidParameters
 	}
 	if storagePath == "" {
 		log.Println("invalid storage path")
-		return errors.New("invalid parameters")
+		return errorInvalidParameters
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)

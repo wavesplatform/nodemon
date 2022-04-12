@@ -2,10 +2,11 @@ package config
 
 import (
 	"fmt"
-	"github.com/pkg/errors"
-	tele "gopkg.in/telebot.v3"
 	"net/http"
 	"time"
+
+	"github.com/pkg/errors"
+	tele "gopkg.in/telebot.v3"
 )
 
 const (

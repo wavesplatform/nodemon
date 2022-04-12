@@ -2,10 +2,10 @@ package handlers
 
 import (
 	"log"
-	"nodemon/cmd/tg_bot/internal"
-	"nodemon/cmd/tg_bot/internal/base_messages"
 
 	tele "gopkg.in/telebot.v3"
+	"nodemon/cmd/tg_bot/internal"
+	"nodemon/cmd/tg_bot/internal/base_messages"
 	"nodemon/pkg/entities"
 )
 
