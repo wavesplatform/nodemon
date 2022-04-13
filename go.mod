@@ -1,6 +1,6 @@
 module nodemon
 
-go 1.17
+go 1.18
 
 // exclude vulnerable dependency: github.com/wavesplatform/gowaves ->
 // -> github.com/prometheus/client_golang -> github.com/prometheus/common@v0.4.1 -> vulnerable
