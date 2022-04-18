@@ -30,7 +30,7 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/ping", func(c tele.Context) error {
-		return c.Send("pong!")
+		return c.Send(messages.PongText)
 	})
 
 	bot.Handle("/start", func(c tele.Context) error {

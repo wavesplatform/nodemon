@@ -16,8 +16,8 @@ type TelegramBotEnvironment struct {
 	Mute        bool
 }
 
-func NewTelegramBotEnvironment(bot *telebot.Bot, storage *chats.Storage, shutUp bool) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatStorage: storage, Mute: shutUp}
+func NewTelegramBotEnvironment(bot *telebot.Bot, storage *chats.Storage, mute bool) *TelegramBotEnvironment {
+	return &TelegramBotEnvironment{Bot: bot, ChatStorage: storage, Mute: mute}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() {
@@ -73,6 +73,8 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 		messageToBot = tgEnv.constructMessage(entities.StateHashAlertNotification, msg[1:])
 	case byte(entities.AlertFixedType):
 		messageToBot = tgEnv.constructMessage(entities.AlertFixedNotification, msg[1:])
+	default:
+		log.Println("unknown alert type")
 	}
 	_, err = tgEnv.Bot.Send(
 		chat,
