@@ -12,7 +12,7 @@ import (
 )
 
 func subscribeToAlerts(socket protocol.Socket) error {
-	for _, alertType := range entities.AlertTypes {
+	for alertType := range entities.AlertTypes {
 		err := socket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
 		if err != nil {
 			return err

@@ -22,14 +22,14 @@ const (
 	AlertFixedType
 )
 
-var AlertTypes = []AlertType{
-	SimpleAlertType,
-	UnreachableAlertType,
-	IncompleteAlertType,
-	InvalidHeightAlertType,
-	HeightAlertType,
-	StateHashAlertType,
-	AlertFixedType,
+var AlertTypes = map[AlertType]string{
+	SimpleAlertType:        SimpleAlertNotification,
+	UnreachableAlertType:   UnreachableAlertNotification,
+	IncompleteAlertType:    IncompleteAlertNotification,
+	InvalidHeightAlertType: InvalidHeightAlertNotification,
+	HeightAlertType:        HeightAlertNotification,
+	StateHashAlertType:     StateHashAlertNotification,
+	AlertFixedType:         AlertFixedNotification,
 }
 
 const (

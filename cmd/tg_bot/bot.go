@@ -36,14 +36,14 @@ func run() error {
 		webhookLocalAddress string // only for webhook method
 		publicURL           string // only for webhook method
 		botToken            string
-		storagePath         string
+		chatID              int64
 	)
 	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
 	flag.StringVar(&publicURL, "public-url", "", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
-	flag.StringVar(&storagePath, "storage", "", "Path to storage")
+	flag.Int64Var(&chatID, "chat-id", 0, "Chat ID to send alerts through")
 	flag.Parse()
 
 	if botToken == "" {
@@ -54,15 +54,15 @@ func run() error {
 		log.Println("invalid public url")
 		return errorInvalidParameters
 	}
-	if storagePath == "" {
-		log.Println("invalid storage path")
+	if chatID == 0 {
+		log.Println("invalid chat ID")
 		return errorInvalidParameters
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	tgBotEnv, err := tgBot.InitTgBot(behavior, webhookLocalAddress, publicURL, botToken, storagePath)
+	tgBotEnv, err := tgBot.InitTgBot(behavior, webhookLocalAddress, publicURL, botToken, chatID)
 	if err != nil {
 		log.Println("failed to initialize telegram bot")
 		return errors.Wrap(err, "failed to init tg bot")
