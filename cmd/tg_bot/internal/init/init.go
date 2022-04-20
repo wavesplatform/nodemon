@@ -1,6 +1,8 @@
 package init
 
 import (
+	"log"
+
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
@@ -22,6 +24,8 @@ func InitTgBot(behavior string,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start bot")
 	}
+
+	log.Printf("chat id for sending alerts is %d", chatID)
 
 	tgBotEnv := internal.NewTelegramBotEnvironment(bot, chatID, false)
 	handlers.InitHandlers(bot, tgBotEnv)
