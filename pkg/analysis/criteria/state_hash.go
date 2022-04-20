@@ -71,17 +71,23 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			if _, in := skip[skipKey]; in {
 				continue
 			}
+			lastCommonStateHashExist := true
 			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
 			if err != nil {
-				return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
-					first.Node, second.Node,
-				)
+				if errors.Is(err, finders.ErrNoCommonBlocks) {
+					lastCommonStateHashExist = false
+				} else {
+					return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
+						first.Node, second.Node,
+					)
+				}
 			}
 			if groupHeight-lastCommonStateHashHeight > c.opts.MaxForkDepth {
 				skip[skipKey] = struct{}{}
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,
 					CurrentGroupsHeight:       groupHeight,
+					LastCommonStateHashExist:  lastCommonStateHashExist,
 					LastCommonStateHashHeight: lastCommonStateHashHeight,
 					LastCommonStateHash:       lastCommonStateHash,
 					FirstGroup: entities.StateHashGroup{
