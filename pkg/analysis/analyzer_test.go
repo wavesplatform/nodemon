@@ -109,6 +109,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 				{
 					Timestamp:                 mkTimestamp(4),
 					CurrentGroupsHeight:       4,
+					LastCommonStateHashExist:  true,
 					LastCommonStateHashHeight: 2,
 					LastCommonStateHash:       commonStateHashes[1].sh,
 					FirstGroup: entities.StateHashGroup{
