@@ -1,0 +1,17 @@
+[Unit]
+Description=Waves nodes monitoring
+
+Wants=network.target
+After=syslog.target network-online.target
+
+[Service]
+Type=simple
+ExecStart=<bin filepath> <args>
+Restart=on-failure
+RestartSec=10
+KillMode=process
+StandardOutput=syslog
+StandardError=syslog
+
+[Install]
+WantedBy=multi-user.target
