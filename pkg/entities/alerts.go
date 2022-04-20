@@ -170,8 +170,8 @@ func (a *InvalidHeightAlert) Type() AlertType {
 }
 
 type HeightGroup struct {
-	Height int   `json:"height,omitempty"`
-	Nodes  Nodes `json:"group,omitempty"`
+	Height int   `json:"height"`
+	Nodes  Nodes `json:"group"`
 }
 
 type HeightAlert struct {
@@ -223,15 +223,16 @@ func (a *HeightAlert) Type() AlertType {
 }
 
 type StateHashGroup struct {
-	Nodes     Nodes           `json:"nodes,omitempty"`
+	Nodes     Nodes           `json:"nodes"`
 	StateHash proto.StateHash `json:"state_hash"`
 }
 
 type StateHashAlert struct {
 	Timestamp                 int64           `json:"timestamp"`
-	CurrentGroupsHeight       int             `json:"current_groups_height,omitempty"`
-	LastCommonStateHashHeight int             `json:"last_common_state_hash_height,omitempty"`
-	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`
+	CurrentGroupsHeight       int             `json:"current_groups_height"`
+	LastCommonStateHashExist  bool            `json:"last_common_state_hash_exist"`
+	LastCommonStateHashHeight int             `json:"last_common_state_hash_height"` // can be empty if LastCommonStateHashExist == false
+	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        /// can be empty if LastCommonStateHashExist == false
 	FirstGroup                StateHashGroup  `json:"first_group"`
 	SecondGroup               StateHashGroup  `json:"second_group"`
 }
@@ -241,16 +242,26 @@ func (a *StateHashAlert) ShortDescription() string {
 }
 
 func (a *StateHashAlert) Message() string {
+	if a.LastCommonStateHashExist {
+		return fmt.Sprintf(
+			"Different state hash between nodes on same height %d: %q=%v, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
+			a.CurrentGroupsHeight,
+			a.FirstGroup.StateHash.SumHash.String(),
+			a.FirstGroup.Nodes,
+			a.SecondGroup.StateHash.SumHash.String(),
+			a.SecondGroup.Nodes,
+			a.LastCommonStateHashHeight,
+			a.LastCommonStateHash.SumHash.String(),
+			a.LastCommonStateHash.BlockID.String(),
+		)
+	}
 	return fmt.Sprintf(
-		"Different state hash between nodes on same height %d: %q=%v, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
+		"Different state hash between nodes on same height %d: %q=%v, %q=%v. Failed to find last common state hash and blockID",
 		a.CurrentGroupsHeight,
 		a.FirstGroup.StateHash.SumHash.String(),
 		a.FirstGroup.Nodes,
 		a.SecondGroup.StateHash.SumHash.String(),
 		a.SecondGroup.Nodes,
-		a.LastCommonStateHashHeight,
-		a.LastCommonStateHash.SumHash.String(),
-		a.LastCommonStateHash.BlockID.String(),
 	)
 }
 
@@ -266,8 +277,10 @@ func (a *StateHashAlert) ID() string {
 	var buff bytes.Buffer
 	buff.WriteString(a.ShortDescription())
 
-	buff.WriteString(strconv.Itoa(a.LastCommonStateHashHeight))
-	buff.WriteString(a.LastCommonStateHash.SumHash.String())
+	if a.LastCommonStateHashExist {
+		buff.WriteString(strconv.Itoa(a.LastCommonStateHashHeight))
+		buff.WriteString(a.LastCommonStateHash.SumHash.String())
+	}
 
 	for _, node := range a.FirstGroup.Nodes {
 		buff.WriteString(node)

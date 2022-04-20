@@ -6,6 +6,10 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
+var (
+	ErrNoCommonBlocks = errors.New("no common blocks")
+)
+
 type ForkFinder struct {
 	storage *events.Storage
 }
@@ -99,7 +103,9 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 	initialStart := max(startA, startB)
 	initialStop := min(stopA, stopB)
 	if r < initialStart {
-		return 0, proto.StateHash{}, errors.Errorf("no common blocks in range [%d, %d]", initialStart, initialStop)
+		return 0, proto.StateHash{}, errors.Wrapf(ErrNoCommonBlocks,
+			"no common blocks in range [%d, %d]", initialStart, initialStop,
+		)
 	}
 	sh, err := f.storage.LastStateHashAtHeight(nodeA, r)
 	if err != nil {
