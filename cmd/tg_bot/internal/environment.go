@@ -65,6 +65,7 @@ func (tgEnv *TelegramBotEnvironment) constructMessage(alert string, msg []byte) 
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 	if tgEnv.Mute {
+		log.Printf("received an alert, but asleep now")
 		return
 	}
 
