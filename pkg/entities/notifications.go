@@ -5,7 +5,7 @@ const (
 )
 
 type Notification interface {
-	Type() string
+	ShortDescription() string
 }
 
 type OnPollingComplete struct {
@@ -17,7 +17,7 @@ func NewOnPollingComplete(nodes []string, ts int64) *OnPollingComplete {
 	return &OnPollingComplete{nodes: nodes, ts: ts}
 }
 
-func (n *OnPollingComplete) Type() string {
+func (n *OnPollingComplete) ShortDescription() string {
 	return OnPollingCompleteNotificationType
 }
 
