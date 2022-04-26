@@ -1,59 +1,44 @@
 package handlers
 
 import (
-	"log"
+	"fmt"
 
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
-	"nodemon/cmd/tg_bot/internal/base_messages"
-	"nodemon/pkg/entities"
+	"nodemon/cmd/tg_bot/internal/messages"
 )
 
 func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
-	bot.Handle("/hello", func(c tele.Context) error {
-		oldChatID, err := environment.ChatStorage.FindChatID(entities.TelegramPlatform)
-		if err != nil {
-			log.Printf("failed to insert chat id into db: %v", err)
-			return c.Send("An error occurred while finding the chat id in database")
-		}
-		if oldChatID != nil {
-			return c.Send("Hello! I remember this chat.")
-		}
-		chatID := entities.ChatID(c.Chat().ID)
-
-		err = environment.ChatStorage.InsertChatID(chatID, entities.TelegramPlatform)
-		if err != nil {
-			log.Printf("failed to insert chat id into db: %v", err)
-			return c.Send("I failed to save this chat id")
-		}
-		return c.Send("Hello! This new chat has been saved for alerting.")
+	bot.Handle("/chat", func(c tele.Context) error {
+		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", environment.ChatID))
 	})
 
 	bot.Handle("/ping", func(c tele.Context) error {
-		return c.Send("pong!")
+		if environment.Mute {
+			return c.Send(messages.PongText + " I am currently sleeping" + messages.SleepingMsg)
+		}
+		return c.Send(messages.PongText + " I am monitoring" + messages.MonitoringMsg)
 	})
 
 	bot.Handle("/start", func(c tele.Context) error {
-		environment.Mute = true
-		return c.Send("Started working...")
+		if environment.Mute {
+			environment.Mute = false
+			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
+		}
+		return c.Send("I had already been monitoring" + messages.MonitoringMsg)
 	})
 
 	bot.Handle("/mute", func(c tele.Context) error {
-		environment.Mute = false
-		return c.Send("Say no more..")
+		if environment.Mute {
+			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
+		}
+		environment.Mute = true
+		return c.Send("I had been monitoring, but going to sleep now.." + messages.SleepingMsg)
 	})
 
 	bot.Handle("/help", func(c tele.Context) error {
-		replyKeyboard := base_messages.HelpCommandKeyboard()
 		return c.Send(
-			base_messages.HelpInfoText2,
-			&tele.SendOptions{
-				ParseMode: tele.ModeHTML,
-				ReplyMarkup: &tele.ReplyMarkup{
-					OneTimeKeyboard: true,
-					ResizeKeyboard:  true,
-					ReplyKeyboard:   replyKeyboard,
-				},
-			})
+			messages.HelpInfoText,
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
 	})
 }
