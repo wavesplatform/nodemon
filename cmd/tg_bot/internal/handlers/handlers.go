@@ -21,6 +21,10 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/start", func(c tele.Context) error {
+		if !environment.IsSenderEligible(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to start me" + messages.NoRightMsg)
+		}
+
 		if environment.Mute {
 			environment.Mute = false
 			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
@@ -29,6 +33,10 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/mute", func(c tele.Context) error {
+		if !environment.IsSenderEligible(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to mute me" + messages.NoRightMsg)
+		}
+
 		if environment.Mute {
 			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
 		}

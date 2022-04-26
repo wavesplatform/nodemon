@@ -100,3 +100,10 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 		log.Printf("failed to send a message to telegram, %v", err)
 	}
 }
+
+func (tgEnv *TelegramBotEnvironment) IsSenderEligible(chatID int64) bool {
+	if chatID == tgEnv.ChatID {
+		return true
+	}
+	return false
+}

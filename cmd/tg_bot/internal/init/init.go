@@ -24,7 +24,6 @@ func InitTgBot(behavior string,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start bot")
 	}
-
 	log.Printf("chat id for sending alerts is %d", chatID)
 
 	tgBotEnv := internal.NewTelegramBotEnvironment(bot, chatID, false)
