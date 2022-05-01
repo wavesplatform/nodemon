@@ -43,9 +43,8 @@ const (
 )
 
 const (
-	InfoLevel     = "Info"
-	ErrorLevel    = "Error"
-	criticalLevel = "Critical"
+	InfoLevel  = "Info"
+	ErrorLevel = "Error"
 )
 
 type Alert interface {

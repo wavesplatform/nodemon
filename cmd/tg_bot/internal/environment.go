@@ -97,7 +97,7 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		log.Printf("failed to construct message, unknown alert type %s, %v", alertType, errUnknownAlertType)
+		log.Printf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
