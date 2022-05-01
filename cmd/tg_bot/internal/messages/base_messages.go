@@ -5,7 +5,7 @@ const (
 	SleepingMsg   = "💤"
 	PongMsg       = "🏓"
 
-	HelpInfoText = infoMsg + " This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
+	HelpInfoText = InfoMsg + " This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
 		"/ping -  the command to check whether the bot is available and what his current state is\n" +
 		"/hello - the command to make the bot <b>save this chat for alerts</b>. Needs to be done first time\n" +
 		"/start - the command to make the bot <b>start getting alerts</b>\n" +
