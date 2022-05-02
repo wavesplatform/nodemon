@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -147,11 +148,10 @@ func run() error {
 				log.Printf("failed to marshal alert to json, %v", err)
 			}
 
-			message := make([]byte, len(jsonAlert)+1)
-			message[0] = byte(alert.Type())
-
-			copy(message[1:], jsonAlert)
-			err = socket.Send(message)
+			message := &bytes.Buffer{}
+			message.WriteByte(byte(alert.Type()))
+			message.Write(jsonAlert)
+			err = socket.Send(message.Bytes())
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}

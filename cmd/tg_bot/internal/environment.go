@@ -65,7 +65,7 @@ func (tgEnv *TelegramBotEnvironment) constructMessage(alertType entities.AlertTy
 	alert := messaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "failed to unmarshal json")
 	}
 
 	prettyAlert := tgEnv.makeMessagePretty(alertType, alert)
@@ -111,7 +111,7 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 
 	messageToBot, err := tgEnv.constructMessage(alertType, msg[1:])
 	if err != nil {
-		log.Printf("failed to construct message, %v", err)
+		log.Printf("failed to construct message, %v\n", err)
 		return
 	}
 	_, err = tgEnv.Bot.Send(
