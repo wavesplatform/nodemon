@@ -212,7 +212,6 @@ func (a *HeightAlert) ID() string {
 	for _, node := range a.OtherHeightGroup.Nodes {
 		buff.WriteString(node)
 	}
-	buff.WriteString(strconv.Itoa(a.OtherHeightGroup.Height))
 
 	digest := crypto.MustFastHash(buff.Bytes())
 	return digest.String()
