@@ -1,0 +1,11 @@
+# Ignore git items
+.gitignore
+.gitmodules
+.git/
+:include .gitignore
+
+# Common large paths
+build/
+vendor/
+.run/
+*.min.js
