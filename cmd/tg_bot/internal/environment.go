@@ -126,8 +126,5 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 }
 
 func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID int64) bool {
-	if chatID != tgEnv.ChatID {
-		return false
-	}
-	return true
+	return chatID == tgEnv.ChatID
 }
