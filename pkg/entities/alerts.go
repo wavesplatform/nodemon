@@ -42,12 +42,18 @@ const (
 	AlertFixedNotification         = "AlertFixed"
 )
 
+const (
+	InfoLevel  = "Info"
+	ErrorLevel = "Error"
+)
+
 type Alert interface {
 	Notification
 	ID() string
 	Message() string
 	Time() time.Time
 	Type() AlertType
+	Severity() string
 	fmt.Stringer
 }
 
@@ -81,6 +87,10 @@ func (a *SimpleAlert) Type() AlertType {
 	return SimpleAlertType
 }
 
+func (a *SimpleAlert) Severity() string {
+	return InfoLevel
+}
+
 type UnreachableAlert struct {
 	Timestamp int64  `json:"timestamp"`
 	Node      string `json:"node"`
@@ -109,6 +119,10 @@ func (a *UnreachableAlert) String() string {
 
 func (a *UnreachableAlert) Type() AlertType {
 	return UnreachableAlertType
+}
+
+func (a *UnreachableAlert) Severity() string {
+	return ErrorLevel
 }
 
 type IncompleteAlert struct {
@@ -140,6 +154,10 @@ func (a *IncompleteAlert) Type() AlertType {
 	return IncompleteAlertType
 }
 
+func (a *IncompleteAlert) Severity() string {
+	return InfoLevel
+}
+
 type InvalidHeightAlert struct {
 	NodeStatement
 }
@@ -167,6 +185,10 @@ func (a *InvalidHeightAlert) ID() string {
 
 func (a *InvalidHeightAlert) Type() AlertType {
 	return InvalidHeightAlertType
+}
+
+func (a *InvalidHeightAlert) Severity() string {
+	return ErrorLevel
 }
 
 type HeightGroup struct {
@@ -219,6 +241,10 @@ func (a *HeightAlert) ID() string {
 
 func (a *HeightAlert) Type() AlertType {
 	return HeightAlertType
+}
+
+func (a *HeightAlert) Severity() string {
+	return ErrorLevel
 }
 
 type StateHashGroup struct {
@@ -296,6 +322,10 @@ func (a *StateHashAlert) Type() AlertType {
 	return StateHashAlertType
 }
 
+func (a *StateHashAlert) Severity() string {
+	return InfoLevel
+}
+
 type AlertFixed struct {
 	Timestamp int64 `json:"timestamp"`
 	Fixed     Alert `json:"fixed"`
@@ -324,4 +354,8 @@ func (a *AlertFixed) String() string {
 
 func (a *AlertFixed) Type() AlertType {
 	return AlertFixedType
+}
+
+func (a *AlertFixed) Severity() string {
+	return InfoLevel
 }

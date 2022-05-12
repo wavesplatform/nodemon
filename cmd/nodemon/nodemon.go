@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -135,10 +137,21 @@ func run() error {
 	go func() {
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
-			message := make([]byte, len(alert.Message())+1)
-			message[0] = byte(alert.Type())
-			copy(message[1:], alert.Message())
-			err := socket.Send(message)
+
+			jsonAlert, err := json.Marshal(
+				messaging.Alert{
+					AlertDescription: alert.ShortDescription(),
+					Severity:         alert.Severity(),
+					Details:          alert.Message(),
+				})
+			if err != nil {
+				log.Printf("failed to marshal alert to json, %v", err)
+			}
+
+			message := &bytes.Buffer{}
+			message.WriteByte(byte(alert.Type()))
+			message.Write(jsonAlert)
+			err = socket.Send(message.Bytes())
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}

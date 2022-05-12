@@ -21,6 +21,9 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/start", func(c tele.Context) error {
+		if !environment.IsEligibleForAction(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to start me")
+		}
 		if environment.Mute {
 			environment.Mute = false
 			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
@@ -29,6 +32,9 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment) {
 	})
 
 	bot.Handle("/mute", func(c tele.Context) error {
+		if !environment.IsEligibleForAction(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to mute me")
+		}
 		if environment.Mute {
 			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
 		}

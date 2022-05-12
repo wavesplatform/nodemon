@@ -3,12 +3,16 @@ package internal
 import (
 	"bytes"
 	"embed"
+	"encoding/json"
+	"fmt"
 	"html/template"
 	"log"
 
 	"github.com/pkg/errors"
 	"gopkg.in/telebot.v3"
+	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
 var (
@@ -24,12 +28,6 @@ type TelegramBotEnvironment struct {
 	Mute   bool
 }
 
-type Alert struct {
-	AlertType string
-	Severity  string
-	Details   string
-}
-
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute}
 }
@@ -40,12 +38,37 @@ func (tgEnv *TelegramBotEnvironment) Start() {
 	log.Println("Telegram bot finished")
 }
 
-func (tgEnv *TelegramBotEnvironment) constructMessage(alert string, msg []byte) (string, error) {
-	a := Alert{
-		AlertType: alert,
-		Severity:  "Error",
-		Details:   string(msg),
+func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
+	// simple alert is skipped because it needs to be deleted
+	switch alertType {
+	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
+		alert.AlertDescription += fmt.Sprintf(" %s", messages.ErrorMsg)
+	case entities.IncompleteAlertType:
+		alert.AlertDescription += fmt.Sprintf(" %s", messages.QuestionMsg)
+	case entities.AlertFixedType:
+		alert.AlertDescription += fmt.Sprintf(" %s", messages.OkMsg)
+	default:
+
 	}
+
+	if alert.Severity == entities.InfoLevel {
+		alert.Severity += fmt.Sprintf(" %s", messages.InfoMsg)
+	}
+	if alert.Severity == entities.ErrorLevel {
+		alert.Severity += fmt.Sprintf(" %s", messages.ErrorMsg)
+	}
+
+	return alert
+}
+
+func (tgEnv *TelegramBotEnvironment) constructMessage(alertType entities.AlertType, alertJson []byte) (string, error) {
+	alert := messaging.Alert{}
+	err := json.Unmarshal(alertJson, &alert)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to unmarshal json")
+	}
+
+	prettyAlert := tgEnv.makeMessagePretty(alertType, alert)
 
 	tmpl, err := template.ParseFS(templateFiles, "templates/alert.html")
 
@@ -55,7 +78,7 @@ func (tgEnv *TelegramBotEnvironment) constructMessage(alert string, msg []byte) 
 	}
 
 	w := &bytes.Buffer{}
-	err = tmpl.Execute(w, a)
+	err = tmpl.Execute(w, prettyAlert)
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
 		return "", err
@@ -71,9 +94,10 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 
 	chat := &telebot.Chat{ID: tgEnv.ChatID}
 
-	alertDescription, ok := entities.AlertTypes[entities.AlertType(msg[0])]
+	alertType := entities.AlertType(msg[0])
+	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		log.Printf("failed to construct message, %v", errUnknownAlertType)
+		log.Printf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
@@ -85,9 +109,9 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 		return
 	}
 
-	messageToBot, err := tgEnv.constructMessage(alertDescription, msg[1:])
+	messageToBot, err := tgEnv.constructMessage(alertType, msg[1:])
 	if err != nil {
-		log.Printf("failed to construct message, %v", err)
+		log.Printf("failed to construct message, %v\n", err)
 		return
 	}
 	_, err = tgEnv.Bot.Send(
@@ -99,4 +123,8 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 	if err != nil {
 		log.Printf("failed to send a message to telegram, %v", err)
 	}
+}
+
+func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID int64) bool {
+	return chatID == tgEnv.ChatID
 }
