@@ -7,6 +7,8 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/messaging/pubsub"
 	"os"
 	"os/signal"
 	"strings"
@@ -48,20 +50,22 @@ func main() {
 
 func run() error {
 	var (
-		storage     string
-		nodes       string
-		bindAddress string
-		interval    time.Duration
-		timeout     time.Duration
-		nanomsgURL  string
-		retention   time.Duration
+		storage          string
+		nodes            string
+		bindAddress      string
+		interval         time.Duration
+		timeout          time.Duration
+		nanomsgPubSubURL string
+		nanomsgPairUrl   string
+		retention        time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
-	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
+	flag.StringVar(&bindAddress, "bind", ":8085", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.Parse()
 
@@ -129,12 +133,12 @@ func run() error {
 
 	alerts := analyzer.Start(notifications)
 
-	socket, err := messaging.StartMessagingServer(nanomsgURL)
+	socketPubSub, err := pubsub.StartMessagingServer(nanomsgPubSubURL)
 	if err != nil {
 		log.Printf("Failed to start messaging server: %v", err)
 		return err
 	}
-	go func() {
+	go func() { // pubsub messaging
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
 
@@ -151,9 +155,66 @@ func run() error {
 			message := &bytes.Buffer{}
 			message.WriteByte(byte(alert.Type()))
 			message.Write(jsonAlert)
-			err = socket.Send(message.Bytes())
+			err = socketPubSub.Send(message.Bytes())
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
+			}
+		}
+	}()
+
+	socketPair, err := pair.StartPairMessagingServer(nanomsgPairUrl)
+	if err != nil {
+		log.Printf("Failed to start messaging server: %v", err)
+		return err
+	}
+	go func() { // pair messaging
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			default:
+				msg, err := socketPair.Recv()
+				if err != nil {
+					log.Printf("failed to receive 123 message: %v", err)
+					return
+				}
+				request := pair.RequestPairType(msg[0])
+				switch request {
+				case pair.RequestNodeListT:
+					nodes, err := ns.Nodes()
+					if err != nil {
+						log.Printf("failed to receive list of nodes from storage, %v", err)
+					}
+
+					var nodeList pair.NodeListResponse
+					for _, node := range nodes {
+						nodeList.Urls = append(nodeList.Urls, node.URL)
+					}
+					response, err := json.Marshal(nodeList)
+					if err != nil {
+						log.Printf("failedto marshal list of nodes to json, %v", err)
+					}
+					err = socketPair.Send(response)
+					if err != nil {
+						log.Printf("failed to receive a response from pair socket, %v", err)
+					}
+				case pair.RequestInsertNewNodeT:
+					url := msg[1:]
+					err := ns.InsertIfNew(string(url))
+					if err != nil {
+						log.Printf("failed to insert a new node to storage, %v", err)
+					}
+
+				case pair.RequestDeleteNodeT:
+					url := msg[1:]
+					err := ns.Delete(string(url))
+					if err != nil {
+						log.Printf("failed to delete a node from storage, %v", err)
+					}
+				default:
+
+				}
+
 			}
 		}
 	}()

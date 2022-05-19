@@ -89,6 +89,28 @@ func (cs *Storage) InsertIfNew(url string) error {
 	return nil
 }
 
+func (cs *Storage) Delete(url string) error {
+	ids, err := cs.db.IDs(nodesTableName)
+	if err != nil {
+		return err
+	}
+	for _, id := range ids {
+		var n node
+		if err := cs.db.Find(nodesTableName, id, &n); err != nil {
+			return err
+		}
+		if n.URL == url {
+			err := cs.db.Delete(nodesTableName, id)
+			if err != nil {
+				return err
+			}
+			log.Printf("Node #%d at '%s' deleted", id, url)
+		}
+	}
+
+	return nil
+}
+
 func (cs *Storage) queryNodes(queryFn func(n node) bool, limit int) ([]entities.Node, error) {
 	var results []entities.Node
 	ids, err := cs.db.IDs(nodesTableName)

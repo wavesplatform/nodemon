@@ -7,7 +7,6 @@ import (
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
 	"nodemon/cmd/tg_bot/internal/config"
-	"nodemon/cmd/tg_bot/internal/handlers"
 )
 
 func InitTgBot(behavior string,
@@ -28,6 +27,5 @@ func InitTgBot(behavior string,
 	log.Printf("chat id for sending alerts is %d", chatID)
 
 	tgBotEnv := internal.NewTelegramBotEnvironment(bot, chatID, false)
-	handlers.InitHandlers(bot, tgBotEnv)
 	return tgBotEnv, nil
 }

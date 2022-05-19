@@ -110,8 +110,8 @@ func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
 		return 0, 0
 	}
 	var (
-		min = math.MaxInt
-		max = math.MinInt
+		min = math.MaxInt64
+		max = math.MinInt64
 	)
 	for height := range s {
 		if max < height {

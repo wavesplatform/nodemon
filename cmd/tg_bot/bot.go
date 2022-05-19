@@ -4,13 +4,15 @@ import (
 	"context"
 	"flag"
 	"log"
+	"nodemon/cmd/tg_bot/internal/handlers"
+	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/messaging/pubsub"
 	"os"
 	"os/signal"
 
 	"github.com/pkg/errors"
 	"nodemon/cmd/tg_bot/internal/config"
 	tgBot "nodemon/cmd/tg_bot/internal/init"
-	"nodemon/pkg/messaging"
 )
 
 var (
@@ -31,14 +33,16 @@ func main() {
 
 func run() error {
 	var (
-		nanomsgURL          string
+		nanomsgPubSubURL    string
+		nanomsgPairUrl      string
 		behavior            string
 		webhookLocalAddress string // only for webhook method
 		publicURL           string // only for webhook method
 		botToken            string
 		chatID              int64
 	)
-	flag.StringVar(&nanomsgURL, "nano-msg-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL. Default is tcp://:8001")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
@@ -68,11 +72,22 @@ func run() error {
 		return errors.Wrap(err, "failed to init tg bot")
 	}
 
+	pairRequest := make(chan pair.RequestPair)
+	pairResponse := make(chan pair.ResponsePair)
+	handlers.InitHandlers(tgBotEnv.Bot, tgBotEnv, pairRequest, pairResponse)
+
 	go func() {
-		err := messaging.StartMessagingClient(ctx, nanomsgURL, tgBotEnv)
+		err := pubsub.StartMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv)
 		if err != nil {
-			log.Printf("failed to start messaging service: %v", err)
+			log.Printf("failed to start pubsub messaging service: %v", err)
 			return
+		}
+	}()
+
+	go func() {
+		err := pair.StartMessagingPairClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
+		if err != nil {
+			log.Printf("failed to start pair messaging service: %v", err)
 		}
 	}()
 
