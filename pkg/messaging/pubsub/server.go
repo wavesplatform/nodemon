@@ -1,30 +1,69 @@
 package pubsub
 
 import (
-	"github.com/pkg/errors"
+	"bytes"
+	"context"
+	"encoding/json"
 	"log"
 	"strings"
 
+	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
+
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
-func StartPubSubMessagingServer(nanomsgURL string) (protocol.Socket, error) {
+func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pubsub server'%s'", nanomsgURL)
-		return nil, errors.New("invalid nanomsg IPC URL")
+		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
 
-	socket, err := pub.NewSocket()
+	socketPubSub, err := pub.NewSocket()
 	if err != nil {
 		log.Printf("Failed to get new pub socket: %v", err)
-		return nil, err
+		return err
 	}
-	if err := socket.Listen(nanomsgURL); err != nil {
+	defer func(socketPubSub protocol.Socket) {
+		if err := socketPubSub.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(socketPubSub)
+	if err := socketPubSub.Listen(nanomsgURL); err != nil {
 		log.Printf("Failed to listen on pub socket: %v", err)
-		return nil, err
+		return err
 	}
 
-	return socket, nil
+	go func() { // pubsub messaging
+		select {
+		case <-ctx.Done():
+			return
+		default:
+			for alert := range alerts {
+				log.Printf("Alert has been generated: %v", alert)
+
+				jsonAlert, err := json.Marshal(
+					messaging.Alert{
+						AlertDescription: alert.ShortDescription(),
+						Severity:         alert.Severity(),
+						Details:          alert.Message(),
+					})
+				if err != nil {
+					log.Printf("failed to marshal alert to json, %v", err)
+				}
+
+				message := &bytes.Buffer{}
+				message.WriteByte(byte(alert.Type()))
+				message.Write(jsonAlert)
+				err = socketPubSub.Send(message.Bytes())
+				if err != nil {
+					log.Printf("failed to send a message to socket, %v", err)
+				}
+			}
+		}
+	}()
+	return nil
 }

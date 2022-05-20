@@ -27,7 +27,6 @@ func (nl *InsertNewNodeRequest) msgRequest() {}
 
 func (nl *DeleteNodeRequest) msgRequest() {}
 
-
 type ResponsePair interface{ MsgResponse() }
 
 type NodeListResponse struct {

@@ -2,15 +2,15 @@ package handlers
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
 	"nodemon/cmd/tg_bot/internal/buttons"
 	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/messaging/pair"
-	"strings"
 )
-
 
 func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
 	bot.Handle("/chat", func(c tele.Context) error {

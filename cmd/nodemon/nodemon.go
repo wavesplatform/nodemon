@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"log"
@@ -12,13 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"go.nanomsg.org/mangos/v3/protocol"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
-	"nodemon/pkg/messaging"
 	"nodemon/pkg/scraping"
 	eventsStorage "nodemon/pkg/storing/events"
 	nodesStorage "nodemon/pkg/storing/nodes"
@@ -135,101 +131,17 @@ func run() error {
 
 	alerts := analyzer.Start(notifications)
 
-	socketPubSub, err := pubsub.StartPubSubMessagingServer(nanomsgPubSubURL)
+	err = pubsub.StartPubSubMessagingServer(ctx, nanomsgPubSubURL, alerts)
 	if err != nil {
-		log.Printf("Failed to start messaging server: %v", err)
+		log.Printf("Failed to start pub sub messaging server: %v", err)
 		return err
 	}
-	defer func(socketPubSub protocol.Socket) {
-		if err := socketPubSub.Close(); err != nil {
-			log.Printf("Failed to close pubsub socket: %v", err)
-		}
-	}(socketPubSub)
-	go func() { // pubsub messaging
-		for alert := range alerts {
-			log.Printf("Alert has been generated: %v", alert)
 
-			jsonAlert, err := json.Marshal(
-				messaging.Alert{
-					AlertDescription: alert.ShortDescription(),
-					Severity:         alert.Severity(),
-					Details:          alert.Message(),
-				})
-			if err != nil {
-				log.Printf("failed to marshal alert to json, %v", err)
-			}
-
-			message := &bytes.Buffer{}
-			message.WriteByte(byte(alert.Type()))
-			message.Write(jsonAlert)
-			err = socketPubSub.Send(message.Bytes())
-			if err != nil {
-				log.Printf("failed to send a message to socket, %v", err)
-			}
-		}
-	}()
-
-	socketPair, err := pair.StartPairMessagingServer(nanomsgPairURL)
+	err = pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns)
 	if err != nil {
 		log.Printf("Failed to start pair messaging server: %v", err)
 		return err
 	}
-	defer func(socketPair protocol.Socket) {
-		if err := socketPair.Close(); err != nil {
-			log.Printf("Failed to close pair socket: %v", err)
-		}
-	}(socketPair)
-	go func() { // pair messaging
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				msg, err := socketPair.Recv()
-				if err != nil {
-					log.Printf("failed to receive a message from pair socket: %v", err)
-					return
-				}
-				request := pair.RequestPairType(msg[0])
-				switch request {
-				case pair.RequestNodeListT:
-					nodes, err := ns.Nodes()
-					if err != nil {
-						log.Printf("failed to receive list of nodes from storage, %v", err)
-					}
-
-					var nodeList pair.NodeListResponse
-					for _, node := range nodes {
-						nodeList.Urls = append(nodeList.Urls, node.URL)
-					}
-					response, err := json.Marshal(nodeList)
-					if err != nil {
-						log.Printf("failed to marshal list of nodes to json, %v", err)
-					}
-					err = socketPair.Send(response)
-					if err != nil {
-						log.Printf("failed to receive a response from pair socket, %v", err)
-					}
-				case pair.RequestInsertNewNodeT:
-					url := msg[1:]
-					err := ns.InsertIfNew(string(url))
-					if err != nil {
-						log.Printf("failed to insert a new node to storage, %v", err)
-					}
-
-				case pair.RequestDeleteNodeT:
-					url := msg[1:]
-					err := ns.Delete(string(url))
-					if err != nil {
-						log.Printf("failed to delete a node from storage, %v", err)
-					}
-				default:
-
-				}
-
-			}
-		}
-	}()
 
 	<-ctx.Done()
 	a.Shutdown()
