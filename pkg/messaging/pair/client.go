@@ -16,11 +16,13 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 		log.Printf("failed to get new pair socket: %v", err)
 		return err
 	}
+
 	defer func(socketPair protocol.Socket) {
 		if err := socketPair.Close(); err != nil {
 			log.Printf("Failed to close pair socket: %v", err)
 		}
 	}(socket)
+
 	if err := socket.Dial(nanomsgURL); err != nil {
 		log.Printf("failed to dial on pair socket: %v", err)
 		return err

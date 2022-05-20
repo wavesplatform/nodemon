@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"go.nanomsg.org/mangos/v3/protocol"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 
@@ -131,17 +132,27 @@ func run() error {
 
 	alerts := analyzer.Start(notifications)
 
-	err = pubsub.StartPubSubMessagingServer(ctx, nanomsgPubSubURL, alerts)
+	pubSubSocket, err := pubsub.StartPubSubMessagingServer(ctx, nanomsgPubSubURL, alerts)
 	if err != nil {
 		log.Printf("Failed to start pub sub messaging server: %v", err)
 		return err
 	}
+	defer func(socketPubSub protocol.Socket) {
+		if err := socketPubSub.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(pubSubSocket)
 
-	err = pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns)
+	pairSocket, err := pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns)
 	if err != nil {
 		log.Printf("Failed to start pair messaging server: %v", err)
 		return err
 	}
+	defer func(pairSocket protocol.Socket) {
+		if err := pairSocket.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(pairSocket)
 
 	<-ctx.Done()
 	a.Shutdown()

@@ -12,26 +12,20 @@ import (
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) (protocol.Socket, error) {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
-		return errors.New("invalid nanomsg IPC URL for pair socket")
+		return nil, errors.New("invalid nanomsg IPC URL for pair socket")
 	}
 	socketPair, err := pair.NewSocket()
 	if err != nil {
 		log.Printf("Failed to get new pair socket: %v", err)
-		return err
+		return nil, err
 	}
-
-	defer func(socketPair protocol.Socket) {
-		if err := socketPair.Close(); err != nil {
-			log.Printf("Failed to close pair socket: %v", err)
-		}
-	}(socketPair)
 
 	if err := socketPair.Listen(nanomsgURL); err != nil {
 		log.Printf("Failed to listen on pair socket: %v", err)
-		return err
+		return nil, err
 	}
 
 	go func() { // pair messaging
@@ -86,5 +80,5 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 		}
 	}()
 
-	return nil
+	return socketPair, nil
 }
