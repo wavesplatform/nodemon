@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"log"
+	"os"
+	"os/signal"
+
 	"nodemon/cmd/tg_bot/internal/handlers"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
-	"os"
-	"os/signal"
 
 	"github.com/pkg/errors"
 	"nodemon/cmd/tg_bot/internal/config"
@@ -41,8 +42,8 @@ func run() error {
 		botToken            string
 		chatID              int64
 	)
-	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
-	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL. Default is tcp://:8001")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
@@ -55,7 +56,7 @@ func run() error {
 		return errorInvalidParameters
 	}
 	if behavior == config.WebhookMethod && publicURL == "" {
-		log.Println("invalid public url")
+		log.Println("invalid public url for webhook")
 		return errorInvalidParameters
 	}
 	if chatID == 0 {

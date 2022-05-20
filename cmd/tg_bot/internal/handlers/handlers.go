@@ -2,15 +2,15 @@ package handlers
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
+	"nodemon/cmd/tg_bot/internal/buttons"
 	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/messaging/pair"
 	"strings"
 )
 
-var addNewNode = "addNewNode"
-var deleteNode = "deleteNode"
 
 func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
 	bot.Handle("/chat", func(c tele.Context) error {
@@ -52,13 +52,13 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			&tele.SendOptions{ParseMode: tele.ModeHTML})
 	})
 
-	bot.Handle("\f"+addNewNode, func(c tele.Context) error {
+	bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
 		return c.Send(
 			"Please type the url of the node you want to add."+
 				"Example: Add <url>",
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
-	bot.Handle("\f"+deleteNode, func(c tele.Context) error {
+	bot.Handle("\f"+buttons.DeleteNode, func(c tele.Context) error {
 		return c.Send(
 			"Please type the url of the node you want to remove."+
 				"Example: Remove <url>",
@@ -69,26 +69,11 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 	})
 
 	bot.Handle("/editPool", func(c tele.Context) error {
-		requestType <- &pair.NodeListRequest{}
-		responsePairType := <-responsePairType
-		nodesList, ok := responsePairType.(*pair.NodeListResponse)
-		if !ok {
-			return nil
+		markup, err := requestNodesListButtons(requestType, responsePairType)
+		if err != nil {
+			return errors.Wrap(err, "failed to request nodes list buttons")
 		}
-		//urls := []string{"mainnet.com", "testnet.com", "stagenet.com", "keknet.com"}
-		var keyboard = make([][]tele.InlineButton, 0)
-		for idx, url := range nodesList.Urls {
-			if idx%2 == 0 {
-				keyboard = append(keyboard, []tele.InlineButton{})
-			}
-			keyboard[idx/2] = append(keyboard[idx/2], tele.InlineButton{Text: url})
-		}
-
-		markup := &tele.ReplyMarkup{
-			InlineKeyboard:  keyboard,
-			OneTimeKeyboard: true,
-		}
-		err := c.Send(
+		err = c.Send(
 			"Here is the list of nodes being monitored",
 			&tele.SendOptions{
 				ParseMode:   tele.ModeHTML,
@@ -101,12 +86,12 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 
 		keyboardAddDelete := [][]tele.InlineButton{{
 			{
-				Text:   "Add new node",
-				Unique: addNewNode,
+				Text:   buttons.AddNewNode,
+				Unique: buttons.AddNewNode,
 			},
 			{
-				Text:   "Delete node",
-				Unique: deleteNode,
+				Text:   buttons.DeleteNode,
+				Unique: buttons.DeleteNode,
 			},
 		}}
 
@@ -141,23 +126,9 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			if err != nil {
 				return nil
 			}
-			requestType <- &pair.NodeListRequest{}
-			responsePairType := <-responsePairType
-			nodesList, ok := responsePairType.(*pair.NodeListResponse)
-			if !ok {
-				return nil
-			}
-			//urls := []string{"mainnet.com", "testnet.com", "stagenet.com", "keknet.com"}
-			var keyboard = make([][]tele.InlineButton, 0)
-			for idx, url := range nodesList.Urls {
-				if idx%2 == 0 {
-					keyboard = append(keyboard, []tele.InlineButton{})
-				}
-				keyboard[idx/2] = append(keyboard[idx/2], tele.InlineButton{Text: url})
-			}
-			markup := &tele.ReplyMarkup{
-				InlineKeyboard:  keyboard,
-				OneTimeKeyboard: true,
+			markup, err := requestNodesListButtons(requestType, responsePairType)
+			if err != nil {
+				return errors.Wrap(err, "failed to request nodes list buttons")
 			}
 			return c.Send(
 				"New list of nodes being monitored",
@@ -182,26 +153,11 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 				response,
 				&tele.SendOptions{ParseMode: tele.ModeHTML})
 			if err != nil {
-				return nil
+				return err
 			}
-			requestType <- &pair.NodeListRequest{}
-			responsePairType := <-responsePairType
-			nodesList, ok := responsePairType.(*pair.NodeListResponse)
-			if !ok {
-				return nil
-			}
-			//urls := []string{"mainnet.com", "testnet.com", "stagenet.com", "keknet.com"}
-			var keyboard = make([][]tele.InlineButton, 0)
-			for idx, url := range nodesList.Urls {
-				if idx%2 == 0 {
-					keyboard = append(keyboard, []tele.InlineButton{})
-				}
-				keyboard[idx/2] = append(keyboard[idx/2], tele.InlineButton{Text: url})
-			}
-
-			markup := &tele.ReplyMarkup{
-				InlineKeyboard:  keyboard,
-				OneTimeKeyboard: true,
+			markup, err := requestNodesListButtons(requestType, responsePairType)
+			if err != nil {
+				return errors.Wrap(err, "failed to request nodes list buttons")
 			}
 			return c.Send(
 				"New list of nodes being monitored",
@@ -215,4 +171,25 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 		return nil
 
 	})
+}
+
+func requestNodesListButtons(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) (*tele.ReplyMarkup, error) {
+	requestType <- &pair.NodeListRequest{}
+	responsePair := <-responsePairType
+	nodesList, ok := responsePair.(*pair.NodeListResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the node list type")
+	}
+	var keyboard = make([][]tele.InlineButton, 0)
+	for idx, url := range nodesList.Urls {
+		if idx%2 == 0 {
+			keyboard = append(keyboard, []tele.InlineButton{})
+		}
+		keyboard[idx/2] = append(keyboard[idx/2], tele.InlineButton{Text: url})
+	}
+
+	return &tele.ReplyMarkup{
+		InlineKeyboard:  keyboard,
+		OneTimeKeyboard: true,
+	}, nil
 }

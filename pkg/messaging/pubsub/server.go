@@ -10,9 +10,9 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
-func StartMessagingServer(nanomsgURL string) (protocol.Socket, error) {
+func StartPubSubMessagingServer(nanomsgURL string) (protocol.Socket, error) {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		log.Printf("Invalid nanomsg IPC URL '%s'", nanomsgURL)
+		log.Printf("Invalid nanomsg IPC URL for pubsub server'%s'", nanomsgURL)
 		return nil, errors.New("invalid nanomsg IPC URL")
 	}
 

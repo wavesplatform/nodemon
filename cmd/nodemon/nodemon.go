@@ -7,12 +7,14 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"nodemon/pkg/messaging/pair"
-	"nodemon/pkg/messaging/pubsub"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
+
+	"go.nanomsg.org/mangos/v3/protocol"
+	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/messaging/pubsub"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
@@ -56,16 +58,16 @@ func run() error {
 		interval         time.Duration
 		timeout          time.Duration
 		nanomsgPubSubURL string
-		nanomsgPairUrl   string
+		nanomsgPairURL   string
 		retention        time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
-	flag.StringVar(&bindAddress, "bind", ":8085", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
+	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
-	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL. Default is tcp://:8000")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
+	flag.StringVar(&nanomsgPairURL, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.Parse()
 
@@ -133,11 +135,16 @@ func run() error {
 
 	alerts := analyzer.Start(notifications)
 
-	socketPubSub, err := pubsub.StartMessagingServer(nanomsgPubSubURL)
+	socketPubSub, err := pubsub.StartPubSubMessagingServer(nanomsgPubSubURL)
 	if err != nil {
 		log.Printf("Failed to start messaging server: %v", err)
 		return err
 	}
+	defer func(socketPubSub protocol.Socket) {
+		if err := socketPubSub.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(socketPubSub)
 	go func() { // pubsub messaging
 		for alert := range alerts {
 			log.Printf("Alert has been generated: %v", alert)
@@ -162,11 +169,16 @@ func run() error {
 		}
 	}()
 
-	socketPair, err := pair.StartPairMessagingServer(nanomsgPairUrl)
+	socketPair, err := pair.StartPairMessagingServer(nanomsgPairURL)
 	if err != nil {
-		log.Printf("Failed to start messaging server: %v", err)
+		log.Printf("Failed to start pair messaging server: %v", err)
 		return err
 	}
+	defer func(socketPair protocol.Socket) {
+		if err := socketPair.Close(); err != nil {
+			log.Printf("Failed to close pair socket: %v", err)
+		}
+	}(socketPair)
 	go func() { // pair messaging
 		for {
 			select {
@@ -175,7 +187,7 @@ func run() error {
 			default:
 				msg, err := socketPair.Recv()
 				if err != nil {
-					log.Printf("failed to receive 123 message: %v", err)
+					log.Printf("failed to receive a message from pair socket: %v", err)
 					return
 				}
 				request := pair.RequestPairType(msg[0])
@@ -192,7 +204,7 @@ func run() error {
 					}
 					response, err := json.Marshal(nodeList)
 					if err != nil {
-						log.Printf("failedto marshal list of nodes to json, %v", err)
+						log.Printf("failed to marshal list of nodes to json, %v", err)
 					}
 					err = socketPair.Send(response)
 					if err != nil {
