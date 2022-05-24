@@ -1,8 +1,8 @@
 package messages
 
 const (
-	ErrorMsg    = "❌"
-	InfoMsg     = "ℹ️"
-	OkMsg       = "✅"
-	QuestionMsg = "❔"
+	ErrorOrDeleteMsg = "❌"
+	InfoMsg          = "ℹ️"
+	OkMsg            = "✅"
+	QuestionMsg      = "❔"
 )

@@ -1,6 +1,7 @@
 package buttons
 
 const (
-	AddNewNode = "ANN"
-	RemoveNode = "RN"
+	AddNewNode         = "ANN"
+	RemoveNode         = "RN"
+	RemoveSpecificNode = "RSN"
 )

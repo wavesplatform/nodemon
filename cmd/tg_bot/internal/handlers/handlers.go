@@ -58,12 +58,34 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
 	bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
-		return c.Send(
+		err := c.Send(
 			messages.RemoveNode,
 			&tele.SendOptions{
 				ParseMode: tele.ModeDefault,
 			},
 		)
+		if err != nil {
+			return err
+		}
+		urls, err := requestNodesList(requestType, responsePairType)
+		if err != nil {
+			return errors.Wrap(err, "failed to request nodes list buttons")
+		}
+		for _, url := range urls {
+			markUp := NodeButtonListToDelete(url)
+			err := c.Send(
+				"Press "+messages.ErrorOrDeleteMsg+"to remove",
+				&tele.SendOptions{
+					ParseMode:   tele.ModeDefault,
+					ReplyMarkup: markUp,
+				},
+			)
+			if err != nil {
+				return err
+			}
+		}
+		return nil
+
 	})
 
 	bot.Handle("/pool", func(c tele.Context) error {
@@ -188,4 +210,16 @@ func requestNodesList(requestType chan pair.RequestPair, responsePairType chan p
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
 	return nodesList.Urls, nil
+}
+
+func NodeButtonListToDelete(url string) *tele.ReplyMarkup {
+	var keyboard = make([][]tele.InlineButton, 0)
+	keyboard = append(keyboard, []tele.InlineButton{})
+	keyboard[0] = append(keyboard[0], tele.InlineButton{Text: url})
+	keyboard[0] = append(keyboard[0], tele.InlineButton{Text: messages.ErrorOrDeleteMsg, Unique: buttons.RemoveSpecificNode, Data: url})
+
+	return &tele.ReplyMarkup{
+		InlineKeyboard:  keyboard,
+		OneTimeKeyboard: true,
+	}
 }

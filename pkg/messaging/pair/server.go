@@ -33,57 +33,54 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 		return err
 	}
 
-	go func() { // pair messaging
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			default:
-				msg, err := socketPair.Recv()
-				if err != nil {
-					log.Printf("failed to receive a message from pair socket: %v", err)
-					return
-				}
-				request := RequestPairType(msg[0])
-				switch request {
-				case RequestNodeListT:
-					nodes, err := ns.Nodes()
-					if err != nil {
-						log.Printf("failed to receive list of nodes from storage, %v", err)
-					}
-
-					var nodeList NodeListResponse
-					for _, node := range nodes {
-						nodeList.Urls = append(nodeList.Urls, node.URL)
-					}
-					response, err := json.Marshal(nodeList)
-					if err != nil {
-						log.Printf("failed to marshal list of nodes to json, %v", err)
-					}
-					err = socketPair.Send(response)
-					if err != nil {
-						log.Printf("failed to receive a response from pair socket, %v", err)
-					}
-				case RequestInsertNewNodeT:
-					url := msg[1:]
-					err := ns.InsertIfNew(string(url))
-					if err != nil {
-						log.Printf("failed to insert a new node to storage, %v", err)
-					}
-
-				case RequestDeleteNodeT:
-					url := msg[1:]
-					err := ns.Delete(string(url))
-					if err != nil {
-						log.Printf("failed to delete a node from storage, %v", err)
-					}
-				default:
-					log.Printf("request type to the pair socket is unknown: %c", request)
-				}
-
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+			msg, err := socketPair.Recv()
+			if err != nil {
+				log.Printf("failed to receive a message from pair socket: %v", err)
+				return nil
 			}
-		}
-	}()
+			request := RequestPairType(msg[0])
+			switch request {
+			case RequestNodeListT:
+				nodes, err := ns.Nodes()
+				if err != nil {
+					log.Printf("failed to receive list of nodes from storage, %v", err)
+				}
 
-	return nil
+				var nodeList NodeListResponse
+				for _, node := range nodes {
+					nodeList.Urls = append(nodeList.Urls, node.URL)
+				}
+				response, err := json.Marshal(nodeList)
+				if err != nil {
+					log.Printf("failed to marshal list of nodes to json, %v", err)
+				}
+				err = socketPair.Send(response)
+				if err != nil {
+					log.Printf("failed to receive a response from pair socket, %v", err)
+				}
+			case RequestInsertNewNodeT:
+				url := msg[1:]
+				err := ns.InsertIfNew(string(url))
+				if err != nil {
+					log.Printf("failed to insert a new node to storage, %v", err)
+				}
+
+			case RequestDeleteNodeT:
+				url := msg[1:]
+				err := ns.Delete(string(url))
+				if err != nil {
+					log.Printf("failed to delete a node from storage, %v", err)
+				}
+			default:
+				log.Printf("request type to the pair socket is unknown: %c", request)
+			}
+
+		}
+	}
+
 }

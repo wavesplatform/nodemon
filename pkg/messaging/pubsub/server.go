@@ -38,33 +38,33 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 		return err
 	}
 
-	go func() { // pubsub messaging
-		select {
-		case <-ctx.Done():
-			return
-		default:
-			for alert := range alerts {
-				log.Printf("Alert has been generated: %v", alert)
+	// pubsub messaging
+	select {
+	case <-ctx.Done():
+		return nil
+	default:
+		for alert := range alerts {
+			log.Printf("Alert has been generated: %v", alert)
 
-				jsonAlert, err := json.Marshal(
-					messaging.Alert{
-						AlertDescription: alert.ShortDescription(),
-						Severity:         alert.Severity(),
-						Details:          alert.Message(),
-					})
-				if err != nil {
-					log.Printf("failed to marshal alert to json, %v", err)
-				}
+			jsonAlert, err := json.Marshal(
+				messaging.Alert{
+					AlertDescription: alert.ShortDescription(),
+					Severity:         alert.Severity(),
+					Details:          alert.Message(),
+				})
+			if err != nil {
+				log.Printf("failed to marshal alert to json, %v", err)
+			}
 
-				message := &bytes.Buffer{}
-				message.WriteByte(byte(alert.Type()))
-				message.Write(jsonAlert)
-				err = socketPubSub.Send(message.Bytes())
-				if err != nil {
-					log.Printf("failed to send a message to socket, %v", err)
-				}
+			message := &bytes.Buffer{}
+			message.WriteByte(byte(alert.Type()))
+			message.Write(jsonAlert)
+			err = socketPubSub.Send(message.Bytes())
+			if err != nil {
+				log.Printf("failed to send a message to socket, %v", err)
 			}
 		}
-	}()
+	}
+
 	return nil
 }
