@@ -12,20 +12,25 @@ import (
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) (protocol.Socket, error) {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) (error) {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
-		return nil, errors.New("invalid nanomsg IPC URL for pair socket")
+		return errors.New("invalid nanomsg IPC URL for pair socket")
 	}
 	socketPair, err := pair.NewSocket()
 	if err != nil {
 		log.Printf("Failed to get new pair socket: %v", err)
-		return nil, err
+		return err
 	}
+	defer func(socketPair protocol.Socket) {
+		if err := socketPair.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(socketPair)
 
 	if err := socketPair.Listen(nanomsgURL); err != nil {
 		log.Printf("Failed to listen on pair socket: %v", err)
-		return nil, err
+		return err
 	}
 
 	go func() { // pair messaging
@@ -73,12 +78,12 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 						log.Printf("failed to delete a node from storage, %v", err)
 					}
 				default:
-
+					log.Printf("request type to the pair socket is unknown: %c", request)
 				}
 
 			}
 		}
 	}()
 
-	return socketPair, nil
+	return nil
 }

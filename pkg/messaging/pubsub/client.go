@@ -60,6 +60,6 @@ func StartMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.
 	}()
 
 	<-ctx.Done()
-	log.Println("messaging service finished")
+	log.Println("pubsub messaging service finished")
 	return nil
 }

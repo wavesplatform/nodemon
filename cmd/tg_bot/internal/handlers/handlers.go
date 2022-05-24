@@ -54,30 +54,31 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 
 	bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
 		return c.Send(
-			"Please type the url of the node you want to add."+
-				"Example: Add <url>",
+			messages.AddNewNodeMsg,
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
-	bot.Handle("\f"+buttons.DeleteNode, func(c tele.Context) error {
+	bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
 		return c.Send(
-			"Please type the url of the node you want to remove."+
-				"Example: Remove <url>",
+			messages.RemoveNode,
 			&tele.SendOptions{
 				ParseMode: tele.ModeDefault,
 			},
 		)
 	})
 
-	bot.Handle("/editPool", func(c tele.Context) error {
-		markup, err := requestNodesListButtons(requestType, responsePairType)
+	bot.Handle("/pool", func(c tele.Context) error {
+		urls, err := requestNodesList(requestType, responsePairType)
 		if err != nil {
 			return errors.Wrap(err, "failed to request nodes list buttons")
 		}
+		message, err := environment.NodesListMessage(urls)
+		if err != nil {
+			return errors.Wrap(err, "failed to construct nodes list message")
+		}
 		err = c.Send(
-			"Here is the list of nodes being monitored",
+			message,
 			&tele.SendOptions{
-				ParseMode:   tele.ModeHTML,
-				ReplyMarkup: markup,
+				ParseMode: tele.ModeHTML,
 			},
 		)
 		if err != nil {
@@ -86,12 +87,12 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 
 		keyboardAddDelete := [][]tele.InlineButton{{
 			{
-				Text:   buttons.AddNewNode,
+				Text:   "Add new node",
 				Unique: buttons.AddNewNode,
 			},
 			{
-				Text:   buttons.DeleteNode,
-				Unique: buttons.DeleteNode,
+				Text:   "Remove node",
+				Unique: buttons.RemoveNode,
 			},
 		}}
 
@@ -126,15 +127,18 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			if err != nil {
 				return nil
 			}
-			markup, err := requestNodesListButtons(requestType, responsePairType)
+			urls, err := requestNodesList(requestType, responsePairType)
 			if err != nil {
 				return errors.Wrap(err, "failed to request nodes list buttons")
 			}
+			message, err := environment.NodesListMessage(urls)
+			if err != nil {
+				return errors.Wrap(err, "failed to construct nodes list message")
+			}
 			return c.Send(
-				"New list of nodes being monitored",
+				message,
 				&tele.SendOptions{
-					ParseMode:   tele.ModeHTML,
-					ReplyMarkup: markup,
+					ParseMode: tele.ModeHTML,
 				},
 			)
 		}
@@ -155,15 +159,18 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			if err != nil {
 				return err
 			}
-			markup, err := requestNodesListButtons(requestType, responsePairType)
+			urls, err := requestNodesList(requestType, responsePairType)
 			if err != nil {
 				return errors.Wrap(err, "failed to request nodes list buttons")
 			}
+			message, err := environment.NodesListMessage(urls)
+			if err != nil {
+				return errors.Wrap(err, "failed to construct nodes list message")
+			}
 			return c.Send(
-				"New list of nodes being monitored",
+				message,
 				&tele.SendOptions{
-					ParseMode:   tele.ModeHTML,
-					ReplyMarkup: markup,
+					ParseMode: tele.ModeHTML,
 				},
 			)
 		}
@@ -173,23 +180,12 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 	})
 }
 
-func requestNodesListButtons(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) (*tele.ReplyMarkup, error) {
+func requestNodesList(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) ([]string, error) {
 	requestType <- &pair.NodeListRequest{}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodeListResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
-	var keyboard = make([][]tele.InlineButton, 0)
-	for idx, url := range nodesList.Urls {
-		if idx%2 == 0 {
-			keyboard = append(keyboard, []tele.InlineButton{})
-		}
-		keyboard[idx/2] = append(keyboard[idx/2], tele.InlineButton{Text: url})
-	}
-
-	return &tele.ReplyMarkup{
-		InlineKeyboard:  keyboard,
-		OneTimeKeyboard: true,
-	}, nil
+	return nodesList.Urls, nil
 }

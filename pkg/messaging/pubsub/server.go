@@ -16,21 +16,26 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
-func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) (protocol.Socket, error) {
+func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) (error) {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pubsub server'%s'", nanomsgURL)
-		return nil, errors.New("invalid nanomsg IPC URL for pub sub socket")
+		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
 
 	socketPubSub, err := pub.NewSocket()
 	if err != nil {
 		log.Printf("Failed to get new pub socket: %v", err)
-		return nil, err
+		return err
 	}
+	defer func(socketPubSub protocol.Socket) {
+		if err := socketPubSub.Close(); err != nil {
+			log.Printf("Failed to close pubsub socket: %v", err)
+		}
+	}(socketPubSub)
 
 	if err := socketPubSub.Listen(nanomsgURL); err != nil {
 		log.Printf("Failed to listen on pub socket: %v", err)
-		return nil, err
+		return err
 	}
 
 	go func() { // pubsub messaging
@@ -61,5 +66,5 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			}
 		}
 	}()
-	return socketPubSub, nil
+	return nil
 }

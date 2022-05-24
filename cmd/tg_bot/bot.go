@@ -46,8 +46,8 @@ func run() error {
 	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
-	flag.StringVar(&botToken, "bot-token", "", "Temporarily: the default token is the current token")
-	flag.StringVar(&publicURL, "public-url", "", "Default is https://mainnet-go-htz-fsn1-1.wavesnodes.com/bot")
+	flag.StringVar(&botToken, "bot-token", "", "")
+	flag.StringVar(&publicURL, "public-url", "", "The public url for websocket only")
 	flag.Int64Var(&chatID, "chat-id", 0, "Chat ID to send alerts through")
 	flag.Parse()
 

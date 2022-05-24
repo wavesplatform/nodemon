@@ -77,7 +77,7 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					}
 
 				default:
-					log.Printf("request type to the pair socket is unknown")
+					log.Printf("request type to the pair socket is unknown: %T", r)
 
 				}
 
@@ -86,6 +86,6 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 	}()
 
 	<-ctx.Done()
-	log.Println("messaging service finished")
+	log.Println("pair messaging service finished")
 	return nil
 }
