@@ -133,7 +133,7 @@ type Node struct {
 	Url string
 }
 
-func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error){
+func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error) {
 	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_list.html")
 
 	if err != nil {

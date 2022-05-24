@@ -16,7 +16,7 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
-func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) (error) {
+func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pubsub server'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
