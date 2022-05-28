@@ -121,7 +121,7 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			}
 			requestType <- &pair.InsertNewNodeRequest{Url: url}
 
-			response := fmt.Sprintf("New node '%s' added", url)
+			response := fmt.Sprintf("New node was '%s' added", url)
 			err := c.Send(
 				response,
 				&tele.SendOptions{ParseMode: tele.ModeHTML})
@@ -153,7 +153,7 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 			}
 			requestType <- &pair.DeleteNodeRequest{Url: url}
 
-			response := fmt.Sprintf("Node '%s' deleted", url)
+			response := fmt.Sprintf("Node '%s' was deleted", url)
 			err := c.Send(
 				response,
 				&tele.SendOptions{ParseMode: tele.ModeHTML})
