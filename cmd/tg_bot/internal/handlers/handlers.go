@@ -13,76 +13,6 @@ import (
 )
 
 func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
-	bot.Handle(tele.OnText, func(c tele.Context) error {
-		fmt.Println("HEEERE")
-		if strings.HasPrefix(c.Text(), "Add") {
-			url := strings.TrimPrefix(c.Text(), "Add ")
-			if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
-				return c.Send(
-					"Sorry, the url seems to be incorrect",
-					&tele.SendOptions{ParseMode: tele.ModeDefault},
-				)
-			}
-			requestType <- &pair.InsertNewNodeRequest{Url: url}
-
-			response := fmt.Sprintf("New node '%s' added", url)
-			err := c.Send(
-				response,
-				&tele.SendOptions{ParseMode: tele.ModeHTML})
-			if err != nil {
-				return nil
-			}
-			urls, err := requestNodesList(requestType, responsePairType)
-			if err != nil {
-				return errors.Wrap(err, "failed to request nodes list buttons")
-			}
-			message, err := environment.NodesListMessage(urls)
-			if err != nil {
-				return errors.Wrap(err, "failed to construct nodes list message")
-			}
-			return c.Send(
-				message,
-				&tele.SendOptions{
-					ParseMode: tele.ModeHTML,
-				},
-			)
-		}
-		if strings.HasPrefix(c.Text(), "Remove") {
-			url := strings.TrimPrefix(c.Text(), "Remove ")
-			if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
-				return c.Send(
-					"Sorry, the url seems to be incorrect",
-					&tele.SendOptions{ParseMode: tele.ModeDefault},
-				)
-			}
-			requestType <- &pair.DeleteNodeRequest{Url: url}
-
-			response := fmt.Sprintf("Node '%s' deleted", url)
-			err := c.Send(
-				response,
-				&tele.SendOptions{ParseMode: tele.ModeHTML})
-			if err != nil {
-				return err
-			}
-			urls, err := requestNodesList(requestType, responsePairType)
-			if err != nil {
-				return errors.Wrap(err, "failed to request nodes list buttons")
-			}
-			message, err := environment.NodesListMessage(urls)
-			if err != nil {
-				return errors.Wrap(err, "failed to construct nodes list message")
-			}
-			return c.Send(
-				message,
-				&tele.SendOptions{
-					ParseMode: tele.ModeHTML,
-				},
-			)
-		}
-
-		return nil
-
-	})
 
 	bot.Handle("/chat", func(c tele.Context) error {
 		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", environment.ChatID))
@@ -178,6 +108,76 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 					OneTimeKeyboard: true},
 			},
 		)
+	})
+
+	bot.Handle(tele.OnText, func(c tele.Context) error {
+		if strings.HasPrefix(c.Text(), "Add") {
+			url := strings.TrimPrefix(c.Text(), "Add ")
+			if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
+				return c.Send(
+					"Sorry, the url seems to be incorrect",
+					&tele.SendOptions{ParseMode: tele.ModeDefault},
+				)
+			}
+			requestType <- &pair.InsertNewNodeRequest{Url: url}
+
+			response := fmt.Sprintf("New node '%s' added", url)
+			err := c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeHTML})
+			if err != nil {
+				return nil
+			}
+			urls, err := requestNodesList(requestType, responsePairType)
+			if err != nil {
+				return errors.Wrap(err, "failed to request nodes list buttons")
+			}
+			message, err := environment.NodesListMessage(urls)
+			if err != nil {
+				return errors.Wrap(err, "failed to construct nodes list message")
+			}
+			return c.Send(
+				message,
+				&tele.SendOptions{
+					ParseMode: tele.ModeHTML,
+				},
+			)
+		}
+		if strings.HasPrefix(c.Text(), "Remove") {
+			url := strings.TrimPrefix(c.Text(), "Remove ")
+			if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
+				return c.Send(
+					"Sorry, the url seems to be incorrect",
+					&tele.SendOptions{ParseMode: tele.ModeDefault},
+				)
+			}
+			requestType <- &pair.DeleteNodeRequest{Url: url}
+
+			response := fmt.Sprintf("Node '%s' deleted", url)
+			err := c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeHTML})
+			if err != nil {
+				return err
+			}
+			urls, err := requestNodesList(requestType, responsePairType)
+			if err != nil {
+				return errors.Wrap(err, "failed to request nodes list buttons")
+			}
+			message, err := environment.NodesListMessage(urls)
+			if err != nil {
+				return errors.Wrap(err, "failed to construct nodes list message")
+			}
+			return c.Send(
+				message,
+				&tele.SendOptions{
+					ParseMode: tele.ModeHTML,
+				},
+			)
+		}
+
+		return nil
+
 	})
 
 }
