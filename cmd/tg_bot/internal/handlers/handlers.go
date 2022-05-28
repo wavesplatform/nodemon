@@ -13,125 +13,8 @@ import (
 )
 
 func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
-	bot.Handle("/chat", func(c tele.Context) error {
-		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", environment.ChatID))
-	})
-
-	bot.Handle("/ping", func(c tele.Context) error {
-		if environment.Mute {
-			return c.Send(messages.PongText + " I am currently sleeping" + messages.SleepingMsg)
-		}
-		return c.Send(messages.PongText + " I am monitoring" + messages.MonitoringMsg)
-	})
-
-	bot.Handle("/start", func(c tele.Context) error {
-		if !environment.IsEligibleForAction(c.Chat().ID) {
-			return c.Send("Sorry, you have no right to start me")
-		}
-		if environment.Mute {
-			environment.Mute = false
-			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
-		}
-		return c.Send("I had already been monitoring" + messages.MonitoringMsg)
-	})
-
-	bot.Handle("/mute", func(c tele.Context) error {
-		if !environment.IsEligibleForAction(c.Chat().ID) {
-			return c.Send("Sorry, you have no right to mute me")
-		}
-		if environment.Mute {
-			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
-		}
-		environment.Mute = true
-		return c.Send("I had been monitoring, but going to sleep now.." + messages.SleepingMsg)
-	})
-
-	bot.Handle("/help", func(c tele.Context) error {
-		return c.Send(
-			messages.HelpInfoText,
-			&tele.SendOptions{ParseMode: tele.ModeHTML})
-	})
-
-	bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
-		return c.Send(
-			messages.AddNewNodeMsg,
-			&tele.SendOptions{ParseMode: tele.ModeDefault})
-	})
-	bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
-		err := c.Send(
-			messages.RemoveNode,
-			&tele.SendOptions{
-				ParseMode: tele.ModeDefault,
-			},
-		)
-		if err != nil {
-			return err
-		}
-		urls, err := requestNodesList(requestType, responsePairType)
-		if err != nil {
-			return errors.Wrap(err, "failed to request nodes list buttons")
-		}
-		for _, url := range urls {
-			markUp := NodeButtonListToDelete(url)
-			err := c.Send(
-				"Press "+messages.ErrorOrDeleteMsg+"to remove",
-				&tele.SendOptions{
-					ParseMode:   tele.ModeDefault,
-					ReplyMarkup: markUp,
-				},
-			)
-			if err != nil {
-				return err
-			}
-		}
-		return nil
-
-	})
-
-	bot.Handle("/pool", func(c tele.Context) error {
-		urls, err := requestNodesList(requestType, responsePairType)
-		if err != nil {
-			return errors.Wrap(err, "failed to request nodes list buttons")
-		}
-		message, err := environment.NodesListMessage(urls)
-		if err != nil {
-			return errors.Wrap(err, "failed to construct nodes list message")
-		}
-		err = c.Send(
-			message,
-			&tele.SendOptions{
-				ParseMode: tele.ModeHTML,
-			},
-		)
-		if err != nil {
-			return err
-		}
-
-		keyboardAddDelete := [][]tele.InlineButton{{
-			{
-				Text:   "Add new node",
-				Unique: buttons.AddNewNode,
-			},
-			{
-				Text:   "Remove node",
-				Unique: buttons.RemoveNode,
-			},
-		}}
-
-		return c.Send(
-			"Please choose",
-			&tele.SendOptions{
-
-				ParseMode: tele.ModeHTML,
-				ReplyMarkup: &tele.ReplyMarkup{
-					InlineKeyboard:  keyboardAddDelete,
-					ResizeKeyboard:  true,
-					OneTimeKeyboard: true},
-			},
-		)
-	})
 	bot.Handle(tele.OnText, func(c tele.Context) error {
-
+		fmt.Println("HEEERE")
 		if strings.HasPrefix(c.Text(), "Add") {
 			url := strings.TrimPrefix(c.Text(), "Add ")
 			if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
@@ -200,6 +83,103 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 		return nil
 
 	})
+
+	bot.Handle("/chat", func(c tele.Context) error {
+		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", environment.ChatID))
+	})
+
+	bot.Handle("/ping", func(c tele.Context) error {
+		if environment.Mute {
+			return c.Send(messages.PongText + " I am currently sleeping" + messages.SleepingMsg)
+		}
+		return c.Send(messages.PongText + " I am monitoring" + messages.MonitoringMsg)
+	})
+
+	bot.Handle("/start", func(c tele.Context) error {
+		if !environment.IsEligibleForAction(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to start me")
+		}
+		if environment.Mute {
+			environment.Mute = false
+			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
+		}
+		return c.Send("I had already been monitoring" + messages.MonitoringMsg)
+	})
+
+	bot.Handle("/mute", func(c tele.Context) error {
+		if !environment.IsEligibleForAction(c.Chat().ID) {
+			return c.Send("Sorry, you have no right to mute me")
+		}
+		if environment.Mute {
+			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
+		}
+		environment.Mute = true
+		return c.Send("I had been monitoring, but going to sleep now.." + messages.SleepingMsg)
+	})
+
+	bot.Handle("/help", func(c tele.Context) error {
+		return c.Send(
+			messages.HelpInfoText,
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
+	})
+
+	bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
+		return c.Send(
+			messages.AddNewNodeMsg,
+			&tele.SendOptions{ParseMode: tele.ModeDefault})
+	})
+	bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
+		return c.Send(
+			messages.RemoveNode,
+			&tele.SendOptions{
+				ParseMode: tele.ModeDefault,
+			},
+		)
+	})
+
+	bot.Handle("/pool", func(c tele.Context) error {
+		urls, err := requestNodesList(requestType, responsePairType)
+		if err != nil {
+			return errors.Wrap(err, "failed to request nodes list buttons")
+		}
+		message, err := environment.NodesListMessage(urls)
+		if err != nil {
+			return errors.Wrap(err, "failed to construct nodes list message")
+		}
+		err = c.Send(
+			message,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
+		if err != nil {
+			return err
+		}
+
+		keyboardAddDelete := [][]tele.InlineButton{{
+			{
+				Text:   "Add new node",
+				Unique: buttons.AddNewNode,
+			},
+			{
+				Text:   "Remove node",
+				Unique: buttons.RemoveNode,
+			},
+		}}
+
+		return c.Send(
+			"Please choose",
+			&tele.SendOptions{
+
+				ParseMode: tele.ModeHTML,
+				ReplyMarkup: &tele.ReplyMarkup{
+					InlineKeyboard:  keyboardAddDelete,
+					ResizeKeyboard:  true,
+					OneTimeKeyboard: true},
+			},
+		)
+	})
+
 }
 
 func requestNodesList(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) ([]string, error) {
@@ -220,6 +200,7 @@ func NodeButtonListToDelete(url string) *tele.ReplyMarkup {
 
 	return &tele.ReplyMarkup{
 		InlineKeyboard:  keyboard,
+		ResizeKeyboard:  true,
 		OneTimeKeyboard: true,
 	}
 }

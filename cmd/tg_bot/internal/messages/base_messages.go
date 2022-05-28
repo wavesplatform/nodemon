@@ -16,10 +16,10 @@ const (
 	PongText  = "Pong!" + PongMsg
 	StartText = "Started monitoring..." + MonitoringMsg
 
-	AddNewNodeMsg = `Please type the url of the node you want to remove
+	RemoveNode = `Please type the url of the node you want to remove
 Example: Remove <url>
 `
-	RemoveNode = `Please type the url of the node you want to add
+	AddNewNodeMsg = `Please type the url of the node you want to add
 Example: Add <url>
 `
 )
