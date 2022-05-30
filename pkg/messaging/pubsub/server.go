@@ -66,5 +66,5 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 
 		}
 	}
-	
+
 }
