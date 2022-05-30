@@ -9,6 +9,8 @@ import (
 	"log"
 
 	"github.com/pkg/errors"
+	"go.nanomsg.org/mangos/v3"
+	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/entities"
@@ -23,19 +25,25 @@ var (
 var errUnknownAlertType = errors.New("received unknown alert type")
 
 type TelegramBotEnvironment struct {
-	ChatID int64
-	Bot    *telebot.Bot
-	Mute   bool
+	ChatID        int64
+	Bot           *telebot.Bot
+	Mute          bool
+	pubSubSocket  protocol.Socket
+	subscriptions map[entities.AlertType]string
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute}
+	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: make(map[entities.AlertType]string)}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() {
 	log.Println("Telegram bot started")
 	tgEnv.Bot.Start()
 	log.Println("Telegram bot finished")
+}
+
+func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socket) {
+	tgEnv.pubSubSocket = pubSubSocket
 }
 
 func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
@@ -153,4 +161,125 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 		return "", err
 	}
 	return w.String(), nil
+}
+
+func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
+	for alertType := range entities.AlertTypes {
+		alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+		if !ok {
+			return errors.New("failed to subscribe to alerts, unknown alert type")
+		}
+
+		err := tgEnv.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+		if err != nil {
+			return err
+		}
+		tgEnv.subscriptions[alertType] = alertName
+		log.Printf("Subscribed to %s", alertName)
+	}
+
+	return nil
+}
+
+func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertType) error {
+	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	if !ok {
+		return errors.New("failed to subscribe to alert, unkown alert type")
+	}
+
+	err := tgEnv.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+	if err != nil {
+		return errors.Wrap(err, "failed to subscribe to alert")
+	}
+
+	tgEnv.subscriptions[alertType] = alertName
+	log.Printf("Subscribed to %s", alertName)
+	return nil
+}
+
+func (tgEnv *TelegramBotEnvironment) UnubscribeFromAlert(alertType entities.AlertType) error {
+	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	if !ok {
+		return errors.New("failed to unsubscribe from alert, unkown alert type")
+	}
+	err := tgEnv.pubSubSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
+	if err != nil {
+		return errors.Wrap(err, "failed to unsubscribe from alert")
+	}
+
+	if _, ok := tgEnv.subscriptions[alertType]; !ok {
+		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
+	}
+	delete(tgEnv.subscriptions, alertType)
+	log.Printf("Unsubscribed from %s", alertName)
+	return nil
+}
+
+type Subscribed struct {
+	AlertName string
+}
+
+type Unsubscribed struct {
+	AlertName string
+}
+
+type Subscriptions struct {
+	SubscribedTo     []Subscribed
+	UnsubscribedFrom []Unsubscribed
+}
+
+func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
+	tmpl, err := template.ParseFS(templateFiles, "templates/subscriptions.html")
+
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	var subcribedTo []Subscribed
+	for _, alertName := range tgEnv.subscriptions {
+		s := Subscribed{AlertName: alertName + "\n\n"}
+		subcribedTo = append(subcribedTo, s)
+	}
+
+	var unsusbcribedFrom []Unsubscribed
+	for alertType, alertName := range entities.AlertTypes {
+		if _, ok := tgEnv.subscriptions[alertType]; !ok { // find those alerts that are not in the subscriptions list
+			u := Unsubscribed{AlertName: alertName + "\n\n"}
+			unsusbcribedFrom = append(unsusbcribedFrom, u)
+		}
+	}
+
+	subscriptions := Subscriptions{SubscribedTo: subcribedTo, UnsubscribedFrom: unsusbcribedFrom}
+
+	w := &bytes.Buffer{}
+	err = tmpl.Execute(w, subscriptions)
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	return w.String(), nil
+}
+
+func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
+	if _, ok := tgEnv.subscriptions[alertType]; ok {
+		return true
+	}
+	return false
+}
+
+func (tgEnv *TelegramBotEnvironment) AlertExists(alertType entities.AlertType) bool {
+	if _, ok := entities.AlertTypes[alertType]; ok {
+		return true
+	}
+	return false
+}
+
+func (tgEnv *TelegramBotEnvironment) FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
+	for key, val := range entities.AlertTypes {
+		if val == alertName {
+			return key, true
+		}
+	}
+	return 0, false
+
 }

@@ -84,7 +84,7 @@ func (cs *Storage) InsertIfNew(url string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("New node #%d at '%s' stored", id, url)
+		log.Printf("New node #%d at '%s'was stored", id, url)
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func (cs *Storage) Delete(url string) error {
 			if err != nil {
 				return err
 			}
-			log.Printf("Node #%d at '%s' deleted", id, url)
+			log.Printf("Node #%d at '%s' was deleted", id, url)
 		}
 	}
 

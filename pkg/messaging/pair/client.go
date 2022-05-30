@@ -10,20 +10,20 @@ import (
 	"go.nanomsg.org/mangos/v3/protocol/pair"
 )
 
-func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPair chan RequestPair, responsePair chan ResponsePair) error {
-	socket, err := pair.NewSocket()
+func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPair chan RequestPair, responsePair chan ResponsePair) error {
+	pairSocket, err := pair.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new pair socket: %v", err)
 		return err
 	}
 
-	defer func(socketPair protocol.Socket) {
-		if err := socketPair.Close(); err != nil {
+	defer func(pairSocket protocol.Socket) {
+		if err := pairSocket.Close(); err != nil {
 			log.Printf("Failed to close pair socket: %v", err)
 		}
-	}(socket)
+	}(pairSocket)
 
-	if err := socket.Dial(nanomsgURL); err != nil {
+	if err := pairSocket.Dial(nanomsgURL); err != nil {
 		log.Printf("failed to dial on pair socket: %v", err)
 		return err
 	}
@@ -42,12 +42,12 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 				case *NodeListRequest:
 					message.WriteByte(byte(RequestNodeListT))
 
-					err = socket.Send(message.Bytes())
+					err = pairSocket.Send(message.Bytes())
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
 
-					response, err := socket.Recv()
+					response, err := pairSocket.Recv()
 					if err != nil {
 						log.Printf("failed to receive a response from pair socket, %v", err)
 					}
@@ -62,7 +62,7 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					message.WriteByte(byte(RequestInsertNewNodeT))
 
 					message.Write([]byte(r.Url))
-					err = socket.Send(message.Bytes())
+					err = pairSocket.Send(message.Bytes())
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
@@ -71,7 +71,7 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					message.WriteByte(byte(RequestDeleteNodeT))
 
 					message.Write([]byte(r.Url))
-					err = socket.Send(message.Bytes())
+					err = pairSocket.Send(message.Bytes())
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
