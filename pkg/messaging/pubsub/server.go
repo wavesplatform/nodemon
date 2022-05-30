@@ -9,11 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
-
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
 func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
@@ -39,11 +38,11 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 	}
 
 	// pubsub messaging
-	select {
-	case <-ctx.Done():
-		return nil
-	default:
-		for alert := range alerts {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case alert := <-alerts:
 			log.Printf("Alert has been generated: %v", alert)
 
 			jsonAlert, err := json.Marshal(
@@ -63,8 +62,9 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}
+		default:
+
 		}
 	}
-
-	return nil
+	
 }
