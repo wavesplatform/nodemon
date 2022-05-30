@@ -122,6 +122,9 @@ func SubscribeHandler(
 		return errors.Wrap(err, "failed to send a message")
 	}
 	msg, err := environment.SubscriptionsList()
+	if err != nil {
+		return errors.Wrap(err, "failed to receive list of subscriptions")
+	}
 	return c.Send(
 		msg,
 		&tele.SendOptions{
@@ -166,6 +169,9 @@ func UnsubscribeHandler(
 		return errors.Wrap(err, "failed to send a message")
 	}
 	msg, err := environment.SubscriptionsList()
+	if err != nil {
+		return errors.Wrap(err, "failed to receive list of subscriptions")
+	}
 	return c.Send(
 		msg,
 		&tele.SendOptions{
