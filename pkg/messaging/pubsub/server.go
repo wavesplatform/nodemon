@@ -62,8 +62,6 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}
-		default:
-
 		}
 	}
 
