@@ -15,6 +15,7 @@ import (
 func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
 
 	environment.Bot.Handle("/chat", func(c tele.Context) error {
+
 		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", environment.ChatID))
 	})
 
@@ -58,6 +59,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 			messages.AddNewNodeMsg,
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
+
 	environment.Bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
 		return c.Send(
 			messages.RemoveNode,

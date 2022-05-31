@@ -12,6 +12,8 @@ jobs:
   gosec:
     name: gosec check
     runs-on: ubuntu-latest
+    # Skip any created PR or push by dependabot to avoid permission issues
+    if: github.actor != 'dependabot[bot]'
     env:
       GO111MODULE: on
     steps:
@@ -30,6 +32,8 @@ jobs:
   semgrep:
     name: semgrep scan
     runs-on: ubuntu-latest
+    # Skip any created PR or push by dependabot to avoid permission issues
+    if: github.actor != 'dependabot[bot]'
     container:
       image: returntocorp/semgrep
     steps:
@@ -61,10 +65,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
       - name: Set up Go
-        uses: actions/setup-go@v3.1.0
+        uses: actions/setup-go@v3.2.0
         with:
           go-version: 1.18
           check-latest: true
+          cache: true
       - name: Run go list
         run: go list -m all > go.list
       - name: Nancy

@@ -105,6 +105,7 @@ func (cs *Storage) Delete(url string) error {
 				return err
 			}
 			log.Printf("Node #%d at '%s' was deleted", id, url)
+
 		}
 	}
 

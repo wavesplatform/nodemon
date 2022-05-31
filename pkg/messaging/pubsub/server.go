@@ -39,11 +39,12 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 	}
 
 	// pubsub messaging
-	select {
-	case <-ctx.Done():
-		return nil
-	default:
-		for alert := range alerts {
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case alert := <-alerts:
 			log.Printf("Alert has been generated: %v", alert)
 
 			jsonAlert, err := json.Marshal(
@@ -65,6 +66,4 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			}
 		}
 	}
-
-	return nil
 }

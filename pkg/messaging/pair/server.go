@@ -52,8 +52,9 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				}
 
 				var nodeList NodeListResponse
-				for _, node := range nodes {
-					nodeList.Urls = append(nodeList.Urls, node.URL)
+				nodeList.Urls = make([]string, len(nodes))
+				for i, node := range nodes {
+					nodeList.Urls[i] = node.URL
 				}
 				response, err := json.Marshal(nodeList)
 				if err != nil {
