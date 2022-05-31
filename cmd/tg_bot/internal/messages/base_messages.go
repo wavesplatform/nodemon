@@ -15,4 +15,11 @@ const (
 	MuteText  = "Say no more..." + SleepingMsg
 	PongText  = "Pong!" + PongMsg
 	StartText = "Started monitoring..." + MonitoringMsg
+
+	RemoveNode = `Please type the url of the node you want to remove
+Example: Remove <url>
+`
+	AddNewNodeMsg = `Please type the url of the node you want to add
+Example: Add <url>
+`
 )

@@ -1,4 +1,4 @@
-package messaging
+package pubsub
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"go.nanomsg.org/mangos/v3/protocol/sub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
 func subscribeToAlerts(socket protocol.Socket) error {
@@ -21,12 +22,17 @@ func subscribeToAlerts(socket protocol.Socket) error {
 	return nil
 }
 
-func StartMessagingClient(ctx context.Context, nanomsgURL string, bot Bot) error {
+func StartMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.Bot) error {
 	socket, err := sub.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new sub socket: %v", err)
 		return err
 	}
+	defer func(socketPair protocol.Socket) {
+		if err := socketPair.Close(); err != nil {
+			log.Printf("Failed to close pair socket: %v", err)
+		}
+	}(socket)
 	if err := socket.Dial(nanomsgURL); err != nil {
 		log.Printf("failed to dial on sub socket: %v", err)
 		return err
@@ -54,6 +60,6 @@ func StartMessagingClient(ctx context.Context, nanomsgURL string, bot Bot) error
 	}()
 
 	<-ctx.Done()
-	log.Println("messaging service finished")
+	log.Println("pubsub messaging service finished")
 	return nil
 }

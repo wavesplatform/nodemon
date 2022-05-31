@@ -42,7 +42,7 @@ func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertT
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", messages.ErrorMsg)
+		alert.AlertDescription += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
 	case entities.IncompleteAlertType:
 		alert.AlertDescription += fmt.Sprintf(" %s", messages.QuestionMsg)
 	case entities.AlertFixedType:
@@ -55,7 +55,7 @@ func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertT
 		alert.Severity += fmt.Sprintf(" %s", messages.InfoMsg)
 	}
 	if alert.Severity == entities.ErrorLevel {
-		alert.Severity += fmt.Sprintf(" %s", messages.ErrorMsg)
+		alert.Severity += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
 	}
 
 	return alert
@@ -127,4 +127,30 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 
 func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID int64) bool {
 	return chatID == tgEnv.ChatID
+}
+
+type Node struct {
+	Url string
+}
+
+func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error) {
+	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_list.html")
+
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	var nodes []entities.Node
+	for _, url := range urls {
+		node := entities.Node{URL: url + "\n\n"}
+		nodes = append(nodes, node)
+	}
+
+	w := &bytes.Buffer{}
+	err = tmpl.Execute(w, nodes)
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	return w.String(), nil
 }
