@@ -84,7 +84,7 @@ func (cs *Storage) InsertIfNew(url string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("New node #%d at '%s'was stored", id, url)
+		log.Printf("New node #%d at '%s' was stored", id, url)
 	}
 	return nil
 }

@@ -83,5 +83,4 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 
 		}
 	}
-
 }

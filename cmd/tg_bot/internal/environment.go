@@ -59,11 +59,11 @@ func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertT
 
 	}
 
-	if alert.Severity == entities.InfoLevel {
-		alert.Severity += fmt.Sprintf(" %s", messages.InfoMsg)
+	if alert.Level == entities.InfoLevel {
+		alert.Level += fmt.Sprintf(" %s", messages.InfoMsg)
 	}
-	if alert.Severity == entities.ErrorLevel {
-		alert.Severity += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
+	if alert.Level == entities.ErrorLevel {
+		alert.Level += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
 	}
 
 	return alert

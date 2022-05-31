@@ -50,7 +50,7 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			jsonAlert, err := json.Marshal(
 				messaging.Alert{
 					AlertDescription: alert.ShortDescription(),
-					Severity:         alert.Severity(),
+					Level:            alert.Level(),
 					Details:          alert.Message(),
 				})
 			if err != nil {
