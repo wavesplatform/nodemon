@@ -9,10 +9,11 @@ import (
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
-	"go.nanomsg.org/mangos/v3/protocol/pub"
-	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
+
+	"go.nanomsg.org/mangos/v3/protocol/pub"
+	_ "go.nanomsg.org/mangos/v3/transport/all"
 )
 
 func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
@@ -38,6 +39,7 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 	}
 
 	// pubsub messaging
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -48,7 +50,7 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			jsonAlert, err := json.Marshal(
 				messaging.Alert{
 					AlertDescription: alert.ShortDescription(),
-					Severity:         alert.Severity(),
+					Level:            alert.Level(),
 					Details:          alert.Message(),
 				})
 			if err != nil {
@@ -64,5 +66,4 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			}
 		}
 	}
-
 }

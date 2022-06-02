@@ -75,10 +75,10 @@ func run() error {
 
 	pairRequest := make(chan pair.RequestPair)
 	pairResponse := make(chan pair.ResponsePair)
-	handlers.InitHandlers(tgBotEnv.Bot, tgBotEnv, pairRequest, pairResponse)
+	handlers.InitHandlers(tgBotEnv, pairRequest, pairResponse)
 
 	go func() {
-		err := pubsub.StartMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv)
+		err := pubsub.StartPubSubMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv)
 		if err != nil {
 			log.Printf("failed to start pubsub messaging service: %v", err)
 			return
@@ -86,7 +86,7 @@ func run() error {
 	}()
 
 	go func() {
-		err := pair.StartMessagingPairClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
+		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
 		if err != nil {
 			log.Printf("failed to start pair messaging service: %v", err)
 		}
