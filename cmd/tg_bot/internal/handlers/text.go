@@ -13,8 +13,8 @@ import (
 func AddNewNodeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
-	requestType chan pair.RequestPair,
-	responsePairType chan pair.ResponsePair) error {
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair) error {
 
 	url := strings.TrimPrefix(c.Text(), "Add ")
 	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
@@ -51,8 +51,8 @@ func AddNewNodeHandler(
 func RemoveNodeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
-	requestType chan pair.RequestPair,
-	responsePairType chan pair.ResponsePair) error {
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair) error {
 
 	url := strings.TrimPrefix(c.Text(), "Remove ")
 	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
@@ -91,7 +91,7 @@ func SubscribeHandler(
 	environment *internal.TelegramBotEnvironment,
 ) error {
 	alertName := strings.TrimPrefix(c.Text(), "Subscribe to ")
-	alertType, ok := environment.FindAlertTypeByName(alertName)
+	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(
 			"Sorry, this alert does not exist",
@@ -138,7 +138,7 @@ func UnsubscribeHandler(
 	environment *internal.TelegramBotEnvironment,
 ) error {
 	alertName := strings.TrimPrefix(c.Text(), "Unsubscribe from ")
-	alertType, ok := environment.FindAlertTypeByName(alertName)
+	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(
 			"Sorry, this alert does not exist",
@@ -155,7 +155,7 @@ func UnsubscribeHandler(
 			},
 		)
 	}
-	err := environment.UnubscribeFromAlert(alertType)
+	err := environment.UnsubscribeFromAlert(alertType)
 	if err != nil {
 		return errors.Wrapf(err, "failed to unsubscribe from alert %s", alertName)
 	}

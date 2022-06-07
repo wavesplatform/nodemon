@@ -12,7 +12,7 @@ import (
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) {
+func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
 
 	environment.Bot.Handle("/chat", func(c tele.Context) error {
 
@@ -109,7 +109,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 
 }
 
-func requestNodesList(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) ([]string, error) {
+func requestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
 	requestType <- &pair.NodeListRequest{}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodeListResponse)
@@ -122,8 +122,8 @@ func requestNodesList(requestType chan pair.RequestPair, responsePairType chan p
 func EditPool(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
-	requestType chan pair.RequestPair,
-	responsePairType chan pair.ResponsePair) error {
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair) error {
 
 	urls, err := requestNodesList(requestType, responsePairType)
 	if err != nil {
