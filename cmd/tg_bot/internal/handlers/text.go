@@ -16,6 +16,10 @@ func AddNewNodeHandler(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
+	if !environment.IsEligibleForAction(c.Chat().ID) {
+		return c.Send("Sorry, you have no right to add a new node")
+	}
+
 	url := strings.TrimPrefix(c.Text(), "Add ")
 	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
 		return c.Send(
@@ -54,6 +58,9 @@ func RemoveNodeHandler(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
+	if !environment.IsEligibleForAction(c.Chat().ID) {
+		return c.Send("Sorry, you have no right to remove a node")
+	}
 	url := strings.TrimPrefix(c.Text(), "Remove ")
 	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
 		return c.Send(
@@ -90,6 +97,11 @@ func SubscribeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
 ) error {
+
+	if !environment.IsEligibleForAction(c.Chat().ID) {
+		return c.Send("Sorry, you have no right to subscribe to alerts")
+	}
+
 	alertName := strings.TrimPrefix(c.Text(), "Subscribe to ")
 	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
@@ -137,6 +149,11 @@ func UnsubscribeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
 ) error {
+
+	if !environment.IsEligibleForAction(c.Chat().ID) {
+		return c.Send("Sorry, you have no right to unsubscribe from alerts")
+	}
+
 	alertName := strings.TrimPrefix(c.Text(), "Unsubscribe from ")
 	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
