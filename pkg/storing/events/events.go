@@ -140,6 +140,51 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
+func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
+	minHeight, err := s.LatestHeight(nodes[0])
+	if err != nil {
+		return nil, err
+	}
+
+	nodesList := make(map[string]bool) // reachable or unreachable
+	for _, node := range nodes {
+		nodesList[node] = true
+	}
+
+	// looking for the min common height
+	for node, _ := range nodesList {
+		h, err := s.LatestHeight(node)
+		if err != nil {
+			nodesList[node] = false // this node is unreachable
+			continue
+		}
+		if h < minHeight {
+			minHeight = h
+		}
+	}
+
+	var statementsOnHeight []entities.NodeStatement
+	for node, reachable := range nodesList {
+		if !reachable {
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			continue
+		}
+		err := s.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
+			if statement.Height == minHeight {
+				statementsOnHeight = append(statementsOnHeight, *statement)
+				return true
+			}
+			statementsOnHeight = append(statementsOnHeight, *statement) // delete
+			return false
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return statementsOnHeight, nil
+}
+
 func (s *Storage) LastStateHashAtHeight(node string, height int) (proto.StateHash, error) {
 	pattern := newStatementKey(node, "*")
 	var sh *proto.StateHash

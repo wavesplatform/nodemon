@@ -6,6 +6,7 @@ const (
 	RequestNodeListT RequestPairType = iota + 1
 	RequestInsertNewNodeT
 	RequestDeleteNodeT
+	RequestNodesStatus
 )
 
 type RequestPair interface{ msgRequest() }
@@ -21,11 +22,17 @@ type DeleteNodeRequest struct {
 	Url string
 }
 
+type NodesStatusRequest struct {
+	Urls []string
+}
+
 func (nl *NodeListRequest) msgRequest() {}
 
 func (nl *InsertNewNodeRequest) msgRequest() {}
 
 func (nl *DeleteNodeRequest) msgRequest() {}
+
+func (nl *NodesStatusRequest) msgRequest() {}
 
 type ResponsePair interface{ MsgResponse() }
 

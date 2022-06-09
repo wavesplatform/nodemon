@@ -180,6 +180,15 @@ func InitHandlers(bot *tele.Bot, environment *internal.TelegramBotEnvironment, r
 
 	})
 
+	bot.Handle("/status", func(c tele.Context) error {
+		urls, err := requestNodesList(requestType, responsePairType)
+		if err != nil {
+			return errors.Wrap(err, "failed to request nodes list buttons")
+		}
+		requestType <- &pair.NodesStatusRequest{Urls: urls}
+		return nil
+	})
+
 }
 
 func requestNodesList(requestType chan pair.RequestPair, responsePairType chan pair.ResponsePair) ([]string, error) {

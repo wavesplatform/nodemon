@@ -3,16 +3,18 @@ package pair
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log"
 	"strings"
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
+	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pair socket")
@@ -76,6 +78,15 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to delete a node from storage, %v", err)
 				}
+			case RequestNodesStatus:
+				listOfNodes := msg[1:]
+				nodes := strings.Split(string(listOfNodes), ",")
+				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
+				if err != nil {
+					log.Printf("failed to find all statehashes by last height")
+				}
+				fmt.Println(statements)
+
 			default:
 				log.Printf("request type to the pair socket is unknown: %c", request)
 			}

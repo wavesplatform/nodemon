@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
@@ -71,6 +72,14 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					message.WriteByte(byte(RequestDeleteNodeT))
 
 					message.Write([]byte(r.Url))
+					err = socket.Send(message.Bytes())
+					if err != nil {
+						log.Printf("faied to send a request to pair socket, %v", err)
+					}
+				case *NodesStatusRequest:
+					message.WriteByte(byte(RequestNodesStatus))
+
+					message.Write([]byte(strings.Join(r.Urls, ",")))
 					err = socket.Send(message.Bytes())
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
