@@ -2,6 +2,8 @@ package events
 
 import (
 	"encoding/json"
+	"fmt"
+	"math"
 	"strconv"
 	"time"
 
@@ -140,11 +142,13 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
+var BigHeightDifference = errors.New("the height difference between nodes is more than 10")
+var StorageIsNotReady = errors.New("the storage has not collected enough statements for status")
+
 func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
-	minHeight, err := s.LatestHeight(nodes[0])
-	if err != nil {
-		return nil, err
-	}
+	var heightDifference = 10
+
+	minHeight, maxHeight := math.MaxInt, 0
 
 	nodesList := make(map[string]bool) // reachable or unreachable
 	for _, node := range nodes {
@@ -153,14 +157,24 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 
 	// looking for the min common height
 	for node, _ := range nodesList {
+		fmt.Print(node + " ")
 		h, err := s.LatestHeight(node)
-		if err != nil {
+		fmt.Println(h)
+		if err != nil || h == 0 {
 			nodesList[node] = false // this node is unreachable
 			continue
 		}
 		if h < minHeight {
 			minHeight = h
 		}
+
+		if h > maxHeight {
+			maxHeight = h
+		}
+	}
+
+	if (maxHeight - minHeight) > heightDifference {
+		return nil, BigHeightDifference
 	}
 
 	var statementsOnHeight []entities.NodeStatement
@@ -169,17 +183,32 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
+		var foundStatementOnHeight bool
 		err := s.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
-			if statement.Height == minHeight {
-				statementsOnHeight = append(statementsOnHeight, *statement)
+			fmt.Print(statement.Node + " ")
+			fmt.Println(statement.Height)
+			if statement.Status != entities.OK {
 				return true
 			}
-			statementsOnHeight = append(statementsOnHeight, *statement) // delete
-			return false
+			if statement.Height == minHeight {
+				statementsOnHeight = append(statementsOnHeight, *statement)
+				foundStatementOnHeight = true
+				return false
+			}
+			if statement.Height < minHeight {
+				return false
+			}
+			return true
 		})
 		if err != nil {
 			return nil, err
 		}
+
+		if !foundStatementOnHeight {
+			fmt.Printf("NOT FOUND STATEMENT FOR NODE %s\n", node)
+			return nil, StorageIsNotReady
+		}
+
 	}
 
 	return statementsOnHeight, nil
