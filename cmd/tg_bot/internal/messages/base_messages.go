@@ -22,4 +22,10 @@ Example: Remove <url>
 	AddNewNodeMsg = `Please type the url of the node you want to add
 Example: Add <url>
 `
+	SubscribeTo = `Please type the name of alert you want to subscribe to
+Example: Subscribe to <alert>
+`
+	UnsubscribeFrom = `Please type the name of alert you want to unsubscribe from
+Example: Unsubscribe from <alert>
+`
 )

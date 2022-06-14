@@ -53,7 +53,7 @@ type Alert interface {
 	Message() string
 	Time() time.Time
 	Type() AlertType
-	Severity() string
+	Level() string
 	fmt.Stringer
 }
 
@@ -87,7 +87,7 @@ func (a *SimpleAlert) Type() AlertType {
 	return SimpleAlertType
 }
 
-func (a *SimpleAlert) Severity() string {
+func (a *SimpleAlert) Level() string {
 	return InfoLevel
 }
 
@@ -121,7 +121,7 @@ func (a *UnreachableAlert) Type() AlertType {
 	return UnreachableAlertType
 }
 
-func (a *UnreachableAlert) Severity() string {
+func (a *UnreachableAlert) Level() string {
 	return ErrorLevel
 }
 
@@ -154,8 +154,8 @@ func (a *IncompleteAlert) Type() AlertType {
 	return IncompleteAlertType
 }
 
-func (a *IncompleteAlert) Severity() string {
-	return InfoLevel
+func (a *IncompleteAlert) Level() string {
+	return ErrorLevel
 }
 
 type InvalidHeightAlert struct {
@@ -187,7 +187,7 @@ func (a *InvalidHeightAlert) Type() AlertType {
 	return InvalidHeightAlertType
 }
 
-func (a *InvalidHeightAlert) Severity() string {
+func (a *InvalidHeightAlert) Level() string {
 	return ErrorLevel
 }
 
@@ -243,7 +243,7 @@ func (a *HeightAlert) Type() AlertType {
 	return HeightAlertType
 }
 
-func (a *HeightAlert) Severity() string {
+func (a *HeightAlert) Level() string {
 	return ErrorLevel
 }
 
@@ -322,8 +322,8 @@ func (a *StateHashAlert) Type() AlertType {
 	return StateHashAlertType
 }
 
-func (a *StateHashAlert) Severity() string {
-	return InfoLevel
+func (a *StateHashAlert) Level() string {
+	return ErrorLevel
 }
 
 type AlertFixed struct {
@@ -356,6 +356,6 @@ func (a *AlertFixed) Type() AlertType {
 	return AlertFixedType
 }
 
-func (a *AlertFixed) Severity() string {
+func (a *AlertFixed) Level() string {
 	return InfoLevel
 }
