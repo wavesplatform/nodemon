@@ -155,11 +155,9 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		nodesList[node] = true
 	}
 
-	// looking for the min common height
+	// looking for the min common height and the max height
 	for node, _ := range nodesList {
-		fmt.Print(node + " ")
 		h, err := s.LatestHeight(node)
-		fmt.Println(h)
 		if err != nil || h == 0 {
 			nodesList[node] = false // this node is unreachable
 			continue
@@ -185,8 +183,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		}
 		var foundStatementOnHeight bool
 		err := s.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
-			fmt.Print(statement.Node + " ")
-			fmt.Println(statement.Height)
+			// iterator. if true then continue
 			if statement.Status != entities.OK {
 				return true
 			}
@@ -195,7 +192,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 				foundStatementOnHeight = true
 				return false
 			}
-			if statement.Height < minHeight {
+			if statement.Height < minHeight { // more than 10 blocks were iterated, but not found the right block
 				return false
 			}
 			return true

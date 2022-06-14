@@ -3,7 +3,6 @@ package pair
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"strings"
 
@@ -52,7 +51,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to receive list of nodes from storage, %v", err)
 				}
-				var nodeList NodeListResponse
+				var nodeList NodesListResponse
 				nodeList.Urls = make([]string, len(nodes))
 				for i, node := range nodes {
 					nodeList.Urls[i] = node.URL
@@ -85,7 +84,19 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to find all statehashes by last height")
 				}
-				fmt.Println(statements)
+				var nodesStatusResp NodesStatusResponse
+				for _, statement := range statements {
+					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
+					nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)
+				}
+				response, err := json.Marshal(nodesStatusResp)
+				if err != nil {
+					log.Printf("failed to marshal list of nodes to json, %v", err)
+				}
+				err = socketPair.Send(response)
+				if err != nil {
+					log.Printf("failed to receive a response from pair socket, %v", err)
+				}
 
 			default:
 				log.Printf("request type to the pair socket is unknown: %c", request)

@@ -9,10 +9,12 @@ import (
 	"log"
 
 	"github.com/pkg/errors"
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
+	"nodemon/pkg/messaging/pair"
 )
 
 var (
@@ -148,6 +150,46 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, nodes)
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	return w.String(), nil
+}
+
+type NodeStatus struct {
+	IsAvailable bool
+	URL         string
+	Sumhash     crypto.Digest
+	Status      string
+}
+
+func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatus []pair.NodeStatement) (string, error) {
+	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status.html")
+
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	var statuses []NodeStatus
+	for _, stat := range nodesStatus {
+		s := NodeStatus{}
+		if stat.Status != entities.OK {
+			s.URL = stat.Url
+			s.Status = string(stat.Status)
+			s.IsAvailable = false
+			statuses = append(statuses, s)
+			continue
+		}
+		s.Sumhash = stat.StateHash.SumHash
+		s.URL = stat.Url
+		s.IsAvailable = true
+		s.Status = string(stat.Status)
+		statuses = append(statuses, s)
+	}
+
+	w := &bytes.Buffer{}
+	err = tmpl.Execute(w, statuses)
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
 		return "", err

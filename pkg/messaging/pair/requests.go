@@ -1,5 +1,10 @@
 package pair
 
+import (
+	"github.com/wavesplatform/gowaves/pkg/proto"
+	"nodemon/pkg/entities"
+)
+
 type RequestPairType byte
 
 const (
@@ -7,6 +12,7 @@ const (
 	RequestInsertNewNodeT
 	RequestDeleteNodeT
 	RequestNodesStatus
+	RequestNodesHeight
 )
 
 type RequestPair interface{ msgRequest() }
@@ -36,18 +42,21 @@ func (nl *NodesStatusRequest) msgRequest() {}
 
 type ResponsePair interface{ MsgResponse() }
 
-type NodeListResponse struct {
+type NodesListResponse struct {
 	Urls []string `json:"urls"`
 }
 
-type InsertNewNodeResponse struct {
+type NodeStatement struct {
+	Url       string              `json:"url"`
+	StateHash *proto.StateHash    `json:"statehash"`
+	Height    int                 `json:"height"`
+	Status    entities.NodeStatus `json:"status"`
 }
 
-type DeleteNodeResponse struct {
+type NodesStatusResponse struct {
+	NodesStatus []NodeStatement `json:"nodes_status"`
 }
 
-func (nl *NodeListResponse) MsgResponse() {}
+func (nl *NodesListResponse) MsgResponse() {}
 
-func (nl *InsertNewNodeResponse) MsgResponse() {}
-
-func (nl *DeleteNodeResponse) MsgResponse() {}
+func (nl *NodesStatusResponse) MsgResponse() {}

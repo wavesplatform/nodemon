@@ -52,7 +52,7 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("failed to receive a response from pair socket, %v", err)
 					}
-					nodeList := NodeListResponse{}
+					nodeList := NodesListResponse{}
 					err = json.Unmarshal(response, &nodeList)
 					if err != nil {
 						log.Printf("failed to unmarshal response from pair socket, %v", err)
@@ -84,6 +84,17 @@ func StartMessagingPairClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
+
+					response, err := socket.Recv()
+					if err != nil {
+						log.Printf("failed to receive a response from pair socket, %v", err)
+					}
+					nodesStatusResp := NodesStatusResponse{}
+					err = json.Unmarshal(response, &nodesStatusResp)
+					if err != nil {
+						log.Printf("failed to unmarshal response from pair socket, %v", err)
+					}
+					responsePair <- &nodesStatusResp
 
 				default:
 					log.Printf("request type to the pair socket is unknown: %T", r)
