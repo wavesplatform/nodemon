@@ -25,17 +25,47 @@ var (
 
 var errUnknownAlertType = errors.New("received unknown alert type")
 
+type subsciptions struct {
+	mu   *sync.RWMutex
+	subs map[entities.AlertType]string
+}
+
+func (s *subsciptions) Add(alertType entities.AlertType, alertName string) {
+	s.mu.Lock()
+	s.subs[alertType] = alertName
+	s.mu.Unlock()
+}
+
+// Read returns alert name
+func (s *subsciptions) Read(alertType entities.AlertType) (string, bool) {
+	s.mu.RLock()
+	elem, ok := s.subs[alertType]
+	s.mu.RUnlock()
+	return elem, ok
+}
+
+func (s *subsciptions) Delete(alertType entities.AlertType) {
+	s.mu.Lock()
+	delete(s.subs, alertType)
+	s.mu.Unlock()
+}
+
+func (s *subsciptions) MapR(f func()) {
+	s.mu.RLock()
+	f()
+	s.mu.RUnlock()
+}
+
 type TelegramBotEnvironment struct {
-	mu            *sync.RWMutex
 	ChatID        int64
 	Bot           *telebot.Bot
-	Mute          bool
+	Mute          bool // If it used elsewhere, should be protected by mutex
 	pubSubSocket  protocol.Socket
-	subscriptions map[entities.AlertType]string
+	subscriptions subsciptions
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}
+	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subsciptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() {
@@ -174,9 +204,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		if err != nil {
 			return err
 		}
-		tgEnv.mu.Lock()
-		tgEnv.subscriptions[alertType] = alertName
-		tgEnv.mu.Unlock()
+		tgEnv.subscriptions.Add(alertType, alertName)
 		log.Printf("Subscribed to %s", alertName)
 	}
 
@@ -197,9 +225,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 	if err != nil {
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
-	tgEnv.mu.Lock()
-	tgEnv.subscriptions[alertType] = alertName
-	tgEnv.mu.Unlock()
+	tgEnv.subscriptions.Add(alertType, alertName)
 	log.Printf("Subscribed to %s", alertName)
 	return nil
 }
@@ -218,15 +244,11 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	if err != nil {
 		return errors.Wrap(err, "failed to unsubscribe from alert")
 	}
-	tgEnv.mu.RLock()
-	_, ok = tgEnv.subscriptions[alertType]
-	tgEnv.mu.RUnlock()
+	ok = tgEnv.IsAlreadySubscribed(alertType)
 	if !ok {
 		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
 	}
-	tgEnv.mu.Lock()
-	delete(tgEnv.subscriptions, alertType)
-	tgEnv.mu.Unlock()
+	tgEnv.subscriptions.Delete(alertType)
 	log.Printf("Unsubscribed from %s", alertName)
 	return nil
 }
@@ -252,18 +274,16 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 		return "", err
 	}
 	var subcribedTo []Subscribed
-	tgEnv.mu.RLock()
-	for _, alertName := range tgEnv.subscriptions {
-		s := Subscribed{AlertName: alertName + "\n\n"}
-		subcribedTo = append(subcribedTo, s)
-	}
-	tgEnv.mu.RUnlock()
+	tgEnv.subscriptions.MapR(func() {
+		for _, alertName := range tgEnv.subscriptions.subs {
+			s := Subscribed{AlertName: alertName + "\n\n"}
+			subcribedTo = append(subcribedTo, s)
+		}
+	})
 
 	var unsusbcribedFrom []Unsubscribed
 	for alertType, alertName := range entities.AlertTypes {
-		tgEnv.mu.RLock()
-		_, ok := tgEnv.subscriptions[alertType]
-		tgEnv.mu.RUnlock()
+		ok := tgEnv.IsAlreadySubscribed(alertType)
 		if !ok { // find those alerts that are not in the subscriptions list
 			u := Unsubscribed{AlertName: alertName + "\n\n"}
 			unsusbcribedFrom = append(unsusbcribedFrom, u)
@@ -282,9 +302,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 }
 
 func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
-	tgEnv.mu.RLock()
-	_, ok := tgEnv.subscriptions[alertType]
-	tgEnv.mu.RUnlock()
+	_, ok := tgEnv.subscriptions.Read(alertType)
 	return ok
 }
 
