@@ -52,6 +52,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 					log.Printf("failed to receive list of nodes from storage, %v", err)
 				}
 				var nodeList NodesListResponse
+
 				nodeList.Urls = make([]string, len(nodes))
 				for i, node := range nodes {
 					nodeList.Urls[i] = node.URL
@@ -104,5 +105,4 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 
 		}
 	}
-
 }

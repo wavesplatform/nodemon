@@ -1,0 +1,5 @@
+I am subscribed to:
+
+{{ with .SubscribedTo }}{{range .}}✅ <code>{{.AlertName}}</code>{{ end }} {{ end }}
+
+{{ with .UnsubscribedFrom }}{{range .}}❌ <code>{{.AlertName}}</code>{{end}}{{ end }}
