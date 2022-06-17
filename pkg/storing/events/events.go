@@ -142,8 +142,8 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
-var BigHeightDifference = errors.New("the height difference between nodes is more than 10")
-var StorageIsNotReady = errors.New("the storage has not collected enough statements for status")
+var BigHeightDifference = errors.New("The height difference between nodes is more than 10")
+var StorageIsNotReady = errors.New("The storage has not collected enough statements for status")
 
 func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
 	var heightDifference = 10
@@ -156,10 +156,12 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	}
 
 	// looking for the min common height and the max height
+	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
 		h, err := s.LatestHeight(node)
 		if err != nil || h == 0 {
 			nodesList[node] = false // this node is unreachable
+			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
 		if h < minHeight {
@@ -169,10 +171,11 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		if h > maxHeight {
 			maxHeight = h
 		}
+		nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: h, Status: entities.OK})
 	}
 
 	if (maxHeight - minHeight) > heightDifference {
-		return nil, BigHeightDifference
+		return nodesHeights, BigHeightDifference
 	}
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {

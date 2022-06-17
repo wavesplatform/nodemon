@@ -18,6 +18,7 @@ import (
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/storing/events"
 )
 
 var (
@@ -197,14 +198,67 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 }
 
 type NodeStatus struct {
-	IsAvailable bool
-	URL         string
-	Sumhash     string
-	Status      string
+	URL     string
+	Sumhash string
+	Status  string
+	Height  string
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, error) {
 	if nodesStatusResp.Err != "" {
+		var differentHeightsNodes []NodeStatus
+		var unavailableNodes []NodeStatus
+		if nodesStatusResp.Err == events.BigHeightDifference.Error() {
+			for _, stat := range nodesStatusResp.NodesStatus {
+				s := NodeStatus{}
+				if stat.Status != entities.OK {
+					s.URL = stat.Url + "\n"
+					unavailableNodes = append(unavailableNodes, s)
+					continue
+				}
+				height := strconv.Itoa(stat.Height)
+				s.Height = fmt.Sprintf("%s\n", height)
+				s.URL = stat.Url
+
+				differentHeightsNodes = append(differentHeightsNodes, s)
+			}
+			var msg string
+			if len(unavailableNodes) != 0 {
+				tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
+				if err != nil {
+					log.Printf("failed to construct a message, %v", err)
+					return "", err
+				}
+				wUnavailable := &bytes.Buffer{}
+				if err != nil {
+					log.Printf("failed to construct a message, %v", err)
+					return "", err
+				}
+				err = tmpl.Execute(wUnavailable, unavailableNodes)
+				if err != nil {
+					log.Printf("failed to construct a message, %v", err)
+					return "", err
+				}
+				msg = fmt.Sprintf(wUnavailable.String() + "\n")
+			}
+			tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_heights.html")
+			if err != nil {
+				log.Printf("failed to construct a message, %v", err)
+				return "", err
+			}
+			wDifferentHeights := &bytes.Buffer{}
+			if err != nil {
+				log.Printf("failed to construct a message, %v", err)
+				return "", err
+			}
+			err = tmpl.Execute(wDifferentHeights, differentHeightsNodes)
+			if err != nil {
+				log.Printf("failed to construct a message, %v", err)
+				return "", err
+			}
+			msg += wDifferentHeights.String()
+			return fmt.Sprintf("<i>%s</i>\n\n%s", nodesStatusResp.Err, msg), nil
+		}
 		return nodesStatusResp.Err, nil
 	}
 
@@ -222,8 +276,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		}
 		height = strconv.Itoa(stat.Height)
 		s.Sumhash = stat.StateHash.SumHash.String() + "\n"
-		s.URL = stat.Url + "\n"
-		s.IsAvailable = true
+		s.URL = stat.Url
 		s.Status = string(stat.Status)
 		okNodes = append(okNodes, s)
 	}
@@ -243,7 +296,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			log.Printf("failed to construct a message, %v", err)
 			return "", err
 		}
-		msg = fmt.Sprintf(wUnavailable.String() + "\n\n")
+		msg = fmt.Sprintf(wUnavailable.String() + "\n")
 	}
 	areHashesEqual := true
 	previousHash := okNodes[0].Sumhash
@@ -255,7 +308,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 	}
 
 	if !areHashesEqual {
-		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different.html")
+		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_hashes.html")
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", err
@@ -265,12 +318,12 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			log.Printf("failed to construct a message, %v", err)
 			return "", err
 		}
-		err = tmpl.Execute(wDifferent, unavailableNodes)
+		err = tmpl.Execute(wDifferent, okNodes)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", err
 		}
-		msg += fmt.Sprintf("%s %s", wDifferent.String(), height)
+		msg += fmt.Sprintf("%s <code>%s</code>", wDifferent.String(), height)
 		return msg, nil
 	}
 
@@ -289,7 +342,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		log.Printf("failed to construct a message, %v", err)
 		return "", err
 	}
-	msg += fmt.Sprintf("%s %s", wOk.String(), height)
+	msg += fmt.Sprintf("%s <code>%s</code>", wOk.String(), height)
 	return msg, nil
 }
 
