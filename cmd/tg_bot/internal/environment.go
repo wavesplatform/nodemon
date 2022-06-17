@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"strconv"
 	"sync"
 
 	"github.com/pkg/errors"
-	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
@@ -199,35 +199,98 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 type NodeStatus struct {
 	IsAvailable bool
 	URL         string
-	Sumhash     crypto.Digest
+	Sumhash     string
 	Status      string
 }
 
-func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatus []pair.NodeStatement) (string, error) {
-	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status.html")
-	if err != nil {
-		return "", err
-	}
-	var statuses []NodeStatus
-	for _, stat := range nodesStatus {
-		s := NodeStatus{}
-		if stat.Status != entities.OK {
-			s.URL = stat.Url
-			s.Status = string(stat.Status)
-			s.IsAvailable = false
-			statuses = append(statuses, s)
-			continue
-		}
-		s.Sumhash = stat.StateHash.SumHash
-		s.URL = stat.Url
-		s.IsAvailable = true
-		s.Status = string(stat.Status)
-		statuses = append(statuses, s)
+func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, error) {
+	if nodesStatusResp.Err != "" {
+		return nodesStatusResp.Err, nil
 	}
 
-	w := &bytes.Buffer{}
-	err = tmpl.Execute(w, statuses)
-	return w.String(), err
+	var msg string
+
+	var unavailableNodes []NodeStatus
+	var okNodes []NodeStatus
+	var height string
+	for _, stat := range nodesStatusResp.NodesStatus {
+		s := NodeStatus{}
+		if stat.Status != entities.OK {
+			s.URL = stat.Url + "\n"
+			unavailableNodes = append(unavailableNodes, s)
+			continue
+		}
+		height = strconv.Itoa(stat.Height)
+		s.Sumhash = stat.StateHash.SumHash.String() + "\n"
+		s.URL = stat.Url + "\n"
+		s.IsAvailable = true
+		s.Status = string(stat.Status)
+		okNodes = append(okNodes, s)
+	}
+	if len(unavailableNodes) != 0 {
+		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		wUnavailable := &bytes.Buffer{}
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		err = tmpl.Execute(wUnavailable, unavailableNodes)
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		msg = fmt.Sprintf(wUnavailable.String() + "\n\n")
+	}
+	areHashesEqual := true
+	previousHash := okNodes[0].Sumhash
+	for _, node := range okNodes {
+		if node.Sumhash != previousHash {
+			areHashesEqual = false
+		}
+		previousHash = node.Sumhash
+	}
+
+	if !areHashesEqual {
+		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different.html")
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		wDifferent := &bytes.Buffer{}
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		err = tmpl.Execute(wDifferent, unavailableNodes)
+		if err != nil {
+			log.Printf("failed to construct a message, %v", err)
+			return "", err
+		}
+		msg += fmt.Sprintf("%s %s", wDifferent.String(), height)
+		return msg, nil
+	}
+
+	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_ok.html")
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	wOk := &bytes.Buffer{}
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	err = tmpl.Execute(wOk, okNodes)
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
+	}
+	msg += fmt.Sprintf("%s %s", wOk.String(), height)
+	return msg, nil
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {

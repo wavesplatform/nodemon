@@ -81,11 +81,16 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 			case RequestNodesStatus:
 				listOfNodes := msg[1:]
 				nodes := strings.Split(string(listOfNodes), ",")
+				var nodesStatusResp NodesStatusResponse
 				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
-				if err != nil {
+				switch {
+				case errors.Is(err, events.BigHeightDifference):
+					nodesStatusResp.Err = events.BigHeightDifference.Error()
+				case errors.Is(err, events.StorageIsNotReady):
+					nodesStatusResp.Err = events.StorageIsNotReady.Error()
+				default:
 					log.Printf("failed to find all statehashes by last height")
 				}
-				var nodesStatusResp NodesStatusResponse
 				for _, statement := range statements {
 					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
 					nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)

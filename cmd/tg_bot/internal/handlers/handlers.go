@@ -149,14 +149,14 @@ func requestNodesList(requestType chan<- pair.RequestPair, responsePairType <-ch
 	return nodesList.Urls, nil
 }
 
-func requestNodesStatus(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, urls []string) ([]pair.NodeStatement, error) {
+func requestNodesStatus(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, urls []string) (*pair.NodesStatusResponse, error) {
 	requestType <- &pair.NodesStatusRequest{Urls: urls}
 	responsePair := <-responsePairType
 	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the nodes status type")
 	}
-	return nodesStatus.NodesStatus, nil
+	return nodesStatus, nil
 }
 
 func EditPool(

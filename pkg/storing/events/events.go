@@ -156,7 +156,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	}
 
 	// looking for the min common height and the max height
-	for node, _ := range nodesList {
+	for node := range nodesList {
 		h, err := s.LatestHeight(node)
 		if err != nil || h == 0 {
 			nodesList[node] = false // this node is unreachable
@@ -174,7 +174,6 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	if (maxHeight - minHeight) > heightDifference {
 		return nil, BigHeightDifference
 	}
-
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {
 		if !reachable {

@@ -55,6 +55,7 @@ type NodeStatement struct {
 
 type NodesStatusResponse struct {
 	NodesStatus []NodeStatement `json:"nodes_status"`
+	Err         string
 }
 
 func (nl *NodesListResponse) MsgResponse() {}
