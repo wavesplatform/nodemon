@@ -212,12 +212,12 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			for _, stat := range nodesStatusResp.NodesStatus {
 				s := NodeStatus{}
 				if stat.Status != entities.OK {
-					s.URL = stat.Url + "\n"
+					s.URL = stat.Url
 					unavailableNodes = append(unavailableNodes, s)
 					continue
 				}
 				height := strconv.Itoa(stat.Height)
-				s.Height = fmt.Sprintf("%s\n", height)
+				s.Height = height
 				s.URL = stat.Url
 
 				differentHeightsNodes = append(differentHeightsNodes, s)
@@ -270,12 +270,12 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 	for _, stat := range nodesStatusResp.NodesStatus {
 		s := NodeStatus{}
 		if stat.Status != entities.OK {
-			s.URL = stat.Url + "\n"
+			s.URL = stat.Url
 			unavailableNodes = append(unavailableNodes, s)
 			continue
 		}
 		height = strconv.Itoa(stat.Height)
-		s.Sumhash = stat.StateHash.SumHash.String() + "\n"
+		s.Sumhash = stat.StateHash.SumHash.String()
 		s.URL = stat.Url
 		s.Status = string(stat.Status)
 		okNodes = append(okNodes, s)
