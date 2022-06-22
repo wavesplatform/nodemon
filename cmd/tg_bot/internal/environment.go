@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -16,6 +18,10 @@ import (
 	"nodemon/cmd/tg_bot/internal/messages"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
+)
+
+const (
+	httpScheme = "http"
 )
 
 var (
@@ -79,6 +85,7 @@ func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socke
 }
 
 func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
+	alert.Details = strings.ReplaceAll(alert.Details, httpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
@@ -181,7 +188,11 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 	}
 	var nodes []entities.Node
 	for _, url := range urls {
-		node := entities.Node{URL: url + "\n\n"}
+		host, err := RemoveSchemePrefix(url)
+		if err != nil {
+			return "", err
+		}
+		node := entities.Node{URL: host + "\n\n"}
 		nodes = append(nodes, node)
 	}
 
@@ -314,4 +325,32 @@ func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
 	}
 	return 0, false
 
+}
+
+func CheckAndUpdateURL(s string) (string, error) {
+	var u *url.URL
+	var err error
+	if strings.Contains(s, "//") {
+		u, err = url.Parse(s)
+	} else {
+		u, err = url.Parse("//" + s)
+	}
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse URL %s", s)
+	}
+	if u.Scheme == "" {
+		u.Scheme = httpScheme
+	}
+	if u.Scheme != "http" && u.Scheme != "https" {
+		return "", errors.Errorf("unsupported URL scheme %s", u.Scheme)
+	}
+	return u.String(), nil
+}
+
+func RemoveSchemePrefix(s string) (string, error) {
+	u, err := url.Parse(s)
+	if err != nil {
+		return "", errors.Wrapf(err, "failed to parse URL %s", s)
+	}
+	return u.Host, nil
 }

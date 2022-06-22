@@ -101,7 +101,7 @@ func (a *UnreachableAlert) ShortDescription() string {
 }
 
 func (a *UnreachableAlert) Message() string {
-	return fmt.Sprintf("Node %q is UNREACHABLE", a.Node)
+	return fmt.Sprintf("Node %q is unreachable", a.Node)
 }
 
 func (a *UnreachableAlert) Time() time.Time {
@@ -341,7 +341,7 @@ func (a *AlertFixed) ID() string {
 }
 
 func (a *AlertFixed) Message() string {
-	return fmt.Sprintf("Alert has been FIXED: %s", a.Fixed.Message())
+	return fmt.Sprintf("Alert has been fixed: %s", a.Fixed.Message())
 }
 
 func (a *AlertFixed) Time() time.Time {
