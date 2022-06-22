@@ -43,7 +43,7 @@ func StartPubSubMessagingClient(ctx context.Context, nanomsgURL string, bot mess
 					log.Printf("failed to receive message: %v", err)
 					return
 				}
-				bot.SendMessage(msg)
+				bot.SendAlertMessage(msg)
 			}
 		}
 	}()

@@ -2,6 +2,7 @@ package internal
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/pkg/errors"
+	"github.com/procyon-projects/chrono"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
@@ -19,6 +21,10 @@ import (
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
+)
+
+const (
+	scheduledTimeExpression = "0 00 12 * * *" // 12:00
 )
 
 var (
@@ -128,7 +134,7 @@ func (tgEnv *TelegramBotEnvironment) constructMessage(alertType entities.AlertTy
 	return w.String(), nil
 }
 
-func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
+func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	if tgEnv.Mute {
 		log.Printf("received an alert, but asleep now")
 		return
@@ -159,6 +165,25 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg []byte) {
 	_, err = tgEnv.Bot.Send(
 		chat,
 		messageToBot,
+		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
+	)
+
+	if err != nil {
+		log.Printf("failed to send a message to telegram, %v", err)
+	}
+}
+
+func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
+	if tgEnv.Mute {
+		log.Printf("received an alert, but asleep now")
+		return
+	}
+
+	chat := &telebot.Chat{ID: tgEnv.ChatID}
+
+	_, err := tgEnv.Bot.Send(
+		chat,
+		msg,
 		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 	)
 
@@ -456,6 +481,58 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
 	_, ok := tgEnv.subscriptions.Read(alertType)
 	return ok
+}
+
+func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
+	requestType <- &pair.NodeListRequest{}
+	responsePair := <-responsePairType
+	nodesList, ok := responsePair.(*pair.NodesListResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the node list type")
+	}
+	return nodesList.Urls, nil
+}
+
+func (tgEnv *TelegramBotEnvironment) RequestNodesStatus(
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair,
+	urls []string) (string, error) {
+
+	requestType <- &pair.NodesStatusRequest{Urls: urls}
+	responsePair := <-responsePairType
+	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
+	if !ok {
+		return "", errors.New("failed to convert response interface to the nodes status type")
+	}
+
+	return tgEnv.NodesStatus(nodesStatus)
+
+}
+
+func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
+	taskScheduler chrono.TaskScheduler,
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair) {
+
+	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
+		urls, err := RequestNodesList(requestType, responsePairType)
+		if err != nil {
+			log.Printf("failed to request list of nodes, %v", err)
+		}
+		nodesStatus, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
+		if err != nil {
+			log.Printf("failed to send status of nodes that was scheduled, %v", err)
+		}
+		msg := fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, nodesStatus)
+		tgEnv.SendMessage(msg)
+	}, scheduledTimeExpression, chrono.WithLocation("Europe/Moscow"))
+
+	if err != nil {
+		taskScheduler.Shutdown()
+		log.Printf("failed to schdule nodes status alert, %v", err)
+		return
+	}
+	log.Println("Nodes status alert has been scheduled successfully")
 }
 
 func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {

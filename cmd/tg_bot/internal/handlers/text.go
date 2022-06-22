@@ -36,7 +36,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -77,7 +77,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return err
 	}
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

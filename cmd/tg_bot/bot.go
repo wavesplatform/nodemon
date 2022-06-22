@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/signal"
 
+	"github.com/procyon-projects/chrono"
 	"nodemon/cmd/tg_bot/internal/handlers"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
@@ -92,7 +93,15 @@ func run() error {
 		}
 	}()
 
+	taskScheduler := chrono.NewDefaultTaskScheduler()
+	tgBotEnv.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse)
+
 	tgBotEnv.Start()
 	<-ctx.Done()
+
+	if !taskScheduler.IsShutdown() {
+		taskScheduler.Shutdown()
+		log.Println("scheduler finished")
+	}
 	return nil
 }

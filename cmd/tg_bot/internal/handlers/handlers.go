@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -108,18 +109,15 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		urls, err := requestNodesList(requestType, responsePairType)
+		urls, err := internal.RequestNodesList(requestType, responsePairType)
 		if err != nil {
-			return errors.Wrap(err, "failed to request nodes list")
+			log.Printf("failed to request list of nodes, %v", err)
 		}
-		nodesStatus, err := requestNodesStatus(requestType, responsePairType, urls)
+		msg, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
-			return errors.Wrap(err, "failed to request nodes status")
+			log.Printf("failed to request status of nodes, %v", err)
 		}
-		msg, err := environment.NodesStatus(nodesStatus)
-		if err != nil {
-			return errors.Wrap(err, "failed to construct nodes status message")
-		}
+
 		return c.Send(
 			msg,
 			&tele.SendOptions{
@@ -128,35 +126,6 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		)
 	})
 
-	//bot.Handle("/heights", func(c tele.Context) error {
-	//	urls, err := requestNodesList(requestType, responsePairType)
-	//	if err != nil {
-	//		return errors.Wrap(err, "failed to request nodes list buttons")
-	//	}
-	//	requestType <- &pair.NodesStatusRequest{Urls: urls}
-	//	return nil
-	//})
-
-}
-
-func requestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
-	requestType <- &pair.NodeListRequest{}
-	responsePair := <-responsePairType
-	nodesList, ok := responsePair.(*pair.NodesListResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the node list type")
-	}
-	return nodesList.Urls, nil
-}
-
-func requestNodesStatus(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, urls []string) (*pair.NodesStatusResponse, error) {
-	requestType <- &pair.NodesStatusRequest{Urls: urls}
-	responsePair := <-responsePairType
-	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the nodes status type")
-	}
-	return nodesStatus, nil
 }
 
 func EditPool(
@@ -165,7 +134,7 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

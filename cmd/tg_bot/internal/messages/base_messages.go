@@ -4,6 +4,7 @@ const (
 	MonitoringMsg = "📡"
 	SleepingMsg   = "💤"
 	PongMsg       = "🏓"
+	TimerMsg      = "⏱"
 
 	HelpInfoText = InfoMsg + " This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
 		"/ping -  the command to check whether the bot is available and what his current state is\n" +
