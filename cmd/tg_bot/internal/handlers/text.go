@@ -20,8 +20,10 @@ func AddNewNodeHandler(
 		return c.Send("Sorry, you have no right to add a new node")
 	}
 
-	url := strings.TrimPrefix(c.Text(), "Add ")
-	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
+	u := strings.TrimPrefix(c.Text(), "Add ")
+
+	url, err := internal.CheckAndUpdateURL(u)
+	if err != nil {
 		return c.Send(
 			"Sorry, the url seems to be incorrect",
 			&tele.SendOptions{ParseMode: tele.ModeDefault},
@@ -30,7 +32,7 @@ func AddNewNodeHandler(
 	requestType <- &pair.InsertNewNodeRequest{Url: url}
 
 	response := fmt.Sprintf("New node was '%s' added", url)
-	err := c.Send(
+	err = c.Send(
 		response,
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
 	if err != nil {
@@ -61,8 +63,10 @@ func RemoveNodeHandler(
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to remove a node")
 	}
-	url := strings.TrimPrefix(c.Text(), "Remove ")
-	if !strings.HasPrefix(url, "http") && !strings.HasPrefix(url, "https") {
+	u := strings.TrimPrefix(c.Text(), "Remove ")
+
+	url, err := internal.CheckAndUpdateURL(u)
+	if err != nil {
 		return c.Send(
 			"Sorry, the url seems to be incorrect",
 			&tele.SendOptions{ParseMode: tele.ModeDefault},
@@ -71,7 +75,7 @@ func RemoveNodeHandler(
 	requestType <- &pair.DeleteNodeRequest{Url: url}
 
 	response := fmt.Sprintf("Node '%s' was deleted", url)
-	err := c.Send(
+	err = c.Send(
 		response,
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
 	if err != nil {
