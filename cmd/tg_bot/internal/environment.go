@@ -24,7 +24,7 @@ import (
 )
 
 const (
-	scheduledTimeExpression = "0 00 12 * * *" // 12:00
+	scheduledTimeExpression = "0 25 9 * * *" // 12:10
 )
 
 var (
@@ -525,7 +525,7 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 		}
 		msg := fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, nodesStatus)
 		tgEnv.SendMessage(msg)
-	}, scheduledTimeExpression, chrono.WithLocation("Europe/Moscow"))
+	}, scheduledTimeExpression)
 
 	if err != nil {
 		taskScheduler.Shutdown()
