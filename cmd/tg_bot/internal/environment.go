@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"html/template"
 	"log"
-	"strconv"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -26,7 +26,7 @@ import (
 )
 
 const (
-	scheduledTimeExpression = "0 25 9 * * *" // 12:10
+	scheduledTimeExpression = "0 0 9 * * *" // 12:00 UTC+3
 )
 
 const (
