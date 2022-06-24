@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -107,16 +108,24 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		return nil
 	})
 
-}
+	environment.Bot.Handle("/status", func(c tele.Context) error {
+		urls, err := internal.RequestNodesList(requestType, responsePairType)
+		if err != nil {
+			log.Printf("failed to request list of nodes, %v", err)
+		}
+		msg, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
+		if err != nil {
+			log.Printf("failed to request status of nodes, %v", err)
+		}
 
-func requestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
-	requestType <- &pair.NodeListRequest{}
-	responsePair := <-responsePairType
-	nodesList, ok := responsePair.(*pair.NodeListResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the node list type")
-	}
-	return nodesList.Urls, nil
+		return c.Send(
+			msg,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
+	})
+
 }
 
 func EditPool(
@@ -125,7 +134,7 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

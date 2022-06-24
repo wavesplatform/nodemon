@@ -139,7 +139,7 @@ func run() error {
 	}()
 
 	go func() {
-		err := pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns)
+		err := pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns, es)
 		if err != nil {
 			log.Printf("failed to start pair messaging service: %v", err)
 		}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"strings"
 
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
@@ -51,7 +52,7 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("failed to receive a response from pair socket, %v", err)
 					}
-					nodeList := NodeListResponse{}
+					nodeList := NodesListResponse{}
 					err = json.Unmarshal(response, &nodeList)
 					if err != nil {
 						log.Printf("failed to unmarshal response from pair socket, %v", err)
@@ -75,6 +76,25 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
+				case *NodesStatusRequest:
+					message.WriteByte(byte(RequestNodesStatus))
+
+					message.Write([]byte(strings.Join(r.Urls, ",")))
+					err = pairSocket.Send(message.Bytes())
+					if err != nil {
+						log.Printf("faied to send a request to pair socket, %v", err)
+					}
+
+					response, err := pairSocket.Recv()
+					if err != nil {
+						log.Printf("failed to receive a response from pair socket, %v", err)
+					}
+					nodesStatusResp := NodesStatusResponse{}
+					err = json.Unmarshal(response, &nodesStatusResp)
+					if err != nil {
+						log.Printf("failed to unmarshal response from pair socket, %v", err)
+					}
+					responsePair <- &nodesStatusResp
 
 				default:
 					log.Printf("request type to the pair socket is unknown: %T", r)
