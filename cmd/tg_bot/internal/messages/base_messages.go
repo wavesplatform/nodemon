@@ -8,10 +8,15 @@ const (
 
 	HelpInfoText = InfoMsg + " This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
 		"/ping -  the command to check whether the bot is available and what his current state is\n" +
-		"/hello - the command to make the bot <b>save this chat for alerts</b>. Needs to be done first time\n" +
 		"/start - the command to make the bot <b>start getting alerts</b>\n" +
-		"/mute -  the command to make the bot <b>stop listening to alerts</b>" +
-		"/help -  the command to see <b>information about bot</b> and available commands"
+		"/mute -  the command to make the bot <b>stop listening to alerts</b>\n" +
+		"/pool -  to see the list of nodes and edit it\n" +
+		"/subscriptions - to see the list of subscriptions and edit it\n" +
+		"/status - to see the status of all nodes\n" +
+		"/add <b>node</b> - to add a node to the list\n" +
+		"/remove <b>node</b> - to remove a node from the list\n" +
+		"/subscribe <b>alert name</b> - to subscribe to a specific alert\n" +
+		"/unsubscribe <b>alert name</b> - to unsubscribe from a specific alert"
 
 	MuteText  = "Say no more..." + SleepingMsg
 	PongText  = "Pong!" + PongMsg
