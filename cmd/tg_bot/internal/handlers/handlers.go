@@ -114,7 +114,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		args := c.Args()
 		if len(args) > 1 {
 			return c.Send(
-				messages.AddedMoreThanOne,
+				messages.RemovedMoreThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -122,13 +122,54 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		}
 		if len(args) < 1 {
 			return c.Send(
-				messages.AddedLessThanOne,
+				messages.RemovedLessThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
 			)
 		}
-		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0])
+		return RemoveNodeHandler(c, environment, requestType, responsePairType, args[0])
+	})
+
+	environment.Bot.Handle("/subscribe", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.SubscribedToMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.SubscribedToLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return SubscribeHandler(c, environment, args[0])
+	})
+	environment.Bot.Handle("/unsubscribe", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.UnsubscribedFromMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.UnsubscribedFromLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return UnsubscribeHandler(c, environment, args[0])
 	})
 
 	environment.Bot.Handle(tele.OnText, func(c tele.Context) error {
