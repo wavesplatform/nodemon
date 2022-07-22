@@ -4,15 +4,12 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"path"
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/client"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
-
-type versionResponse struct {
-	Version string `json:"version"`
-}
 
 type nodeClient struct {
 	cl *client.Client
@@ -30,8 +27,11 @@ func newNodeClient(url string, timeout time.Duration) *nodeClient {
 }
 
 func (c *nodeClient) version(ctx context.Context) (string, error) {
+	type versionResponse struct {
+		Version string `json:"version"`
+	}
 	nodeURL := c.cl.GetOptions().BaseUrl
-	versionRequest, err := http.NewRequest("GET", nodeURL+"/node/version", nil)
+	versionRequest, err := http.NewRequest("GET", path.Join(nodeURL, "/node/version"), nil)
 	if err != nil {
 		log.Printf("Creation of version request to %q failed: %v", nodeURL, err)
 		return "", err
