@@ -90,20 +90,107 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle("/subscriptions", func(c tele.Context) error {
 		return EditSubscriptions(c, environment)
 	})
+	environment.Bot.Handle("/add", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.AddedMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.AddedLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0])
+	})
+	environment.Bot.Handle("/remove", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.RemovedMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.RemovedLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return RemoveNodeHandler(c, environment, requestType, responsePairType, args[0])
+	})
+
+	environment.Bot.Handle("/subscribe", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.SubscribedToMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.SubscribedToLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return SubscribeHandler(c, environment, args[0])
+	})
+	environment.Bot.Handle("/unsubscribe", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.UnsubscribedFromMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.UnsubscribedFromLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return UnsubscribeHandler(c, environment, args[0])
+	})
 
 	environment.Bot.Handle(tele.OnText, func(c tele.Context) error {
-		if strings.HasPrefix(c.Text(), "Add") {
-			return AddNewNodeHandler(c, environment, requestType, responsePairType)
+		command := strings.ToLower(c.Text())
+
+		if strings.HasPrefix(command, "add") {
+			u := strings.TrimPrefix(command, "add ")
+			return AddNewNodeHandler(c, environment, requestType, responsePairType, u)
 		}
-		if strings.HasPrefix(c.Text(), "Remove") {
-			return RemoveNodeHandler(c, environment, requestType, responsePairType)
+		if strings.HasPrefix(command, "remove") {
+			u := strings.TrimPrefix(c.Text(), "remove ")
+			return RemoveNodeHandler(c, environment, requestType, responsePairType, u)
 		}
-		if strings.HasPrefix(c.Text(), "Subscribe to") {
-			return SubscribeHandler(c, environment)
+		if strings.HasPrefix(command, "subscribe to") {
+			alertName := strings.TrimPrefix(c.Text(), "subscribe to ")
+			return SubscribeHandler(c, environment, alertName)
 		}
 
-		if strings.HasPrefix(c.Text(), "Unsubscribe from") {
-			return UnsubscribeHandler(c, environment)
+		if strings.HasPrefix(command, "unsubscribe from") {
+			alertName := strings.TrimPrefix(c.Text(), "unsubscribe from ")
+			return UnsubscribeHandler(c, environment, alertName)
 		}
 		return nil
 	})
