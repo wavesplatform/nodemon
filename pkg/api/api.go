@@ -12,7 +12,6 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
-	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/storing/nodes"
 )
 
@@ -67,13 +66,14 @@ func (a *API) routes() chi.Router {
 }
 
 type NodeShortStatement struct {
-	Node      string           `json:"node"`
-	Version   string           `json:"version,omitempty"`
-	Height    int              `json:"height,omitempty"`
-	StateHash *proto.StateHash `json:"stateHash,omitempty"`
+	Node      string `json:"node,omitempty"`
+	Version   string `json:"version,omitempty"`
+	Height    int    `json:"height,omitempty"`
+	StateHash string `json:"stateHash,omitempty"`
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
+	nodeName := r.Header.Get("node-name")
 	statement := NodeShortStatement{}
 	err := json.NewDecoder(r.Body).Decode(&statement)
 	if err != nil {
@@ -81,6 +81,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
+	statement.Node = nodeName
 	err = json.NewEncoder(w).Encode(statement)
 	if err != nil {
 		log.Printf("Failed to marshal statements: %v", err)
