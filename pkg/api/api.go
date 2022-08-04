@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
+	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/storing/nodes"
 )
 
@@ -60,7 +61,41 @@ func (a *API) routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
+	r.Post("/nodes/ping", a.ping)
+	r.Post("/nodes/specific/statements", a.specificNodesHandler)
 	return r
+}
+
+type NodeShortStatement struct {
+	Node      string           `json:"node"`
+	Version   string           `json:"version,omitempty"`
+	Height    int              `json:"height,omitempty"`
+	StateHash *proto.StateHash `json:"stateHash,omitempty"`
+}
+
+func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
+	statement := NodeShortStatement{}
+	err := json.NewDecoder(r.Body).Decode(&statement)
+	if err != nil {
+		log.Printf("Failed to decode specific nodes statements: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(statement)
+	if err != nil {
+		log.Printf("Failed to marshal statements: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to marshal statements to JSON: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (a *API) ping(w http.ResponseWriter, _ *http.Request) {
+	_, err := w.Write([]byte("PONG!!"))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to marshal pong to JSON: %v", err), http.StatusInternalServerError)
+		return
+	}
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
