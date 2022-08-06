@@ -5,7 +5,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
-	"path/filepath"
+	"path"
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/client"
@@ -81,7 +81,7 @@ func joinPath(baseRaw, pathRow string) (*url.URL, error) {
 	if err != nil {
 		return nil, err
 	}
-	baseUrl.Path = filepath.Join(baseUrl.Path, addUrl.Path)
+	baseUrl.Path = path.Join(baseUrl.Path, addUrl.Path)
 
 	return baseUrl, nil
 }
