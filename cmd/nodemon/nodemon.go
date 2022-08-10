@@ -110,7 +110,9 @@ func run() error {
 		}
 	}(es)
 
-	a, err := api.NewAPI(bindAddress, ns)
+	var specificNodesTs *int64
+
+	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs)
 	if err != nil {
 		log.Printf("API failure: %v", err)
 		return err
@@ -125,7 +127,7 @@ func run() error {
 		log.Printf("ERROR: Failed to start monitoring: %v", err)
 		return err
 	}
-	notifications := scraper.Start(ctx)
+	notifications := scraper.Start(ctx, specificNodesTs)
 
 	analyzer := analysis.NewAnalyzer(es, nil)
 

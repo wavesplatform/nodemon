@@ -135,20 +135,20 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
 		for n := range notifications {
-			switch tn := n.(type) {
+			switch notificcationType := n.(type) {
 			case *entities.OnPollingComplete:
-				log.Printf("On polling complete of %d nodes", len(tn.Nodes()))
+				log.Printf("On polling complete of %d nodes", len(notificcationType.Nodes()))
 				cnt, err := a.es.StatementsCount()
 				if err != nil {
 					log.Printf("Failed to query statements: %v", err)
 				}
 				log.Printf("Total statemetns count: %d", cnt)
 
-				if err := a.analyze(alerts, tn); err != nil {
+				if err := a.analyze(alerts, notificcationType); err != nil {
 					log.Printf("Failed to analyze nodes: %v", err)
 				}
 			default:
-				log.Printf("Unknown alanyzer notification (%T)", tn)
+				log.Printf("Unknown alanyzer notification (%T)", notificcationType)
 			}
 		}
 	}(out)

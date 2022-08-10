@@ -12,16 +12,26 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
+	"github.com/wavesplatform/gowaves/pkg/crypto"
+	"github.com/wavesplatform/gowaves/pkg/proto"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
 
 type API struct {
-	srv          *http.Server
-	nodesStorage *nodes.Storage
+	srv                   *http.Server
+	nodesStorage          *nodes.Storage
+	eventsStorage         *events.Storage
+	specificNodesSettings SpecificNodesSettings
 }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage) (*API, error) {
-	a := &API{nodesStorage: nodesStorage}
+type SpecificNodesSettings struct {
+	currentTimestamp *int64
+}
+
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *int64) (*API, error) {
+	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: SpecificNodesSettings{currentTimestamp: specificNodesTs}}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -70,9 +80,11 @@ type NodeShortStatement struct {
 	Version   string `json:"version,omitempty"`
 	Height    int    `json:"height,omitempty"`
 	StateHash string `json:"stateHash,omitempty"`
+	BlockID   string `json:"blockId,omitempty"`
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
+
 	nodeName := r.Header.Get("node-name")
 	statement := NodeShortStatement{}
 	err := json.NewDecoder(r.Body).Decode(&statement)
@@ -82,6 +94,48 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statement.Node = nodeName
+
+	if a.specificNodesSettings.currentTimestamp == nil {
+		log.Print("current timestamp of analyzed nodes is nil yet")
+		w.WriteHeader(http.StatusOK)
+		return
+	}
+	currentTs := *a.specificNodesSettings.currentTimestamp
+
+	var events []entities.Event
+
+	if statement.Height < 2 {
+		invalidHeihtEvent := entities.NewInvalidHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
+		err := a.eventsStorage.PutEvent(invalidHeihtEvent)
+		if err != nil {
+			log.Printf("Failed to put event: %v", err)
+		}
+		return
+	}
+
+	versionEvent := entities.NewVersionEvent(statement.Node, currentTs, statement.Version)
+	events = append(events, versionEvent)
+
+	heightEvent := entities.NewHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
+	events = append(events, heightEvent)
+
+	h := statement.Height - 1 // Go to previous height to request state hash
+	stateHashSumDigest, err := crypto.NewDigestFromBase58(statement.StateHash)
+	if err != nil {
+		log.Printf("Failed to form new digest from string statehash: %v", err)
+		return
+	}
+	fullStateHash := &proto.StateHash{SumHash: stateHashSumDigest, BlockID: proto.MustBlockIDFromBase58(statement.BlockID)}
+	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, h, fullStateHash)
+	events = append(events, stateHashEvent)
+
+	for _, event := range events {
+		err := a.eventsStorage.PutEvent(event)
+		if err != nil {
+			log.Printf("Failed to put event: %v", err)
+		}
+	}
+
 	err = json.NewEncoder(w).Encode(statement)
 	if err != nil {
 		log.Printf("Failed to marshal statements: %v", err)
