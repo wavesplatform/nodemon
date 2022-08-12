@@ -155,7 +155,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 
-	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", nodeName, h, statehash.SumHash.String())
+	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", nodeName, statement.Height-1, statehash.SumHash.String())
 }
 
 func (a *API) ping(w http.ResponseWriter, _ *http.Request) {
