@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -12,7 +15,6 @@ import (
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
-	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -76,18 +78,34 @@ func (a *API) routes() chi.Router {
 }
 
 type NodeShortStatement struct {
-	Node      string `json:"node,omitempty"`
-	Version   string `json:"version,omitempty"`
-	Height    int    `json:"height,omitempty"`
-	StateHash string `json:"stateHash,omitempty"`
-	BlockID   string `json:"blockId,omitempty"`
+	Node    string `json:"node,omitempty"`
+	Version string `json:"version,omitempty"`
+	Height  int    `json:"height,omitempty"`
+}
+
+func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
+	if err := json.NewDecoder(body).Decode(v); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
+	buf, _ := ioutil.ReadAll(r.Body)
+	reader1 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	reader2 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	statehash := &proto.StateHash{}
+
+	err := DecodeValueFromBody(reader1, statehash)
+	if err != nil {
+		log.Printf("Failed to decode statehash: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
+		return
+	}
 
 	nodeName := r.Header.Get("node-name")
 	statement := NodeShortStatement{}
-	err := json.NewDecoder(r.Body).Decode(&statement)
+	err = json.NewDecoder(reader2).Decode(&statement)
 	if err != nil {
 		log.Printf("Failed to decode specific nodes statements: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
@@ -120,13 +138,8 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	events = append(events, heightEvent)
 
 	h := statement.Height - 1 // Go to previous height to request state hash
-	stateHashSumDigest, err := crypto.NewDigestFromBase58(statement.StateHash)
-	if err != nil {
-		log.Printf("Failed to form new digest from string statehash: %v", err)
-		return
-	}
-	fullStateHash := &proto.StateHash{SumHash: stateHashSumDigest, BlockID: proto.MustBlockIDFromBase58(statement.BlockID)}
-	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, h, fullStateHash)
+
+	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, h, statehash)
 	events = append(events, stateHashEvent)
 
 	for _, event := range events {
@@ -143,6 +156,8 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
+
+	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", nodeName, h, statehash.SumHash.String())
 }
 
 func (a *API) ping(w http.ResponseWriter, _ *http.Request) {

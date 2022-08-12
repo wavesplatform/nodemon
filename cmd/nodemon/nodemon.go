@@ -110,7 +110,9 @@ func run() error {
 		}
 	}(es)
 
+	var tmp int64 = 0
 	var specificNodesTs *int64
+	specificNodesTs = &tmp
 
 	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs)
 	if err != nil {
