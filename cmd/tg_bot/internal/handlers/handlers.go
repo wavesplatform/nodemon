@@ -200,7 +200,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
-		urls = append(urls, "Node-matcher-mainnet-aws-fr-5")
+		urls = append(urls, "node-matcher-mainnet-aws-fr-5")
 		msg, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
