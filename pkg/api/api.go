@@ -137,9 +137,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	heightEvent := entities.NewHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
 	events = append(events, heightEvent)
 
-	h := statement.Height - 1 // Go to previous height to request state hash
-
-	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, h, statehash)
+	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, statement.Height, statehash)
 	events = append(events, stateHashEvent)
 
 	for _, event := range events {
