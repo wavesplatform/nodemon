@@ -494,8 +494,8 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 	return ok
 }
 
-func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
-	requestType <- &pair.NodeListRequest{}
+func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
+	requestType <- &pair.NodeListRequest{Specific: specific}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodesListResponse)
 	if !ok {
@@ -526,10 +526,13 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 	responsePairType <-chan pair.ResponsePair) {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
-		urls, err := RequestNodesList(requestType, responsePairType)
+		urls, err := RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
+		additionalUrls, err := RequestNodesList(requestType, responsePairType, true)
+		log.Printf("failed to request list of additional nodes, %v", err)
+		urls = append(urls, additionalUrls...)
 		nodesStatus, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)

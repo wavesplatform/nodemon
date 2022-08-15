@@ -72,7 +72,6 @@ func (a *API) routes() chi.Router {
 	r := chi.NewRouter()
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
-	r.Post("/nodes/ping", a.ping)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
 	return r
 }
@@ -92,11 +91,11 @@ func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	buf, _ := ioutil.ReadAll(r.Body)
-	reader1 := ioutil.NopCloser(bytes.NewBuffer(buf))
-	reader2 := ioutil.NopCloser(bytes.NewBuffer(buf))
+	stateHashReader := ioutil.NopCloser(bytes.NewBuffer(buf))
+	statementReader := ioutil.NopCloser(bytes.NewBuffer(buf))
 	statehash := &proto.StateHash{}
 
-	err := DecodeValueFromBody(reader1, statehash)
+	err := DecodeValueFromBody(stateHashReader, statehash)
 	if err != nil {
 		log.Printf("Failed to decode statehash: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
@@ -105,7 +104,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	nodeName := r.Header.Get("node-name")
 	statement := NodeShortStatement{}
-	err = json.NewDecoder(reader2).Decode(&statement)
+	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
 		log.Printf("Failed to decode specific nodes statements: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
@@ -123,8 +122,8 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	var events []entities.Event
 
 	if statement.Height < 2 {
-		invalidHeihtEvent := entities.NewInvalidHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
-		err := a.eventsStorage.PutEvent(invalidHeihtEvent)
+		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
+		err := a.eventsStorage.PutEvent(invalidHeightEvent)
 		if err != nil {
 			log.Printf("Failed to put event: %v", err)
 		}
@@ -154,20 +153,11 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-
 	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", nodeName, statement.Height-1, statehash.SumHash.String())
 }
 
-func (a *API) ping(w http.ResponseWriter, _ *http.Request) {
-	_, err := w.Write([]byte("PONG!!"))
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to marshal pong to JSON: %v", err), http.StatusInternalServerError)
-		return
-	}
-}
-
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
-	nodes, err := a.nodesStorage.Nodes()
+	nodes, err := a.nodesStorage.Nodes(false)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return

@@ -14,7 +14,8 @@ func AddNewNodeHandler(
 	environment *internal.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
-	url string) error {
+	url string,
+	specific bool) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to add a new node")
@@ -22,12 +23,24 @@ func AddNewNodeHandler(
 
 	updatedUrl, err := internal.CheckAndUpdateURL(url)
 	if err != nil {
+		print(err)
 		return c.Send(
 			"Sorry, the url seems to be incorrect",
 			&tele.SendOptions{ParseMode: tele.ModeDefault},
 		)
 	}
-	requestType <- &pair.InsertNewNodeRequest{Url: updatedUrl}
+	requestType <- &pair.InsertNewNodeRequest{Url: updatedUrl, Specific: specific}
+
+	if specific {
+		response := fmt.Sprintf("New specific node was '%s' added", updatedUrl)
+		err = c.Send(
+			response,
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
+		if err != nil {
+			return errors.Wrap(err, "failed to send the message")
+		}
+		return nil
+	}
 
 	response := fmt.Sprintf("New node was '%s' added", updatedUrl)
 	err = c.Send(
@@ -36,7 +49,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := internal.RequestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -79,7 +92,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return err
 	}
-	urls, err := internal.RequestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

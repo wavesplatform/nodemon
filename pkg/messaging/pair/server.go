@@ -47,7 +47,26 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 			request := RequestPairType(msg[0])
 			switch request {
 			case RequestNodeListT:
-				nodes, err := ns.Nodes()
+				nodes, err := ns.Nodes(false)
+				if err != nil {
+					log.Printf("failed to receive list of nodes from storage, %v", err)
+				}
+				var nodeList NodesListResponse
+
+				nodeList.Urls = make([]string, len(nodes))
+				for i, node := range nodes {
+					nodeList.Urls[i] = node.URL
+				}
+				response, err := json.Marshal(nodeList)
+				if err != nil {
+					log.Printf("failed to marshal list of nodes to json, %v", err)
+				}
+				err = socketPair.Send(response)
+				if err != nil {
+					log.Printf("failed to receive a response from pair socket, %v", err)
+				}
+			case RequestSpecificNodeListT:
+				nodes, err := ns.Nodes(true)
 				if err != nil {
 					log.Printf("failed to receive list of nodes from storage, %v", err)
 				}
@@ -71,7 +90,12 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to insert a new node to storage, %v", err)
 				}
-
+			case RequestInsertSpecificNewNodeT:
+				url := msg[1:]
+				err := ns.InsertSpecificIfNew(string(url))
+				if err != nil {
+					log.Printf("failed to insert a new specific node to storage, %v", err)
+				}
 			case RequestDeleteNodeT:
 				url := msg[1:]
 				err := ns.Delete(string(url))

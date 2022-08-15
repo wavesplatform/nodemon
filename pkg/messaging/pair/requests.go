@@ -9,7 +9,9 @@ type RequestPairType byte
 
 const (
 	RequestNodeListT RequestPairType = iota + 1
+	RequestSpecificNodeListT
 	RequestInsertNewNodeT
+	RequestInsertSpecificNewNodeT
 	RequestDeleteNodeT
 	RequestNodesStatus
 	RequestNodesHeight
@@ -18,10 +20,12 @@ const (
 type RequestPair interface{ msgRequest() }
 
 type NodeListRequest struct {
+	Specific bool
 }
 
 type InsertNewNodeRequest struct {
-	Url string
+	Url      string
+	Specific bool
 }
 
 type DeleteNodeRequest struct {
