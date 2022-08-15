@@ -6,6 +6,7 @@ import (
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/tg_bot/internal"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 )
 
@@ -21,7 +22,7 @@ func AddNewNodeHandler(
 		return c.Send("Sorry, you have no right to add a new node")
 	}
 
-	updatedUrl, err := internal.CheckAndUpdateURL(url)
+	updatedUrl, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
 		print(err)
 		return c.Send(
@@ -76,7 +77,7 @@ func RemoveNodeHandler(
 		return c.Send("Sorry, you have no right to remove a node")
 	}
 
-	urlUpdated, err := internal.CheckAndUpdateURL(url)
+	urlUpdated, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
 		return c.Send(
 			"Sorry, the url seems to be incorrect",

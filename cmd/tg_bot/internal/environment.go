@@ -29,10 +29,6 @@ const (
 	scheduledTimeExpression = "0 0 9 * * *" // 12:00 UTC+3
 )
 
-const (
-	httpScheme = "http"
-)
-
 var (
 	//go:embed templates
 	templateFiles embed.FS
@@ -94,7 +90,7 @@ func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socke
 }
 
 func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
-	alert.Details = strings.ReplaceAll(alert.Details, httpScheme+"://", "")
+	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
@@ -557,26 +553,6 @@ func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
 	}
 	return 0, false
 
-}
-
-func CheckAndUpdateURL(s string) (string, error) {
-	var u *url.URL
-	var err error
-	if strings.Contains(s, "//") {
-		u, err = url.Parse(s)
-	} else {
-		u, err = url.Parse("//" + s)
-	}
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse URL %s", s)
-	}
-	if u.Scheme == "" {
-		u.Scheme = httpScheme
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", errors.Errorf("unsupported URL scheme %s", u.Scheme)
-	}
-	return u.String(), nil
 }
 
 func RemoveSchemePrefix(s string) (string, error) {

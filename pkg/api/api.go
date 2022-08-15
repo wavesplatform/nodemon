@@ -114,7 +114,13 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
-	statement.Node = nodeName
+	updatedUrl, err := entities.CheckAndUpdateURL(nodeName)
+	if err != nil {
+		log.Printf("Failed to check node name: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusInternalServerError)
+		return
+	}
+	statement.Node = updatedUrl
 
 	if a.specificNodesSettings.currentTimestamp == nil {
 		log.Print("current timestamp of analyzed nodes is nil yet")
