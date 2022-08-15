@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -90,12 +89,17 @@ func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
-	buf, _ := ioutil.ReadAll(r.Body)
-	stateHashReader := ioutil.NopCloser(bytes.NewBuffer(buf))
-	statementReader := ioutil.NopCloser(bytes.NewBuffer(buf))
+	buf, err := io.ReadAll(r.Body)
+	if err != nil {
+		log.Printf("Failed to read body: %v", err)
+		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
+		return
+	}
+	stateHashReader := io.NopCloser(bytes.NewBuffer(buf))
+	statementReader := io.NopCloser(bytes.NewBuffer(buf))
 	statehash := &proto.StateHash{}
 
-	err := DecodeValueFromBody(stateHashReader, statehash)
+	err = DecodeValueFromBody(stateHashReader, statehash)
 	if err != nil {
 		log.Printf("Failed to decode statehash: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
