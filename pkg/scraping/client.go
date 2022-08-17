@@ -4,15 +4,13 @@ import (
 	"context"
 	"log"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/client"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
-
-type versionResponse struct {
-	Version string `json:"version"`
-}
 
 type nodeClient struct {
 	cl *client.Client
@@ -30,8 +28,16 @@ func newNodeClient(url string, timeout time.Duration) *nodeClient {
 }
 
 func (c *nodeClient) version(ctx context.Context) (string, error) {
+	type versionResponse struct {
+		Version string `json:"version"`
+	}
 	nodeURL := c.cl.GetOptions().BaseUrl
-	versionRequest, err := http.NewRequest("GET", nodeURL+"/node/version", nil)
+	nodeVersionUrl, err := joinPath(nodeURL, "/node/version")
+	if err != nil {
+		log.Printf("Failed to join path to the node url while getting version, %v", err)
+		return "", err
+	}
+	versionRequest, err := http.NewRequest("GET", nodeVersionUrl.String(), nil)
 	if err != nil {
 		log.Printf("Creation of version request to %q failed: %v", nodeURL, err)
 		return "", err
@@ -64,4 +70,18 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 		return nil, err
 	}
 	return sh, nil
+}
+
+func joinPath(baseRaw, pathRow string) (*url.URL, error) {
+	baseUrl, err := url.Parse(baseRaw)
+	if err != nil {
+		return nil, err
+	}
+	addUrl, err := url.Parse(pathRow)
+	if err != nil {
+		return nil, err
+	}
+	baseUrl.Path = path.Join(baseUrl.Path, addUrl.Path)
+
+	return baseUrl, nil
 }
