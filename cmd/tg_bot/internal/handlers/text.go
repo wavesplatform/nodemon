@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
@@ -14,31 +13,30 @@ func AddNewNodeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair) error {
+	responsePairType <-chan pair.ResponsePair,
+	url string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to add a new node")
 	}
 
-	u := strings.TrimPrefix(c.Text(), "Add ")
-
-	url, err := internal.CheckAndUpdateURL(u)
+	updatedUrl, err := internal.CheckAndUpdateURL(url)
 	if err != nil {
 		return c.Send(
 			"Sorry, the url seems to be incorrect",
 			&tele.SendOptions{ParseMode: tele.ModeDefault},
 		)
 	}
-	requestType <- &pair.InsertNewNodeRequest{Url: url}
+	requestType <- &pair.InsertNewNodeRequest{Url: updatedUrl}
 
-	response := fmt.Sprintf("New node was '%s' added", url)
+	response := fmt.Sprintf("New node was '%s' added", updatedUrl)
 	err = c.Send(
 		response,
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
 	if err != nil {
 		return nil
 	}
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -58,21 +56,21 @@ func RemoveNodeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair) error {
+	responsePairType <-chan pair.ResponsePair,
+	url string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to remove a node")
 	}
-	u := strings.TrimPrefix(c.Text(), "Remove ")
 
-	url, err := internal.CheckAndUpdateURL(u)
+	urlUpdated, err := internal.CheckAndUpdateURL(url)
 	if err != nil {
 		return c.Send(
 			"Sorry, the url seems to be incorrect",
 			&tele.SendOptions{ParseMode: tele.ModeDefault},
 		)
 	}
-	requestType <- &pair.DeleteNodeRequest{Url: url}
+	requestType <- &pair.DeleteNodeRequest{Url: urlUpdated}
 
 	response := fmt.Sprintf("Node '%s' was deleted", url)
 	err = c.Send(
@@ -81,7 +79,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return err
 	}
-	urls, err := requestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -100,13 +98,12 @@ func RemoveNodeHandler(
 func SubscribeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
-) error {
+	alertName string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
 
-	alertName := strings.TrimPrefix(c.Text(), "Subscribe to ")
 	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(
@@ -152,13 +149,12 @@ func SubscribeHandler(
 func UnsubscribeHandler(
 	c tele.Context,
 	environment *internal.TelegramBotEnvironment,
-) error {
+	alertName string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to unsubscribe from alerts")
 	}
 
-	alertName := strings.TrimPrefix(c.Text(), "Unsubscribe from ")
 	alertType, ok := internal.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(

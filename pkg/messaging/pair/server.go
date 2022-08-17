@@ -9,10 +9,11 @@ import (
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
+	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pair socket")
@@ -50,8 +51,8 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to receive list of nodes from storage, %v", err)
 				}
+				var nodeList NodesListResponse
 
-				var nodeList NodeListResponse
 				nodeList.Urls = make([]string, len(nodes))
 				for i, node := range nodes {
 					nodeList.Urls[i] = node.URL
@@ -77,6 +78,32 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to delete a node from storage, %v", err)
 				}
+			case RequestNodesStatus:
+				listOfNodes := msg[1:]
+				nodes := strings.Split(string(listOfNodes), ",")
+				var nodesStatusResp NodesStatusResponse
+				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
+				switch {
+				case errors.Is(err, events.BigHeightDifference):
+					nodesStatusResp.Err = events.BigHeightDifference.Error()
+				case errors.Is(err, events.StorageIsNotReady):
+					nodesStatusResp.Err = events.StorageIsNotReady.Error()
+				default:
+					log.Printf("failed to find all statehashes by last height")
+				}
+				for _, statement := range statements {
+					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
+					nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)
+				}
+				response, err := json.Marshal(nodesStatusResp)
+				if err != nil {
+					log.Printf("failed to marshal list of nodes to json, %v", err)
+				}
+				err = socketPair.Send(response)
+				if err != nil {
+					log.Printf("failed to receive a response from pair socket, %v", err)
+				}
+
 			default:
 				log.Printf("request type to the pair socket is unknown: %c", request)
 			}
