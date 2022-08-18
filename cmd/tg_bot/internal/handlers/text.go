@@ -93,6 +93,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return err
 	}
+
 	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")

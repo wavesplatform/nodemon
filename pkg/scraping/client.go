@@ -10,10 +10,6 @@ import (
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
-type versionResponse struct {
-	Version string `json:"version"`
-}
-
 type nodeClient struct {
 	cl *client.Client
 }
@@ -30,20 +26,13 @@ func newNodeClient(url string, timeout time.Duration) *nodeClient {
 }
 
 func (c *nodeClient) version(ctx context.Context) (string, error) {
-	nodeURL := c.cl.GetOptions().BaseUrl
-	versionRequest, err := http.NewRequest("GET", nodeURL+"/node/version", nil)
+	version, _, err := c.cl.NodeInfo.Version(ctx)
 	if err != nil {
-		log.Printf("Creation of version request to %q failed: %v", nodeURL, err)
-		return "", err
-	}
-	versionRequest.Close = true
-	resp := new(versionResponse)
-	_, err = c.cl.Do(ctx, versionRequest, resp)
-	if err != nil {
+		nodeURL := c.cl.GetOptions().BaseUrl
 		log.Printf("Version request to %q failed: %v", nodeURL, err)
 		return "", err
 	}
-	return resp.Version, nil
+	return version, nil
 }
 
 func (c *nodeClient) height(ctx context.Context) (int, error) {

@@ -529,6 +529,7 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 		additionalUrls, err := RequestNodesList(requestType, responsePairType, true)
 		log.Printf("failed to request list of additional nodes, %v", err)
 		urls = append(urls, additionalUrls...)
+
 		nodesStatus, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)

@@ -109,6 +109,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 			)
 		}
 		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], false)
+
 	})
 	environment.Bot.Handle("/remove", func(c tele.Context) error {
 		args := c.Args()
@@ -211,6 +212,7 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 			log.Printf("failed to request list of specific nodes, %v", err)
 		}
 		urls = append(urls, additionalUrls...)
+
 		msg, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)

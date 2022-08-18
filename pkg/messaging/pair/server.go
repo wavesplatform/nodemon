@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
@@ -46,10 +47,20 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 			}
 			request := RequestPairType(msg[0])
 			switch request {
-			case RequestNodeListT:
-				nodes, err := ns.Nodes(false)
-				if err != nil {
-					log.Printf("failed to receive list of nodes from storage, %v", err)
+			case RequestNodeListT, RequestSpecificNodeListT:
+				var nodes []entities.Node
+				if request == RequestNodeListT {
+					nodes, err = ns.Nodes(false)
+					if err != nil {
+						log.Printf("failed to receive list of nodes from storage, %v", err)
+						return err
+					}
+				} else {
+					nodes, err = ns.Nodes(true)
+					if err != nil {
+						log.Printf("failed to receive list of specific nodes from storage, %v", err)
+						return err
+					}
 				}
 				var nodeList NodesListResponse
 
@@ -65,25 +76,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if err != nil {
 					log.Printf("failed to receive a response from pair socket, %v", err)
 				}
-			case RequestSpecificNodeListT:
-				nodes, err := ns.Nodes(true)
-				if err != nil {
-					log.Printf("failed to receive list of nodes from storage, %v", err)
-				}
-				var nodeList NodesListResponse
 
-				nodeList.Urls = make([]string, len(nodes))
-				for i, node := range nodes {
-					nodeList.Urls[i] = node.URL
-				}
-				response, err := json.Marshal(nodeList)
-				if err != nil {
-					log.Printf("failed to marshal list of nodes to json, %v", err)
-				}
-				err = socketPair.Send(response)
-				if err != nil {
-					log.Printf("failed to receive a response from pair socket, %v", err)
-				}
 			case RequestInsertNewNodeT:
 				url := msg[1:]
 				err := ns.InsertIfNew(string(url))
