@@ -95,6 +95,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
 		return
 	}
+	// TODO remove these readers after implementing proper statehash structure
 	stateHashReader := io.NopCloser(bytes.NewBuffer(buf))
 	statementReader := io.NopCloser(bytes.NewBuffer(buf))
 	statehash := &proto.StateHash{}
