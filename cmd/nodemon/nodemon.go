@@ -29,6 +29,10 @@ const (
 	defaultRetentionDuration = 12 * time.Hour
 )
 
+const (
+	defaultAPIReadTimeout = 30 * time.Second
+)
+
 var (
 	errorInvalidParameters = errors.New("invalid parameters")
 )
@@ -56,6 +60,7 @@ func run() error {
 		nanomsgPubSubURL string
 		nanomsgPairURL   string
 		retention        time.Duration
+		apiReadTimeout   time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
@@ -65,6 +70,7 @@ func run() error {
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairURL, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
+	flag.DurationVar(&apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout, "HTTP API read timeout. Default value is 30s.")
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
@@ -113,7 +119,7 @@ func run() error {
 	var ts int64 = 0
 	var specificNodesTs = &ts
 
-	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs)
+	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout)
 	if err != nil {
 		log.Printf("API failure: %v", err)
 		return err
