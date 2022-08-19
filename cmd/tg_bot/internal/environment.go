@@ -29,10 +29,6 @@ const (
 	scheduledTimeExpression = "0 0 9 * * *" // 12:00 UTC+3
 )
 
-const (
-	httpScheme = "http"
-)
-
 var (
 	//go:embed templates
 	templateFiles embed.FS
@@ -94,7 +90,7 @@ func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socke
 }
 
 func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
-	alert.Details = strings.ReplaceAll(alert.Details, httpScheme+"://", "")
+	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
@@ -494,8 +490,8 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 	return ok
 }
 
-func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]string, error) {
-	requestType <- &pair.NodeListRequest{}
+func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
+	requestType <- &pair.NodeListRequest{Specific: specific}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodesListResponse)
 	if !ok {
@@ -526,10 +522,14 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 	responsePairType <-chan pair.ResponsePair) {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
-		urls, err := RequestNodesList(requestType, responsePairType)
+		urls, err := RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
+		additionalUrls, err := RequestNodesList(requestType, responsePairType, true)
+		log.Printf("failed to request list of additional nodes, %v", err)
+		urls = append(urls, additionalUrls...)
+
 		nodesStatus, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)
@@ -554,26 +554,6 @@ func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
 	}
 	return 0, false
 
-}
-
-func CheckAndUpdateURL(s string) (string, error) {
-	var u *url.URL
-	var err error
-	if strings.Contains(s, "//") {
-		u, err = url.Parse(s)
-	} else {
-		u, err = url.Parse("//" + s)
-	}
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse URL %s", s)
-	}
-	if u.Scheme == "" {
-		u.Scheme = httpScheme
-	}
-	if u.Scheme != "http" && u.Scheme != "https" {
-		return "", errors.Errorf("unsupported URL scheme %s", u.Scheme)
-	}
-	return u.String(), nil
 }
 
 func RemoveSchemePrefix(s string) (string, error) {

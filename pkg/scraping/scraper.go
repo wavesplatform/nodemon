@@ -22,7 +22,7 @@ func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Du
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
+func (s *Scraper) Start(ctx context.Context, specificNodesTs *int64) <-chan entities.Notification {
 	out := make(chan entities.Notification)
 	go func(notifications chan<- entities.Notification) {
 		ticker := time.NewTicker(s.interval)
@@ -31,7 +31,7 @@ func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
 			close(notifications)
 		}()
 		for {
-			s.poll(ctx, notifications)
+			s.poll(ctx, notifications, specificNodesTs)
 			select {
 			case <-ticker.C:
 				continue
@@ -43,8 +43,11 @@ func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
 	return out
 }
 
-func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification) {
+func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification, specificNodesTs *int64) {
 	ts := time.Now().Unix()
+
+	*specificNodesTs = ts
+
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -52,17 +55,18 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 	ec := make(chan entities.Event)
 	defer close(ec)
 
-	ns, err := s.ns.EnabledNodes()
+	enabledNodes, err := s.ns.EnabledNodes()
 	if err != nil {
 		log.Printf("Failed to get nodes from storage: %v", err)
 	}
-	wg.Add(len(ns))
-	for i := range ns {
-		n := ns[i]
+	wg.Add(len(enabledNodes))
+	for i := range enabledNodes {
+		n := enabledNodes[i]
 		go func() {
 			s.queryNode(cc, n.URL, ec, ts)
 		}()
 	}
+
 	go func() {
 		cnt := 0
 		for e := range ec {
@@ -75,13 +79,14 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 			}
 			cnt++
 		}
-		log.Printf("Polling of %d nodes completed with %d events collected", len(ns), cnt)
+		log.Printf("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt)
 	}()
 	wg.Wait()
-	urls := make([]string, len(ns))
-	for i := range ns {
-		urls[i] = ns[i].URL
+	urls := make([]string, len(enabledNodes))
+	for i := range enabledNodes {
+		urls[i] = enabledNodes[i].URL
 	}
+
 	notifications <- entities.NewOnPollingComplete(urls, ts)
 }
 

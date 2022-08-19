@@ -108,7 +108,8 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 				},
 			)
 		}
-		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0])
+		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], false)
+
 	})
 	environment.Bot.Handle("/remove", func(c tele.Context) error {
 		args := c.Args()
@@ -175,31 +176,43 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle(tele.OnText, func(c tele.Context) error {
 		command := strings.ToLower(c.Text())
 
+		if strings.HasPrefix(command, "add specific") {
+			u := strings.TrimPrefix(command, "add specific ")
+			return AddNewNodeHandler(c, environment, requestType, responsePairType, u, true)
+		}
+
 		if strings.HasPrefix(command, "add") {
 			u := strings.TrimPrefix(command, "add ")
-			return AddNewNodeHandler(c, environment, requestType, responsePairType, u)
+			return AddNewNodeHandler(c, environment, requestType, responsePairType, u, false)
 		}
+
 		if strings.HasPrefix(command, "remove") {
-			u := strings.TrimPrefix(c.Text(), "remove ")
+			u := strings.TrimPrefix(command, "remove ")
 			return RemoveNodeHandler(c, environment, requestType, responsePairType, u)
 		}
 		if strings.HasPrefix(command, "subscribe to") {
-			alertName := strings.TrimPrefix(c.Text(), "subscribe to ")
+			alertName := strings.TrimPrefix(command, "subscribe to ")
 			return SubscribeHandler(c, environment, alertName)
 		}
 
 		if strings.HasPrefix(command, "unsubscribe from") {
-			alertName := strings.TrimPrefix(c.Text(), "unsubscribe from ")
+			alertName := strings.TrimPrefix(command, "unsubscribe from ")
 			return UnsubscribeHandler(c, environment, alertName)
 		}
 		return nil
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		urls, err := internal.RequestNodesList(requestType, responsePairType)
+		urls, err := internal.RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
+		additionalUrls, err := internal.RequestNodesList(requestType, responsePairType, true)
+		if err != nil {
+			log.Printf("failed to request list of specific nodes, %v", err)
+		}
+		urls = append(urls, additionalUrls...)
+
 		msg, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
@@ -221,7 +234,7 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := internal.RequestNodesList(requestType, responsePairType)
+	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

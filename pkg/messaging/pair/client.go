@@ -41,7 +41,12 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 
 				switch r := request.(type) {
 				case *NodeListRequest:
-					message.WriteByte(byte(RequestNodeListT))
+					if r.Specific {
+						message.WriteByte(byte(RequestSpecificNodeListT))
+
+					} else {
+						message.WriteByte(byte(RequestNodeListT))
+					}
 
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
@@ -58,9 +63,12 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 						log.Printf("failed to unmarshal response from pair socket, %v", err)
 					}
 					responsePair <- &nodeList
-
 				case *InsertNewNodeRequest:
-					message.WriteByte(byte(RequestInsertNewNodeT))
+					if r.Specific {
+						message.WriteByte(byte(RequestInsertSpecificNewNodeT))
+					} else {
+						message.WriteByte(byte(RequestInsertNewNodeT))
+					}
 
 					message.Write([]byte(r.Url))
 					err = pairSocket.Send(message.Bytes())
