@@ -9,6 +9,7 @@ import (
 	"log"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi"
@@ -108,6 +109,9 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodeName := r.Header.Get("node-name")
+	escapedNodeName := strings.Replace(nodeName, "\n", "", -1)
+	escapedNodeName = strings.Replace(escapedNodeName, "\r", "", -1)
+
 	statement := NodeShortStatement{}
 	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
@@ -115,7 +119,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
-	updatedUrl, err := entities.CheckAndUpdateURL(nodeName)
+	updatedUrl, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
 		log.Printf("Failed to check node name: %v", err)
 		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusInternalServerError)
@@ -164,7 +168,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", nodeName, statement.Height-1, statehash.SumHash.String())
+	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height-1, statehash.SumHash.String())
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
