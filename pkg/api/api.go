@@ -168,7 +168,10 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusOK)
-	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height-1, statehash.SumHash.String())
+
+	sumhash := strings.Replace(statehash.SumHash.String(), "\n", "", -1)
+	sumhash = strings.Replace(sumhash, "\r", "", -1)
+	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height-1, sumhash)
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
