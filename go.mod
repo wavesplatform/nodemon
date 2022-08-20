@@ -12,7 +12,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/procyon-projects/chrono v1.1.0
 	github.com/stretchr/testify v1.8.0
-	github.com/tidwall/buntdb v1.2.9
+	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.2-0.20220817081803-6008477aab3d
 	go.nanomsg.org/mangos/v3 v3.4.2
 	gopkg.in/telebot.v3 v3.0.0
@@ -29,8 +29,8 @@ require (
 	github.com/kilic/bls12-381 v0.0.0-20200820230200-6b2c19996391 // indirect
 	github.com/mr-tron/base58 v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
-	github.com/tidwall/btree v1.1.0 // indirect
-	github.com/tidwall/gjson v1.12.1 // indirect
+	github.com/tidwall/btree v1.4.2 // indirect
+	github.com/tidwall/gjson v1.14.3 // indirect
 	github.com/tidwall/grect v0.1.4 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
