@@ -32,7 +32,7 @@ type SpecificNodesSettings struct {
 	currentTimestamp *int64
 }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *int64) (*API, error) {
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *int64, apiReadTimeout time.Duration) (*API, error) {
 	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: SpecificNodesSettings{currentTimestamp: specificNodesTs}}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -41,7 +41,7 @@ func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Stor
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Mount("/", a.routes())
-	a.srv = &http.Server{Addr: bind, Handler: r}
+	a.srv = &http.Server{Addr: bind, Handler: r, ReadHeaderTimeout: apiReadTimeout, ReadTimeout: apiReadTimeout}
 	return a, nil
 }
 
