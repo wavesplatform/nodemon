@@ -213,9 +213,13 @@ func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan
 		}
 		urls = append(urls, additionalUrls...)
 
-		msg, _, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
+		msg, statusCondition, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
+		}
+
+		if statusCondition.AllNodesAreOk {
+			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.Nodes, msg)
 		}
 
 		return c.Send(

@@ -237,13 +237,13 @@ type NodeStatus struct {
 }
 
 type StatusCondition struct {
-	allNodesAreOk bool
-	nodes         int
+	AllNodesAreOk bool
+	Nodes         int
 	height        string
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, StatusCondition, error) {
-	statusCondition := StatusCondition{allNodesAreOk: false, nodes: 0, height: ""}
+	statusCondition := StatusCondition{AllNodesAreOk: false, Nodes: 0, height: ""}
 
 	if nodesStatusResp.Err != "" {
 		var differentHeightsNodes []NodeStatus
@@ -384,8 +384,8 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 	}
 
 	if len(unavailableNodes) == 0 && len(okNodes) != 0 && areHashesEqual {
-		statusCondition.allNodesAreOk = true
-		statusCondition.nodes = len(okNodes)
+		statusCondition.AllNodesAreOk = true
+		statusCondition.Nodes = len(okNodes)
 		statusCondition.height = height
 	}
 
@@ -542,15 +542,17 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 			log.Printf("failed to request list of nodes, %v", err)
 		}
 		additionalUrls, err := RequestNodesList(requestType, responsePairType, true)
-		log.Printf("failed to request list of additional nodes, %v", err)
+		if err != nil {
+			log.Printf("failed to request list of additional nodes, %v", err)
+		}
 		urls = append(urls, additionalUrls...)
 
 		nodesStatus, statusCondition, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)
 		}
-		if statusCondition.allNodesAreOk {
-			msg := fmt.Sprintf("Status %s\n\nAll %d nodes have the same hashes on height %s", messages.TimerMsg, statusCondition.nodes, statusCondition.height)
+		if statusCondition.AllNodesAreOk {
+			msg := fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.Nodes, statusCondition.height)
 			tgEnv.SendMessage(msg)
 			return
 		}
