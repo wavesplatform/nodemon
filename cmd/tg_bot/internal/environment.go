@@ -236,7 +236,15 @@ type NodeStatus struct {
 	Height  string
 }
 
-func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, error) {
+type StatusCondition struct {
+	allNodesAreOk bool
+	nodes         int
+	height        string
+}
+
+func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, StatusCondition, error) {
+	statusCondition := StatusCondition{allNodesAreOk: false, nodes: 0, height: ""}
+
 	if nodesStatusResp.Err != "" {
 		var differentHeightsNodes []NodeStatus
 		var unavailableNodes []NodeStatus
@@ -259,39 +267,39 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 				tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
 				if err != nil {
 					log.Printf("failed to construct a message, %v", err)
-					return "", err
+					return "", statusCondition, err
 				}
 				wUnavailable := &bytes.Buffer{}
 				if err != nil {
 					log.Printf("failed to construct a message, %v", err)
-					return "", err
+					return "", statusCondition, err
 				}
 				err = tmpl.Execute(wUnavailable, unavailableNodes)
 				if err != nil {
 					log.Printf("failed to construct a message, %v", err)
-					return "", err
+					return "", statusCondition, err
 				}
 				msg = fmt.Sprintf(wUnavailable.String() + "\n")
 			}
 			tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_heights.html")
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
-				return "", err
+				return "", statusCondition, err
 			}
 			wDifferentHeights := &bytes.Buffer{}
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
-				return "", err
+				return "", statusCondition, err
 			}
 			err = tmpl.Execute(wDifferentHeights, differentHeightsNodes)
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
-				return "", err
+				return "", statusCondition, err
 			}
 			msg += wDifferentHeights.String()
-			return fmt.Sprintf("<i>%s</i>\n\n%s", nodesStatusResp.Err, msg), nil
+			return fmt.Sprintf("<i>%s</i>\n\n%s", nodesStatusResp.Err, msg), statusCondition, nil
 		}
-		return nodesStatusResp.Err, nil
+		return nodesStatusResp.Err, statusCondition, nil
 	}
 
 	var msg string
@@ -316,17 +324,17 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		wUnavailable := &bytes.Buffer{}
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		err = tmpl.Execute(wUnavailable, unavailableNodes)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		msg = fmt.Sprintf(wUnavailable.String() + "\n")
 	}
@@ -343,39 +351,46 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_hashes.html")
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		wDifferent := &bytes.Buffer{}
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		err = tmpl.Execute(wDifferent, okNodes)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
-			return "", err
+			return "", statusCondition, err
 		}
 		msg += fmt.Sprintf("%s <code>%s</code>", wDifferent.String(), height)
-		return msg, nil
+		return msg, statusCondition, nil
 	}
 
 	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_ok.html")
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
-		return "", err
+		return "", statusCondition, err
 	}
 	wOk := &bytes.Buffer{}
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
-		return "", err
+		return "", statusCondition, err
 	}
 	err = tmpl.Execute(wOk, okNodes)
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
-		return "", err
+		return "", statusCondition, err
 	}
+
+	if len(unavailableNodes) == 0 && len(okNodes) != 0 && areHashesEqual {
+		statusCondition.allNodesAreOk = true
+		statusCondition.nodes = len(okNodes)
+		statusCondition.height = height
+	}
+
 	msg += fmt.Sprintf("%s <code>%s</code>", wOk.String(), height)
-	return msg, nil
+	return msg, statusCondition, nil
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
@@ -503,13 +518,13 @@ func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-ch
 func (tgEnv *TelegramBotEnvironment) RequestNodesStatus(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
-	urls []string) (string, error) {
+	urls []string) (string, StatusCondition, error) {
 
 	requestType <- &pair.NodesStatusRequest{Urls: urls}
 	responsePair := <-responsePairType
 	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
 	if !ok {
-		return "", errors.New("failed to convert response interface to the nodes status type")
+		return "", StatusCondition{}, errors.New("failed to convert response interface to the nodes status type")
 	}
 
 	return tgEnv.NodesStatus(nodesStatus)
@@ -530,9 +545,14 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 		log.Printf("failed to request list of additional nodes, %v", err)
 		urls = append(urls, additionalUrls...)
 
-		nodesStatus, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
+		nodesStatus, statusCondition, err := tgEnv.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)
+		}
+		if statusCondition.allNodesAreOk {
+			msg := fmt.Sprintf("Status %s\n\nAll %d nodes have the same hashes on height %s", messages.TimerMsg, statusCondition.nodes, statusCondition.height)
+			tgEnv.SendMessage(msg)
+			return
 		}
 		msg := fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, nodesStatus)
 		tgEnv.SendMessage(msg)
