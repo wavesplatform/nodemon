@@ -239,11 +239,11 @@ type NodeStatus struct {
 type StatusCondition struct {
 	AllNodesAreOk bool
 	Nodes         int
-	height        string
+	Height        string
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, StatusCondition, error) {
-	statusCondition := StatusCondition{AllNodesAreOk: false, Nodes: 0, height: ""}
+	statusCondition := StatusCondition{AllNodesAreOk: false, Nodes: 0, Height: ""}
 
 	if nodesStatusResp.Err != "" {
 		var differentHeightsNodes []NodeStatus
@@ -386,7 +386,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 	if len(unavailableNodes) == 0 && len(okNodes) != 0 && areHashesEqual {
 		statusCondition.AllNodesAreOk = true
 		statusCondition.Nodes = len(okNodes)
-		statusCondition.height = height
+		statusCondition.Height = height
 	}
 
 	msg += fmt.Sprintf("%s <code>%s</code>", wOk.String(), height)
@@ -552,7 +552,7 @@ func (tgEnv *TelegramBotEnvironment) ScheduleNodesStatus(
 			log.Printf("failed to send status of nodes that was scheduled, %v", err)
 		}
 		if statusCondition.AllNodesAreOk {
-			msg := fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.Nodes, statusCondition.height)
+			msg := fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.Nodes, statusCondition.Height)
 			tgEnv.SendMessage(msg)
 			return
 		}
