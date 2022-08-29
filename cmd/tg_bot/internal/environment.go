@@ -9,6 +9,7 @@ import (
 	"html/template"
 	"log"
 	"net/url"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -242,6 +243,12 @@ type StatusCondition struct {
 	Height        string
 }
 
+func SortNodesStatuses(statuses []NodeStatus) {
+	sort.Slice(statuses, func(i, j int) bool {
+		return strings.Compare(statuses[i].URL, statuses[j].URL) < 0
+	})
+}
+
 func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, Nodes: 0, Height: ""}
 
@@ -274,6 +281,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 					log.Printf("failed to construct a message, %v", err)
 					return "", statusCondition, err
 				}
+				SortNodesStatuses(unavailableNodes)
 				err = tmpl.Execute(wUnavailable, unavailableNodes)
 				if err != nil {
 					log.Printf("failed to construct a message, %v", err)
@@ -291,6 +299,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 				log.Printf("failed to construct a message, %v", err)
 				return "", statusCondition, err
 			}
+			SortNodesStatuses(differentHeightsNodes)
 			err = tmpl.Execute(wDifferentHeights, differentHeightsNodes)
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
@@ -331,6 +340,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
+		SortNodesStatuses(unavailableNodes)
 		err = tmpl.Execute(wUnavailable, unavailableNodes)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
@@ -358,6 +368,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
+		SortNodesStatuses(okNodes)
 		err = tmpl.Execute(wDifferent, okNodes)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
@@ -377,6 +388,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		log.Printf("failed to construct a message, %v", err)
 		return "", statusCondition, err
 	}
+	SortNodesStatuses(okNodes)
 	err = tmpl.Execute(wOk, okNodes)
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
@@ -512,7 +524,9 @@ func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-ch
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
-	return nodesList.Urls, nil
+	urls := nodesList.Urls
+	sort.Strings(urls)
+	return urls, nil
 }
 
 func (tgEnv *TelegramBotEnvironment) RequestNodesStatus(
