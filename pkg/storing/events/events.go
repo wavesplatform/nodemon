@@ -17,6 +17,10 @@ var (
 	ErrNotFound = buntdb.ErrNotFound
 )
 
+const (
+	depthCommonHeightSearch = 10
+)
+
 type Storage struct {
 	db                *buntdb.DB
 	retentionDuration time.Duration
@@ -142,19 +146,32 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
+func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
+	pattern := newStatementKey(node, "*")
+	var st entities.NodeStatement
+	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
+		st := *s
+		if st.Height != height {
+			return true
+		}
+		if st.StateHash != nil {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return false, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
+	}
+	if st.StateHash == nil {
+		return false, errors.Errorf("no full statements at height %d for node '%s'", height, node)
+	}
+	return true, nil
+}
+
 var BigHeightDifference = errors.New("The height difference between nodes is more than 10")
 var StorageIsNotReady = errors.New("The storage has not collected enough statements for status")
 
-func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
-	var heightDifference = 10
-
-	minHeight, maxHeight := math.MaxInt, 0
-
-	nodesList := make(map[string]bool) // reachable or unreachable
-	for _, node := range nodes {
-		nodesList[node] = true
-	}
-
+func (s *Storage) FindMinCommonLatestHeight(nodesList map[string]bool, minHeight int, maxHeight int) ([]entities.NodeStatement, map[string]bool, int) {
 	// looking for the min common height and the max height
 	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
@@ -174,9 +191,51 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: h, Status: entities.OK})
 	}
 
+	return nodesHeights, nodesList, minHeight
+}
+
+func (s *Storage) FindMinCommonSpecificHeight(nodesList map[string]bool, minHeight int) ([]entities.NodeStatement, map[string]bool) {
+	// looking for the min common height and the max height
+	var nodesHeights []entities.NodeStatement
+	for node := range nodesList {
+		found, err := s.FoundStatementAtHeight(node, minHeight)
+		if err != nil || !found {
+			nodesList[node] = false // this node is unreachable
+			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			continue
+		}
+		nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: minHeight, Status: entities.OK})
+	}
+
+	return nodesHeights, nodesList
+}
+
+func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
+	var heightDifference = depthCommonHeightSearch
+
+	minHeight, maxHeight := math.MaxInt, 0
+
+	nodesList := make(map[string]bool) // reachable or unreachable
+	for _, node := range nodes {
+		nodesList[node] = true
+	}
+
+	nodesHeights, nodesList, minHeight := s.FindMinCommonLatestHeight(nodesList, minHeight, maxHeight)
+
 	if (maxHeight - minHeight) > heightDifference {
 		return nodesHeights, BigHeightDifference
 	}
+
+	for i := 0; i < depthCommonHeightSearch; i++ {
+		for _, node := range nodesHeights {
+			if node.Height != minHeight {
+				minHeight = minHeight - 1
+				nodesHeights, nodesList = s.FindMinCommonSpecificHeight(nodesList, minHeight)
+			}
+		}
+
+	}
+
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {
 		if !reachable {
