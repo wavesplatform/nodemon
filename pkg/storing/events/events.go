@@ -3,6 +3,7 @@ package events
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"strconv"
 	"time"
@@ -19,6 +20,7 @@ var (
 
 const (
 	depthCommonHeightSearch = 10
+	heightDifference        = 10
 )
 
 type Storage struct {
@@ -92,6 +94,8 @@ func (s *Storage) PutEvent(event entities.Event) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to store event")
 	}
+
+	log.Printf("New statement for node %s:\n%s\n", event.Node(), v)
 	return nil
 }
 
@@ -146,11 +150,33 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
+func (s *Storage) StatementAtHeight(node string, height int) (entities.NodeStatement, error) {
+	pattern := newStatementKey(node, "*")
+	var st entities.NodeStatement
+	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
+		st = *s
+		if st.Height != height {
+			return true
+		}
+		if st.StateHash != nil {
+			return false
+		}
+		return true
+	})
+	if err != nil {
+		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
+	}
+	if st.StateHash == nil {
+		return entities.NodeStatement{}, errors.Errorf("no full statements at height %d for node '%s'", height, node)
+	}
+	return st, nil
+}
+
 func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
 	pattern := newStatementKey(node, "*")
 	var st entities.NodeStatement
 	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
-		st := *s
+		st = *s
 		if st.Height != height {
 			return true
 		}
@@ -211,7 +237,6 @@ func (s *Storage) FindMinCommonSpecificHeight(nodesList map[string]bool, minHeig
 }
 
 func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
-	var heightDifference = depthCommonHeightSearch
 
 	minHeight, maxHeight := math.MaxInt, 0
 
@@ -229,13 +254,18 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	for i := 0; i < depthCommonHeightSearch; i++ {
 		sameHeight := true
 		for _, node := range nodesHeights {
-			if node.Height != minHeight {
+			if node.Height != minHeight && nodesList[node.Node] != false {
 				sameHeight = false
-				minHeight = minHeight - 1
+				if i > 0 {
+					minHeight = minHeight - 1
+					break
+				}
 			}
 		}
 		if !sameHeight {
 			nodesHeights, nodesList = s.FindMinCommonSpecificHeight(nodesList, minHeight)
+		} else {
+			break
 		}
 
 	}
@@ -246,31 +276,18 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
-		var foundStatementOnHeight bool
-		err := s.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
-			// iterator. if true then continue
-			if statement.Status != entities.OK {
-				return true
-			}
-			if statement.Height == minHeight {
-				statementsOnHeight = append(statementsOnHeight, *statement)
-				foundStatementOnHeight = true
-				return false
-			}
-			if statement.Height < minHeight { // more than 10 blocks were iterated, but not found the right block
-				return false
-			}
-			return true
-		})
+		statement, err := s.StatementAtHeight(node, minHeight)
 		if err != nil {
-			return nil, err
+			fmt.Printf("failed to find a statement for node %s on height %d\n", node, minHeight)
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			continue
 		}
-
-		if !foundStatementOnHeight {
-			fmt.Printf("NOT FOUND STATEMENT FOR NODE %s\n", node)
-			return nil, StorageIsNotReady
+		if statement.Height == minHeight {
+			statementsOnHeight = append(statementsOnHeight, statement)
+		} else {
+			fmt.Printf("wrong statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 		}
-
 	}
 
 	return statementsOnHeight, nil

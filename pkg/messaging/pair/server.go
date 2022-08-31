@@ -106,7 +106,9 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				case errors.Is(err, events.StorageIsNotReady):
 					nodesStatusResp.Err = events.StorageIsNotReady.Error()
 				default:
-					log.Printf("failed to find all statehashes by last height")
+					if err != nil {
+						log.Printf("failed to find all statehashes by last height, %v\n", err)
+					}
 				}
 				for _, statement := range statements {
 					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
