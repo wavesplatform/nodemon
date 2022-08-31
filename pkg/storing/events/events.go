@@ -254,7 +254,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	for i := 0; i < depthCommonHeightSearch; i++ {
 		sameHeight := true
 		for _, node := range nodesHeights {
-			if node.Height != minHeight && nodesList[node.Node] != false {
+			if node.Height != minHeight && nodesList[node.Node] {
 				sameHeight = false
 				if i > 0 {
 					minHeight = minHeight - 1
