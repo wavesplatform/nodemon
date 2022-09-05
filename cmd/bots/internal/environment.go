@@ -14,12 +14,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
-	"nodemon/cmd/tg_bot/internal/messages"
+	"nodemon/cmd/bots/internal/messages"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
@@ -68,6 +69,88 @@ func (s *subsciptions) MapR(f func()) {
 	s.mu.RUnlock()
 }
 
+type DiscordBotEnvironment struct {
+	ChatID        string
+	Bot           *discordgo.Session
+	pubSubSocket  protocol.Socket
+	subscriptions subsciptions
+}
+
+func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string) *DiscordBotEnvironment {
+	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, subscriptions: subsciptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
+}
+
+func (dscBot *DiscordBotEnvironment) Start() {
+	log.Println("Discord bot started")
+	err := dscBot.Bot.Open()
+	if err != nil {
+		fmt.Println("failed to open connection to discord", err)
+		return
+	}
+}
+
+func (dscBot *DiscordBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socket) {
+	dscBot.pubSubSocket = pubSubSocket
+}
+
+func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
+
+	_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, msg)
+
+	if err != nil {
+		log.Printf("failed to send a message to telegram, %v", err)
+	}
+}
+
+func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
+
+	alertType := entities.AlertType(msg[0])
+	_, ok := entities.AlertTypes[alertType]
+	if !ok {
+		log.Printf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+
+		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
+
+		if err != nil {
+			log.Printf("failed to send a message to discord, %v", err)
+		}
+		return
+	}
+
+	messageToBot, err := constructMessage(alertType, msg[1:])
+	if err != nil {
+		log.Printf("failed to construct message, %v\n", err)
+		return
+	}
+	_, err = dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
+
+	if err != nil {
+		log.Printf("failed to send a message to discord, %v", err)
+	}
+}
+
+func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
+
+	for alertType, alertName := range entities.AlertTypes {
+		if dscBot.IsAlreadySubscribed(alertType) {
+			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
+		}
+		err := dscBot.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+		if err != nil {
+			return err
+		}
+		dscBot.subscriptions.Add(alertType, alertName)
+		log.Printf("Subscribed to %s", alertName)
+	}
+
+	return nil
+}
+
+func (dscBot *DiscordBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
+	_, ok := dscBot.subscriptions.Read(alertType)
+	return ok
+}
+
 type TelegramBotEnvironment struct {
 	ChatID        int64
 	Bot           *telebot.Bot
@@ -90,7 +173,7 @@ func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socke
 	tgEnv.pubSubSocket = pubSubSocket
 }
 
-func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
+func makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
 	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
@@ -113,14 +196,14 @@ func (tgEnv *TelegramBotEnvironment) makeMessagePretty(alertType entities.AlertT
 	return alert
 }
 
-func (tgEnv *TelegramBotEnvironment) constructMessage(alertType entities.AlertType, alertJson []byte) (string, error) {
+func constructMessage(alertType entities.AlertType, alertJson []byte) (string, error) {
 	alert := messaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal json")
 	}
 
-	prettyAlert := tgEnv.makeMessagePretty(alertType, alert)
+	prettyAlert := makeMessagePretty(alertType, alert)
 
 	tmpl, err := template.ParseFS(templateFiles, "templates/alert.html")
 
@@ -161,7 +244,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	messageToBot, err := tgEnv.constructMessage(alertType, msg[1:])
+	messageToBot, err := constructMessage(alertType, msg[1:])
 	if err != nil {
 		log.Printf("failed to construct message, %v\n", err)
 		return

@@ -5,7 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/tg_bot/internal"
+	"nodemon/cmd/bots/internal"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 )

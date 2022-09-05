@@ -7,6 +7,7 @@ go 1.18
 exclude github.com/gogo/protobuf v1.1.1
 
 require (
+	github.com/bwmarrin/discordgo v0.26.1
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1

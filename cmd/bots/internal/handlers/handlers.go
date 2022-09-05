@@ -7,13 +7,13 @@ import (
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/tg_bot/internal"
-	"nodemon/cmd/tg_bot/internal/buttons"
-	"nodemon/cmd/tg_bot/internal/messages"
+	"nodemon/cmd/bots/internal"
+	"nodemon/cmd/bots/internal/buttons"
+	"nodemon/cmd/bots/internal/messages"
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitHandlers(environment *internal.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
+func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
 
 	environment.Bot.Handle("/chat", func(c tele.Context) error {
 
