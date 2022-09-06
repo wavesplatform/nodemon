@@ -223,14 +223,14 @@ func (s *Storage) findMinCommonSpecificHeight(nodesList map[string]bool, minHeig
 	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
 		found, err := s.FoundStatementAtHeight(node, minHeight)
-		if err != nil && !errors.Is(err, NoFullStatementError) {
+		if err != nil {
 			return nil, errors.Wrapf(err, "failed to find min common specific height %d for node '%s'", minHeight, node)
 		}
-		if err != nil || !found {
+		if !found {
 			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Status: entities.Unreachable})
-			continue
+		} else {
+			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: minHeight, Status: entities.OK})
 		}
-		nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: minHeight, Status: entities.OK})
 	}
 
 	return nodesHeights, nil
