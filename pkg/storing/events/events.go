@@ -93,8 +93,8 @@ func (s *Storage) PutEvent(event entities.Event) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to store event")
 	}
-
-	log.Printf("New statement for node %s:\n%s\n", event.Node(), v)
+	// TODO: uncomment and move to DEBUG logging mode (https://github.com/wavesplatform/nodemon/issues/71)
+	//log.Printf("New statement for node %s:\n%s\n", event.Node(), v)
 	return nil
 }
 
