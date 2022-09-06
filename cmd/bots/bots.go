@@ -96,7 +96,7 @@ func run() error {
 	bots = append(bots, tgBotEnv)
 	bots = append(bots, discordBotEnv)
 	go func() {
-		err := pubsub.StartPubSubMessagingClient(ctx, nanomsgPubSubURL, bots)
+		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, bots)
 		if err != nil {
 			log.Printf("failed to start pubsub messaging service: %v", err)
 			return
@@ -118,6 +118,7 @@ func run() error {
 	<-ctx.Done()
 
 	discordBotEnv.Bot.Close()
+	log.Println("Discord bot finished")
 
 	if !taskScheduler.IsShutdown() {
 		taskScheduler.Shutdown()

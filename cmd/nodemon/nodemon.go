@@ -141,7 +141,7 @@ func run() error {
 	alerts := analyzer.Start(notifications)
 
 	go func() {
-		err := pubsub.StartPubSubMessagingServer(ctx, nanomsgPubSubURL, alerts)
+		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts)
 		if err != nil {
 			log.Printf("failed to start pair messaging service: %v", err)
 		}

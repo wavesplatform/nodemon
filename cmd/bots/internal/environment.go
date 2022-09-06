@@ -6,13 +6,14 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	htmlTemplate "html/template"
 	"log"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+	textTemplate "text/template"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
@@ -34,6 +35,13 @@ const (
 var (
 	//go:embed templates
 	templateFiles embed.FS
+)
+
+type expectedMsgType byte
+
+const (
+	html expectedMsgType = iota
+	markdown
 )
 
 var errUnknownAlertType = errors.New("received unknown alert type")
@@ -117,7 +125,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	messageToBot, err := constructMessage(alertType, msg[1:])
+	messageToBot, err := constructMessage(alertType, msg[1:], markdown)
 	if err != nil {
 		log.Printf("failed to construct message, %v\n", err)
 		return
@@ -140,7 +148,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		dscBot.subscriptions.Add(alertType, alertName)
-		log.Printf("Subscribed to %s", alertName)
+		log.Printf("discord bot ubscribed to %s", alertName)
 	}
 
 	return nil
@@ -196,7 +204,7 @@ func makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) mess
 	return alert
 }
 
-func constructMessage(alertType entities.AlertType, alertJson []byte) (string, error) {
+func constructMessage(alertType entities.AlertType, alertJson []byte, msgType expectedMsgType) (string, error) {
 	alert := messaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
@@ -205,18 +213,30 @@ func constructMessage(alertType entities.AlertType, alertJson []byte) (string, e
 
 	prettyAlert := makeMessagePretty(alertType, alert)
 
-	tmpl, err := template.ParseFS(templateFiles, "templates/alert.html")
-
-	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
-		return "", err
-	}
-
 	w := &bytes.Buffer{}
-	err = tmpl.Execute(w, prettyAlert)
-	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
-		return "", err
+	switch msgType {
+	case html:
+		tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/alert.html")
+		if err != nil {
+			log.Printf("failed to construct an html message, %v", err)
+			return "", err
+		}
+		err = tmpl.Execute(w, prettyAlert)
+		if err != nil {
+			log.Printf("failed to construct an html message, %v", err)
+			return "", err
+		}
+	case markdown:
+		tmpl, err := textTemplate.ParseFS(templateFiles, "templates/alert.md")
+		if err != nil {
+			log.Printf("failed to construct a markdown message, %v", err)
+			return "", err
+		}
+		err = tmpl.Execute(w, prettyAlert)
+		if err != nil {
+			log.Printf("failed to construct a markdown message, %v", err)
+			return "", err
+		}
 	}
 	return w.String(), nil
 }
@@ -244,7 +264,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	messageToBot, err := constructMessage(alertType, msg[1:])
+	messageToBot, err := constructMessage(alertType, msg[1:], markdown)
 	if err != nil {
 		log.Printf("failed to construct message, %v\n", err)
 		return
@@ -288,7 +308,7 @@ type Node struct {
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error) {
-	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_list.html")
+	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
 
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
@@ -354,7 +374,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 			}
 			var msg string
 			if len(unavailableNodes) != 0 {
-				tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
+				tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
 				if err != nil {
 					log.Printf("failed to construct a message, %v", err)
 					return "", statusCondition, err
@@ -372,7 +392,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 				}
 				msg = fmt.Sprintf(wUnavailable.String() + "\n")
 			}
-			tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_heights.html")
+			tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_status_different_heights.html")
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
 				return "", statusCondition, err
@@ -413,7 +433,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		okNodes = append(okNodes, s)
 	}
 	if len(unavailableNodes) != 0 {
-		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
+		tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_status_unavailable.html")
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
@@ -441,7 +461,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 	}
 
 	if !areHashesEqual {
-		tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_different_hashes.html")
+		tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_status_different_hashes.html")
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
@@ -461,7 +481,7 @@ func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStat
 		return msg, statusCondition, nil
 	}
 
-	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_status_ok.html")
+	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_status_ok.html")
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
 		return "", statusCondition, err
@@ -499,7 +519,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		tgEnv.subscriptions.Add(alertType, alertName)
-		log.Printf("Subscribed to %s", alertName)
+		log.Printf("telegram bot subscribed to %s", alertName)
 	}
 
 	return nil
@@ -561,7 +581,7 @@ type Subscriptions struct {
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
-	tmpl, err := template.ParseFS(templateFiles, "templates/subscriptions.html")
+	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/subscriptions.html")
 
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)

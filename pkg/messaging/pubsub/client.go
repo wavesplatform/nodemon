@@ -10,8 +10,8 @@ import (
 	"nodemon/pkg/messaging"
 )
 
-func StartPubSubMessagingClient(ctx context.Context, nanomsgURL string, bots []messaging.Bot) error {
-	pubSubSocket, err := sub.NewSocket()
+func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bots []messaging.Bot) error {
+	subSocket, err := sub.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new sub socket: %v", err)
 		return err
@@ -20,12 +20,12 @@ func StartPubSubMessagingClient(ctx context.Context, nanomsgURL string, bots []m
 		if err := pubSubSocket.Close(); err != nil {
 			log.Printf("Failed to close pair socket: %v", err)
 		}
-	}(pubSubSocket)
+	}(subSocket)
 
 	for _, bot := range bots {
-		bot.SetPubSubSocket(pubSubSocket)
+		bot.SetPubSubSocket(subSocket)
 	}
-	if err := pubSubSocket.Dial(nanomsgURL); err != nil {
+	if err := subSocket.Dial(nanomsgURL); err != nil {
 		log.Printf("failed to dial on sub socket: %v", err)
 		return err
 	}
@@ -43,7 +43,7 @@ func StartPubSubMessagingClient(ctx context.Context, nanomsgURL string, bots []m
 			case <-ctx.Done():
 				return
 			default:
-				msg, err := pubSubSocket.Recv()
+				msg, err := subSocket.Recv()
 				if err != nil {
 					log.Printf("failed to receive message: %v", err)
 					return
@@ -56,6 +56,6 @@ func StartPubSubMessagingClient(ctx context.Context, nanomsgURL string, bots []m
 	}()
 
 	<-ctx.Done()
-	log.Println("pubsub messaging service finished")
+	log.Println("sub messaging service finished")
 	return nil
 }
