@@ -264,7 +264,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	messageToBot, err := constructMessage(alertType, msg[1:], markdown)
+	messageToBot, err := constructMessage(alertType, msg[1:], html)
 	if err != nil {
 		log.Printf("failed to construct message, %v\n", err)
 		return
