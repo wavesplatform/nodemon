@@ -46,7 +46,7 @@ func InitDiscordBot(
 			return
 		}
 		if m.Content == "!ping" {
-			_, err = s.ChannelMessageSend(m.ChannelID, "Pong!")
+			_, err = s.ChannelMessageSend(chatID, "Pong!")
 			if err != nil {
 				log.Println(err)
 			}
