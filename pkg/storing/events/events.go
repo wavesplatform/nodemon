@@ -2,7 +2,6 @@ package events
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"math"
 	"strconv"
@@ -162,9 +161,9 @@ func (s *Storage) StatementAtHeight(node string, height int) (entities.NodeState
 		}
 		if st.Height != height {
 			return true
-		} else {
-			return false
 		}
+		return false
+
 	})
 	if err != nil {
 		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
@@ -179,29 +178,12 @@ func (s *Storage) StatementAtHeight(node string, height int) (entities.NodeState
 }
 
 func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
-	pattern := newStatementKey(node, "*")
-	var st entities.NodeStatement
-	notFound := false
-	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
-		st = *s
-		if st.Height < height {
-			notFound = true
-			return false
-		}
-		if st.Height != height {
-			return true
-		} else {
-			return false
-		}
-	})
+	_, err := s.StatementAtHeight(node, height)
 	if err != nil {
+		if errors.Is(err, NoFullStatementError) {
+			return false, nil
+		}
 		return false, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
-	}
-	if notFound {
-		return false, nil
-	}
-	if st.StateHash == nil {
-		return false, errors.Wrapf(NoFullStatementError, "no full statement at height %d for node '%s'", height, node)
 	}
 	return true, nil
 }
@@ -305,14 +287,14 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 			if !errors.Is(err, NoFullStatementError) {
 				return nil, errors.Wrapf(err, "failed to find statement at height %d for node '%s'", minHeight, node)
 			}
-			fmt.Printf("failed to find a statement for node %s on height %d: %v\n", node, minHeight, err)
+			log.Printf("failed to find a statement for node %s on height %d: %v\n", node, minHeight, err)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
 		if statement.Height == minHeight {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			fmt.Printf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
+			log.Printf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 		}
 	}
