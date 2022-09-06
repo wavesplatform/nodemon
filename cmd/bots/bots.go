@@ -117,7 +117,10 @@ func run() error {
 	tgBotEnv.Start()
 	<-ctx.Done()
 
-	discordBotEnv.Bot.Close()
+	err = discordBotEnv.Bot.Close()
+	if err != nil {
+		log.Printf("failed to close discord web socket: %v", err)
+	}
 	log.Println("Discord bot finished")
 
 	if !taskScheduler.IsShutdown() {
