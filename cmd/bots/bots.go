@@ -9,8 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
+	"nodemon/cmd/bots/internal"
 	"nodemon/cmd/bots/internal/config"
-	"nodemon/cmd/bots/internal/handlers"
+	"nodemon/cmd/bots/internal/handlers/dsc_handlers"
+	"nodemon/cmd/bots/internal/handlers/tg_handlers"
 	initial "nodemon/cmd/bots/internal/init"
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
@@ -90,7 +92,8 @@ func run() error {
 
 	pairRequest := make(chan pair.RequestPair)
 	pairResponse := make(chan pair.ResponsePair)
-	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
+	tg_handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
+	dsc_handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
 
 	var bots []messaging.Bot
 	bots = append(bots, tgBotEnv)
@@ -111,7 +114,7 @@ func run() error {
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	tgBotEnv.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse)
+	internal.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, bots)
 
 	discordBotEnv.Start()
 	tgBotEnv.Start()

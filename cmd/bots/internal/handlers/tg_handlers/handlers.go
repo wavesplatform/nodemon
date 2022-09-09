@@ -1,4 +1,4 @@
-package handlers
+package tg_handlers
 
 import (
 	"fmt"
@@ -213,13 +213,18 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		urls = append(urls, additionalUrls...)
 
-		msg, statusCondition, err := environment.RequestNodesStatus(requestType, responsePairType, urls)
+		nodesStatus, err := internal.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
 		}
 
+		msg, statusCondition, err := internal.HandleNodesStatus(nodesStatus, internal.Html)
+		if err != nil {
+			log.Printf("failed to handle status of nodes, %v", err)
+		}
+
 		if statusCondition.AllNodesAreOk {
-			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.Nodes, msg)
+			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
 		}
 
 		return c.Send(

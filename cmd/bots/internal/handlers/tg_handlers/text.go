@@ -1,4 +1,4 @@
-package handlers
+package tg_handlers
 
 import (
 	"fmt"

@@ -16,7 +16,7 @@ const (
 	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
 )
 
-func NewBotSettings(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*tele.Settings, error) {
+func NewTgBotSettings(behavior string, webhookLocalAddress string, publicURL string, botToken string) (*tele.Settings, error) {
 
 	if behavior == WebhookMethod {
 		if publicURL == "" {

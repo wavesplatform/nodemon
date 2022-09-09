@@ -16,7 +16,7 @@ func InitTgBot(behavior string,
 	botToken string,
 	chatID int64,
 ) (*internal.TelegramBotEnvironment, error) {
-	botSettings, err := config.NewBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
+	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up bot configuration")
 	}
@@ -40,18 +40,6 @@ func InitDiscordBot(
 		return nil, errors.Wrap(err, "failed to start discord bot")
 	}
 	log.Printf("discord chat id for sending alerts is %s", chatID)
-
-	bot.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.ID == s.State.User.ID {
-			return
-		}
-		if m.Content == "!ping" {
-			_, err = s.ChannelMessageSend(chatID, "Pong!")
-			if err != nil {
-				log.Println(err)
-			}
-		}
-	})
 
 	bot.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 	dscBotEnv := internal.NewDiscordBotEnvironment(bot, chatID)
