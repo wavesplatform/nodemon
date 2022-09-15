@@ -30,7 +30,7 @@ Main alerts:
 
   - `Height alert` is sent if the current height of one (or more) of the nodes is noticeably lower than other's
   
-  - `State Hash alerts`is sent if one (or more) of the nodes handled a transaction differently
+  - `State Hash alerts` is sent if one (or more) of the nodes handled a transaction differently
   
   - `Unreachable alert` is sent if one (or more) of the nodes are unavailable due to network disconnection or an internal error
   
