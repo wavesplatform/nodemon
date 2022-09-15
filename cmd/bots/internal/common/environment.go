@@ -1,4 +1,4 @@
-package internal
+package common
 
 import (
 	"bytes"
@@ -21,7 +21,7 @@ import (
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
-	"nodemon/cmd/bots/internal/messages"
+	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
@@ -80,7 +80,7 @@ func (s *subscriptions) MapR(f func()) {
 type DiscordBotEnvironment struct {
 	ChatID        string
 	Bot           *discordgo.Session
-	pubSubSocket  protocol.Socket
+	subSocket     protocol.Socket
 	subscriptions subscriptions
 }
 
@@ -97,8 +97,8 @@ func (dscBot *DiscordBotEnvironment) Start() {
 	}
 }
 
-func (dscBot *DiscordBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socket) {
-	dscBot.pubSubSocket = pubSubSocket
+func (dscBot *DiscordBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
+	dscBot.subSocket = subSocket
 }
 
 func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
@@ -143,7 +143,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		err := dscBot.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+		err := dscBot.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
 		if err != nil {
 			return err
 		}
@@ -177,7 +177,7 @@ func (tgEnv *TelegramBotEnvironment) Start() {
 	log.Println("Telegram bot finished")
 }
 
-func (tgEnv *TelegramBotEnvironment) SetPubSubSocket(pubSubSocket protocol.Socket) {
+func (tgEnv *TelegramBotEnvironment) SetSubSocket(pubSubSocket protocol.Socket) {
 	tgEnv.pubSubSocket = pubSubSocket
 }
 
@@ -383,7 +383,7 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair, bots []messaging.Bot) {
+	responsePairType <-chan pair.ResponsePair, bot messaging.Bot) {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
 		urls, err := RequestNodesList(requestType, responsePairType, false)
@@ -401,50 +401,47 @@ func ScheduleNodesStatus(
 			log.Printf("failed to request status of nodes, %v", err)
 		}
 
-		for _, bot := range bots {
+		var handledNodesStatus string
+		statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
+		switch bot.(type) {
+		case *TelegramBotEnvironment:
+			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Html)
+			if err != nil {
+				log.Printf("failed to handle status of nodes, %v", err)
+			}
+		case *DiscordBotEnvironment:
+			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Markdown)
+			if err != nil {
+				log.Printf("failed to handle status of nodes, %v", err)
+			}
+		default:
+			log.Println("failed to schedule nodes status, unknown bot type")
+			return
+		}
 
-			var handledNodesStatus string
-			statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
+		if statusCondition.AllNodesAreOk {
+			var msg string
 			switch bot.(type) {
 			case *TelegramBotEnvironment:
-				handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Html)
-				if err != nil {
-					log.Printf("failed to handle status of nodes, %v", err)
-				}
+				msg = fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
 			case *DiscordBotEnvironment:
-				handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Markdown)
-				if err != nil {
-					log.Printf("failed to handle status of nodes, %v", err)
-				}
+				msg = fmt.Sprintf("Status %s\n\nAll %d nodes have the same hashes on height %s", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
+				msg = fmt.Sprintf("```yaml\n%s\n```", msg)
 			default:
 				log.Println("failed to schedule nodes status, unknown bot type")
 				return
 			}
-
-			if statusCondition.AllNodesAreOk {
-				var msg string
-				switch bot.(type) {
-				case *TelegramBotEnvironment:
-					msg = fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
-				case *DiscordBotEnvironment:
-					msg = fmt.Sprintf("Status %s\n\nAll %d nodes have the same hashes on height %s", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
-					msg = fmt.Sprintf("```yaml\n%s\n```", msg)
-				default:
-					log.Println("failed to schedule nodes status, unknown bot type")
-					return
-				}
-				bot.SendMessage(msg)
-				continue
-			}
-			var msg string
-			switch bot.(type) {
-			case *TelegramBotEnvironment:
-				msg = fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, handledNodesStatus)
-			case *DiscordBotEnvironment:
-				msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messages.TimerMsg, handledNodesStatus)
-			}
 			bot.SendMessage(msg)
+			return
 		}
+		var msg string
+		switch bot.(type) {
+		case *TelegramBotEnvironment:
+			msg = fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, handledNodesStatus)
+		case *DiscordBotEnvironment:
+			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messages.TimerMsg, handledNodesStatus)
+		}
+		bot.SendMessage(msg)
 
 	}, scheduledTimeExpression)
 

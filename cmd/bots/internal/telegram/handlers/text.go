@@ -1,18 +1,18 @@
-package tg_handlers
+package handlers
 
 import (
 	"fmt"
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/bots/internal"
+	"nodemon/cmd/bots/internal/common"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 )
 
 func AddNewNodeHandler(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment,
+	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
 	url string,
@@ -50,7 +50,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
+	urls, err := common.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -68,7 +68,7 @@ func AddNewNodeHandler(
 
 func RemoveNodeHandler(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment,
+	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
 	url string) error {
@@ -94,7 +94,7 @@ func RemoveNodeHandler(
 		return err
 	}
 
-	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
+	urls, err := common.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -112,14 +112,14 @@ func RemoveNodeHandler(
 
 func SubscribeHandler(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment,
+	environment *common.TelegramBotEnvironment,
 	alertName string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
 
-	alertType, ok := internal.FindAlertTypeByName(alertName)
+	alertType, ok := common.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(
 			"Sorry, this alert does not exist",
@@ -163,14 +163,14 @@ func SubscribeHandler(
 
 func UnsubscribeHandler(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment,
+	environment *common.TelegramBotEnvironment,
 	alertName string) error {
 
 	if !environment.IsEligibleForAction(c.Chat().ID) {
 		return c.Send("Sorry, you have no right to unsubscribe from alerts")
 	}
 
-	alertType, ok := internal.FindAlertTypeByName(alertName)
+	alertType, ok := common.FindAlertTypeByName(alertName)
 	if !ok {
 		return c.Send(
 			"Sorry, this alert does not exist",

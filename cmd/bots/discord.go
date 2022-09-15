@@ -1,0 +1,99 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+	"os"
+	"os/signal"
+
+	"github.com/pkg/errors"
+	"github.com/procyon-projects/chrono"
+	"nodemon/cmd/bots/internal/common"
+	initial "nodemon/cmd/bots/internal/common/init"
+	"nodemon/cmd/bots/internal/discord/handlers"
+	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/messaging/pubsub"
+)
+
+func main() {
+	err := runDiscordBot()
+	if err != nil {
+		switch err {
+		case context.Canceled:
+			os.Exit(130)
+		default:
+			os.Exit(1)
+		}
+	}
+}
+
+func runDiscordBot() error {
+	var (
+		nanomsgPubSubURL string
+		nanomsgPairUrl   string
+		discordBotToken  string
+		discordChatID    string
+	)
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/discord/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	flag.StringVar(&discordBotToken, "discord-bot-token", "", "")
+	flag.StringVar(&discordChatID, "discord-chat-id", "", "discord chat ID to send alerts through")
+	flag.Parse()
+
+	if discordBotToken == "" {
+		log.Println("discord token is invalid")
+		return common.ErrorInvalidParameters
+	}
+
+	if discordChatID == "" {
+		log.Println("invalid discord chat ID")
+		return common.ErrorInvalidParameters
+	}
+
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer done()
+
+	discordBotEnv, err := initial.InitDiscordBot(discordBotToken, discordChatID)
+	if err != nil {
+		log.Println("failed to initialize discord bot")
+		return errors.Wrap(err, "failed to init discord bot")
+	}
+
+	pairRequest := make(chan pair.RequestPair)
+	pairResponse := make(chan pair.ResponsePair)
+	handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
+
+	go func() {
+		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, discordBotEnv)
+		if err != nil {
+			log.Printf("failed to start pubsub messaging service: %v", err)
+			return
+		}
+	}()
+
+	go func() {
+		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
+		if err != nil {
+			log.Printf("failed to start pair messaging service: %v", err)
+		}
+	}()
+
+	taskScheduler := chrono.NewDefaultTaskScheduler()
+	common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, discordBotEnv)
+
+	discordBotEnv.Start()
+	<-ctx.Done()
+
+	err = discordBotEnv.Bot.Close()
+	if err != nil {
+		log.Printf("failed to close discord web socket: %v", err)
+	}
+	log.Println("Discord bot finished")
+
+	if !taskScheduler.IsShutdown() {
+		taskScheduler.Shutdown()
+		log.Println("scheduler finished")
+	}
+	return nil
+}

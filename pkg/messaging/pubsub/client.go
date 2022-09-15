@@ -10,7 +10,7 @@ import (
 	"nodemon/pkg/messaging"
 )
 
-func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bots []messaging.Bot) error {
+func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.Bot) error {
 	subSocket, err := sub.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new sub socket: %v", err)
@@ -22,21 +22,18 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bots []mess
 		}
 	}(subSocket)
 
-	for _, bot := range bots {
-		bot.SetPubSubSocket(subSocket)
-	}
+	bot.SetSubSocket(subSocket)
+
 	if err := subSocket.Dial(nanomsgURL); err != nil {
 		log.Printf("failed to dial on sub socket: %v", err)
 		return err
 	}
-	for _, bot := range bots {
-		err = bot.SubscribeToAllAlerts()
-		if err != nil {
-			log.Printf("failed to subscribe on empty topic: %v", err)
-			return err
-		}
-	}
 
+	err = bot.SubscribeToAllAlerts()
+	if err != nil {
+		log.Printf("failed to subscribe on empty topic: %v", err)
+		return err
+	}
 	go func() {
 		for {
 			select {
@@ -48,9 +45,7 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bots []mess
 					log.Printf("failed to receive message: %v", err)
 					return
 				}
-				for _, bot := range bots {
-					bot.SendAlertMessage(msg)
-				}
+				bot.SendAlertMessage(msg)
 			}
 		}
 	}()

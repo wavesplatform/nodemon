@@ -7,5 +7,5 @@ type Bot interface {
 	SendMessage(msg string)
 	Start()
 	SubscribeToAllAlerts() error
-	SetPubSubSocket(pubSubSocket protocol.Socket)
+	SetSubSocket(subSocket protocol.Socket)
 }

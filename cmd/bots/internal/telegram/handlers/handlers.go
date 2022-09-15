@@ -1,4 +1,4 @@
-package tg_handlers
+package handlers
 
 import (
 	"fmt"
@@ -7,13 +7,13 @@ import (
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/bots/internal"
-	"nodemon/cmd/bots/internal/buttons"
-	"nodemon/cmd/bots/internal/messages"
+	"nodemon/cmd/bots/internal/common"
+	"nodemon/cmd/bots/internal/telegram/buttons"
+	messages2 "nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
+func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
 
 	environment.Bot.Handle("/chat", func(c tele.Context) error {
 
@@ -22,9 +22,9 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 
 	environment.Bot.Handle("/ping", func(c tele.Context) error {
 		if environment.Mute {
-			return c.Send(messages.PongText + " I am currently sleeping" + messages.SleepingMsg)
+			return c.Send(messages2.PongText + " I am currently sleeping" + messages2.SleepingMsg)
 		}
-		return c.Send(messages.PongText + " I am monitoring" + messages.MonitoringMsg)
+		return c.Send(messages2.PongText + " I am monitoring" + messages2.MonitoringMsg)
 	})
 
 	environment.Bot.Handle("/start", func(c tele.Context) error {
@@ -33,9 +33,9 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		if environment.Mute {
 			environment.Mute = false
-			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
+			return c.Send("I had been asleep, but started monitoring now... " + messages2.MonitoringMsg)
 		}
-		return c.Send("I had already been monitoring" + messages.MonitoringMsg)
+		return c.Send("I had already been monitoring" + messages2.MonitoringMsg)
 	})
 
 	environment.Bot.Handle("/mute", func(c tele.Context) error {
@@ -43,27 +43,27 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 			return c.Send("Sorry, you have no right to mute me")
 		}
 		if environment.Mute {
-			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
+			return c.Send("I had already been sleeping, continue sleeping.." + messages2.SleepingMsg)
 		}
 		environment.Mute = true
-		return c.Send("I had been monitoring, but going to sleep now.." + messages.SleepingMsg)
+		return c.Send("I had been monitoring, but going to sleep now.." + messages2.SleepingMsg)
 	})
 
 	environment.Bot.Handle("/help", func(c tele.Context) error {
 		return c.Send(
-			messages.HelpInfoText,
+			messages2.HelpInfoText,
 			&tele.SendOptions{ParseMode: tele.ModeHTML})
 	})
 
 	environment.Bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
 		return c.Send(
-			messages.AddNewNodeMsg,
+			messages2.AddNewNodeMsg,
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
 
 	environment.Bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
 		return c.Send(
-			messages.RemoveNode,
+			messages2.RemoveNode,
 			&tele.SendOptions{
 				ParseMode: tele.ModeDefault,
 			},
@@ -72,12 +72,12 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 
 	environment.Bot.Handle("\f"+buttons.SubscribeTo, func(c tele.Context) error {
 		return c.Send(
-			messages.SubscribeTo,
+			messages2.SubscribeTo,
 			&tele.SendOptions{ParseMode: tele.ModeDefault})
 	})
 	environment.Bot.Handle("\f"+buttons.UnsubscribeFrom, func(c tele.Context) error {
 		return c.Send(
-			messages.UnsubscribeFrom,
+			messages2.UnsubscribeFrom,
 			&tele.SendOptions{
 				ParseMode: tele.ModeDefault,
 			},
@@ -94,7 +94,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		args := c.Args()
 		if len(args) > 1 {
 			return c.Send(
-				messages.AddedMoreThanOne,
+				messages2.AddedMoreThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -102,7 +102,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		if len(args) < 1 {
 			return c.Send(
-				messages.AddedLessThanOne,
+				messages2.AddedLessThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -115,7 +115,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		args := c.Args()
 		if len(args) > 1 {
 			return c.Send(
-				messages.RemovedMoreThanOne,
+				messages2.RemovedMoreThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -123,7 +123,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		if len(args) < 1 {
 			return c.Send(
-				messages.RemovedLessThanOne,
+				messages2.RemovedLessThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -136,7 +136,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		args := c.Args()
 		if len(args) > 1 {
 			return c.Send(
-				messages.SubscribedToMoreThanOne,
+				messages2.SubscribedToMoreThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -144,7 +144,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		if len(args) < 1 {
 			return c.Send(
-				messages.SubscribedToLessThanOne,
+				messages2.SubscribedToLessThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -156,7 +156,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		args := c.Args()
 		if len(args) > 1 {
 			return c.Send(
-				messages.UnsubscribedFromMoreThanOne,
+				messages2.UnsubscribedFromMoreThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -164,7 +164,7 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 		}
 		if len(args) < 1 {
 			return c.Send(
-				messages.UnsubscribedFromLessThanOne,
+				messages2.UnsubscribedFromLessThanOne,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -203,22 +203,22 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		urls, err := internal.RequestNodesList(requestType, responsePairType, false)
+		urls, err := common.RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
-		additionalUrls, err := internal.RequestNodesList(requestType, responsePairType, true)
+		additionalUrls, err := common.RequestNodesList(requestType, responsePairType, true)
 		if err != nil {
 			log.Printf("failed to request list of specific nodes, %v", err)
 		}
 		urls = append(urls, additionalUrls...)
 
-		nodesStatus, err := internal.RequestNodesStatus(requestType, responsePairType, urls)
+		nodesStatus, err := common.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
 		}
 
-		msg, statusCondition, err := internal.HandleNodesStatus(nodesStatus, internal.Html)
+		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html)
 		if err != nil {
 			log.Printf("failed to handle status of nodes, %v", err)
 		}
@@ -239,11 +239,11 @@ func InitTgHandlers(environment *internal.TelegramBotEnvironment, requestType ch
 
 func EditPool(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment,
+	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := internal.RequestNodesList(requestType, responsePairType, false)
+	urls, err := common.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -287,7 +287,7 @@ func EditPool(
 
 func EditSubscriptions(
 	c tele.Context,
-	environment *internal.TelegramBotEnvironment) error {
+	environment *common.TelegramBotEnvironment) error {
 	msg, err := environment.SubscriptionsList()
 	if err != nil {
 		return errors.Wrap(err, "failed to request subscriptions")

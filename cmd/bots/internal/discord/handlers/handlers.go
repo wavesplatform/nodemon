@@ -1,15 +1,15 @@
-package dsc_handlers
+package handlers
 
 import (
 	"fmt"
 	"log"
 
 	"github.com/bwmarrin/discordgo"
-	"nodemon/cmd/bots/internal"
+	"nodemon/cmd/bots/internal/common"
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitDscHandlers(environment *internal.DiscordBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
+func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
 	environment.Bot.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == s.State.User.ID {
 			return
@@ -22,21 +22,21 @@ func InitDscHandlers(environment *internal.DiscordBotEnvironment, requestType ch
 		}
 
 		if m.Content == "/status" {
-			urls, err := internal.RequestNodesList(requestType, responsePairType, false)
+			urls, err := common.RequestNodesList(requestType, responsePairType, false)
 			if err != nil {
 				log.Printf("failed to request list of nodes, %v", err)
 			}
-			additionalUrls, err := internal.RequestNodesList(requestType, responsePairType, true)
+			additionalUrls, err := common.RequestNodesList(requestType, responsePairType, true)
 			if err != nil {
 				log.Printf("failed to request list of specific nodes, %v", err)
 			}
 			urls = append(urls, additionalUrls...)
 
-			nodesStatus, err := internal.RequestNodesStatus(requestType, responsePairType, urls)
+			nodesStatus, err := common.RequestNodesStatus(requestType, responsePairType, urls)
 			if err != nil {
 				log.Printf("failed to request status of nodes, %v", err)
 			}
-			msg, statusCondition, err := internal.HandleNodesStatus(nodesStatus, internal.Markdown)
+			msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Markdown)
 			if err != nil {
 				log.Printf("failed to handle status of nodes, %v", err)
 			}

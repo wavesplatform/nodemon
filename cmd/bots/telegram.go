@@ -9,22 +9,16 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
-	"nodemon/cmd/bots/internal"
-	"nodemon/cmd/bots/internal/config"
-	"nodemon/cmd/bots/internal/handlers/dsc_handlers"
-	"nodemon/cmd/bots/internal/handlers/tg_handlers"
-	initial "nodemon/cmd/bots/internal/init"
-	"nodemon/pkg/messaging"
+	"nodemon/cmd/bots/internal/common"
+	initial "nodemon/cmd/bots/internal/common/init"
+	"nodemon/cmd/bots/internal/telegram/config"
+	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 )
 
-var (
-	errorInvalidParameters = errors.New("invalid parameters for telegram bot")
-)
-
 func main() {
-	err := run()
+	err := runTelegramBot()
 	if err != nil {
 		switch err {
 		case context.Canceled:
@@ -35,7 +29,7 @@ func main() {
 	}
 }
 
-func run() error {
+func runTelegramBot() error {
 	var (
 		nanomsgPubSubURL    string
 		nanomsgPairUrl      string
@@ -43,36 +37,28 @@ func run() error {
 		webhookLocalAddress string // only for webhook method
 		publicURL           string // only for webhook method
 		tgBotToken          string
-		discordBotToken     string
 		tgChatID            int64
-		discordChatID       string
 	)
-	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/telegram/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&tgBotToken, "tg-bot-token", "", "")
-	flag.StringVar(&discordBotToken, "discord-bot-token", "", "")
 	flag.StringVar(&publicURL, "public-url", "", "The public url for websocket only")
 	flag.Int64Var(&tgChatID, "telegram-chat-id", 0, "telegram chat ID to send alerts through")
-	flag.StringVar(&discordChatID, "discord-chat-id", "", "discord chat ID to send alerts through")
 	flag.Parse()
 
-	if tgBotToken == "" || discordBotToken == "" {
-		log.Println("one of the bots' tokens is invalid")
-		return errorInvalidParameters
+	if tgBotToken == "" {
+		log.Println("telegram token is invalid")
+		return common.ErrorInvalidParameters
 	}
 	if behavior == config.WebhookMethod && publicURL == "" {
 		log.Println("invalid public url for webhook")
-		return errorInvalidParameters
+		return common.ErrorInvalidParameters
 	}
 	if tgChatID == 0 {
-		log.Println("invalid chat ID")
-		return errorInvalidParameters
-	}
-	if discordChatID == "" {
-		log.Println("invalid discord chat ID")
-		return errorInvalidParameters
+		log.Println("invalid telegram chat ID")
+		return common.ErrorInvalidParameters
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -84,22 +70,12 @@ func run() error {
 		return errors.Wrap(err, "failed to init tg bot")
 	}
 
-	discordBotEnv, err := initial.InitDiscordBot(discordBotToken, discordChatID)
-	if err != nil {
-		log.Println("failed to initialize discord bot")
-		return errors.Wrap(err, "failed to init discord bot")
-	}
-
 	pairRequest := make(chan pair.RequestPair)
 	pairResponse := make(chan pair.ResponsePair)
-	tg_handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
-	dsc_handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
+	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
 
-	var bots []messaging.Bot
-	bots = append(bots, tgBotEnv)
-	bots = append(bots, discordBotEnv)
 	go func() {
-		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, bots)
+		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv)
 		if err != nil {
 			log.Printf("failed to start pubsub messaging service: %v", err)
 			return
@@ -114,17 +90,10 @@ func run() error {
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	internal.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, bots)
+	common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv)
 
-	discordBotEnv.Start()
 	tgBotEnv.Start()
 	<-ctx.Done()
-
-	err = discordBotEnv.Bot.Close()
-	if err != nil {
-		log.Printf("failed to close discord web socket: %v", err)
-	}
-	log.Println("Discord bot finished")
 
 	if !taskScheduler.IsShutdown() {
 		taskScheduler.Shutdown()
