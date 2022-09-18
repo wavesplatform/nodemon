@@ -25,17 +25,17 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 		}
 
 		if m.Content == "/status" {
-			urls, err := common.RequestNodesList(requestType, responsePairType, false)
+			urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 			if err != nil {
 				log.Printf("failed to request list of nodes, %v", err)
 			}
-			additionalUrls, err := common.RequestNodesList(requestType, responsePairType, true)
+			additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
 			if err != nil {
 				log.Printf("failed to request list of specific nodes, %v", err)
 			}
 			urls = append(urls, additionalUrls...)
 
-			nodesStatus, err := common.RequestNodesStatus(requestType, responsePairType, urls)
+			nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 			if err != nil {
 				log.Printf("failed to request status of nodes, %v", err)
 			}

@@ -34,7 +34,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := common.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -73,7 +73,7 @@ func RemoveNodeHandler(
 		return err
 	}
 
-	urls, err := common.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

@@ -8,12 +8,12 @@ import (
 	"strings"
 
 	"go.nanomsg.org/mangos/v3/protocol"
-	"go.nanomsg.org/mangos/v3/protocol/pair"
-	pairCh "nodemon/pkg/messaging/pair"
+	pairProtocol "go.nanomsg.org/mangos/v3/protocol/pair"
+	"nodemon/pkg/messaging/pair"
 )
 
-func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPair chan pairCh.RequestPair, responsePair chan pairCh.ResponsePair) error {
-	pairSocket, err := pair.NewSocket()
+func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPair chan pair.RequestPair, responsePair chan pair.ResponsePair) error {
+	pairSocket, err := pairProtocol.NewSocket()
 	if err != nil {
 		log.Printf("failed to get new pair socket: %v", err)
 		return err
@@ -41,12 +41,12 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 				message := &bytes.Buffer{}
 
 				switch r := request.(type) {
-				case *pairCh.NodesListRequest:
+				case *pair.NodesListRequest:
 					if r.Specific {
-						message.WriteByte(byte(pairCh.RequestSpecificNodeListT))
+						message.WriteByte(byte(pair.RequestSpecificNodeListT))
 
 					} else {
-						message.WriteByte(byte(pairCh.RequestNodeListT))
+						message.WriteByte(byte(pair.RequestNodeListT))
 					}
 
 					err = pairSocket.Send(message.Bytes())
@@ -58,17 +58,17 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("failed to receive a response from pair socket, %v", err)
 					}
-					nodeList := pairCh.NodesListResponse{}
+					nodeList := pair.NodesListResponse{}
 					err = json.Unmarshal(response, &nodeList)
 					if err != nil {
 						log.Printf("failed to unmarshal response from pair socket, %v", err)
 					}
 					responsePair <- &nodeList
-				case *pairCh.InsertNewNodeRequest:
+				case *pair.InsertNewNodeRequest:
 					if r.Specific {
-						message.WriteByte(byte(pairCh.RequestInsertSpecificNewNodeT))
+						message.WriteByte(byte(pair.RequestInsertSpecificNewNodeT))
 					} else {
-						message.WriteByte(byte(pairCh.RequestInsertNewNodeT))
+						message.WriteByte(byte(pair.RequestInsertNewNodeT))
 					}
 
 					message.Write([]byte(r.Url))
@@ -77,16 +77,16 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
 
-				case *pairCh.DeleteNodeRequest:
-					message.WriteByte(byte(pairCh.RequestDeleteNodeT))
+				case *pair.DeleteNodeRequest:
+					message.WriteByte(byte(pair.RequestDeleteNodeT))
 
 					message.Write([]byte(r.Url))
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
 						log.Printf("faied to send a request to pair socket, %v", err)
 					}
-				case *pairCh.NodesStatusRequest:
-					message.WriteByte(byte(pairCh.RequestNodesStatus))
+				case *pair.NodesStatusRequest:
+					message.WriteByte(byte(pair.RequestNodesStatus))
 
 					message.Write([]byte(strings.Join(r.Urls, ",")))
 					err = pairSocket.Send(message.Bytes())
@@ -98,7 +98,7 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					if err != nil {
 						log.Printf("failed to receive a response from pair socket, %v", err)
 					}
-					nodesStatusResp := pairCh.NodesStatusResponse{}
+					nodesStatusResp := pair.NodesStatusResponse{}
 					err = json.Unmarshal(response, &nodesStatusResp)
 					if err != nil {
 						log.Printf("failed to unmarshal response from pair socket, %v", err)

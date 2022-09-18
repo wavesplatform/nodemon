@@ -24,7 +24,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
-	messaging2 "nodemon/pkg/messaging"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
 )
@@ -391,17 +391,17 @@ func ScheduleNodesStatus(
 	responsePairType <-chan pair.ResponsePair, bot messaging.Bot) {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
-		urls, err := RequestNodesList(requestType, responsePairType, false)
+		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
 			log.Printf("failed to request list of nodes, %v", err)
 		}
-		additionalUrls, err := RequestNodesList(requestType, responsePairType, true)
+		additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
 		if err != nil {
 			log.Printf("failed to request list of additional nodes, %v", err)
 		}
 		urls = append(urls, additionalUrls...)
 
-		nodesStatus, err := RequestNodesStatus(requestType, responsePairType, urls)
+		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
 			log.Printf("failed to request status of nodes, %v", err)
 		}
@@ -456,34 +456,6 @@ func ScheduleNodesStatus(
 		return
 	}
 	log.Println("Nodes status alert has been scheduled successfully")
-}
-
-func RequestNodesStatus(
-	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair,
-	urls []string) (*pair.NodesStatusResponse, error) {
-
-	requestType <- &pair.NodesStatusRequest{Urls: urls}
-	responsePair := <-responsePairType
-	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the nodes status type")
-	}
-
-	return nodesStatus, nil
-
-}
-
-func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
-	requestType <- &pair.NodesListRequest{Specific: specific}
-	responsePair := <-responsePairType
-	nodesList, ok := responsePair.(*pair.NodesListResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the node list type")
-	}
-	urls := nodesList.Urls
-	sort.Strings(urls)
-	return urls, nil
 }
 
 type NodeStatus struct {
@@ -648,7 +620,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 }
 
 func constructMessage(alertType entities.AlertType, alertJson []byte, msgType expectedMsgType) (string, error) {
-	alert := messaging2.Alert{}
+	alert := generalMessaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal json")
@@ -684,7 +656,7 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, msgType ex
 	return w.String(), nil
 }
 
-func makeMessagePretty(alertType entities.AlertType, alert messaging2.Alert) messaging2.Alert {
+func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Alert) generalMessaging.Alert {
 	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {

@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"fmt"
+	"sort"
 
 	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
@@ -59,4 +60,32 @@ func RemoveNodeHandler(
 	requestType <- &pair.DeleteNodeRequest{Url: updatedUrl}
 
 	return fmt.Sprintf("Node '%s' was deleted", url), nil
+}
+
+func RequestNodesStatus(
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair,
+	urls []string) (*pair.NodesStatusResponse, error) {
+
+	requestType <- &pair.NodesStatusRequest{Urls: urls}
+	responsePair := <-responsePairType
+	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the nodes status type")
+	}
+
+	return nodesStatus, nil
+
+}
+
+func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
+	requestType <- &pair.NodesListRequest{Specific: specific}
+	responsePair := <-responsePairType
+	nodesList, ok := responsePair.(*pair.NodesListResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the node list type")
+	}
+	urls := nodesList.Urls
+	sort.Strings(urls)
+	return urls, nil
 }
