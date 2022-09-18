@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -28,7 +29,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/start", func(c tele.Context) error {
-		if !environment.IsEligibleForAction(c.Chat().ID) {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 			return c.Send("Sorry, you have no right to start me")
 		}
 		if environment.Mute {
@@ -39,7 +40,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/mute", func(c tele.Context) error {
-		if !environment.IsEligibleForAction(c.Chat().ID) {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 			return c.Send("Sorry, you have no right to mute me")
 		}
 		if environment.Mute {
@@ -108,7 +109,27 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 				},
 			)
 		}
-		return AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], false)
+		response := AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], false)
+		err := c.Send(
+			response,
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
+		if err != nil {
+			return nil
+		}
+		urls, err := common.RequestNodesList(requestType, responsePairType, false)
+		if err != nil {
+			return errors.Wrap(err, "failed to request nodes list buttons")
+		}
+		message, err := environment.NodesListMessage(urls)
+		if err != nil {
+			return errors.Wrap(err, "failed to construct nodes list message")
+		}
+		return c.Send(
+			message,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
 
 	})
 	environment.Bot.Handle("/remove", func(c tele.Context) error {

@@ -9,11 +9,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
-
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
 func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
@@ -37,8 +36,6 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		log.Printf("Failed to listen on pub socket: %v", err)
 		return err
 	}
-
-	// pubsub messaging
 
 	for {
 		select {

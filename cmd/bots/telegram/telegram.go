@@ -11,10 +11,11 @@ import (
 	"github.com/procyon-projects/chrono"
 	"nodemon/cmd/bots/internal/common"
 	initial "nodemon/cmd/bots/internal/common/init"
+	"nodemon/cmd/bots/internal/common/messaging/pair"
+	"nodemon/cmd/bots/internal/common/messaging/pubsub"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
-	"nodemon/pkg/messaging/pair"
-	"nodemon/pkg/messaging/pubsub"
+	pairResponses "nodemon/pkg/messaging/pair"
 )
 
 func main() {
@@ -40,7 +41,7 @@ func runTelegramBot() error {
 		tgChatID            int64
 	)
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/telegram/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-telegram-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
 	flag.StringVar(&tgBotToken, "tg-bot-token", "", "")
@@ -70,8 +71,8 @@ func runTelegramBot() error {
 		return errors.Wrap(err, "failed to init tg bot")
 	}
 
-	pairRequest := make(chan pair.RequestPair)
-	pairResponse := make(chan pair.ResponsePair)
+	pairRequest := make(chan pairResponses.RequestPair)
+	pairResponse := make(chan pairResponses.ResponsePair)
 	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
 
 	go func() {

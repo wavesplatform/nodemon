@@ -21,9 +21,10 @@ import (
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
+	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
+	messaging2 "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
 )
@@ -159,6 +160,10 @@ func (dscBot *DiscordBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 	return ok
 }
 
+func (dscBot *DiscordBotEnvironment) IsEligibleForAction(chatID string) bool {
+	return chatID == dscBot.ChatID
+}
+
 type TelegramBotEnvironment struct {
 	ChatID        int64
 	Bot           *telebot.Bot
@@ -239,8 +244,8 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	}
 }
 
-func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID int64) bool {
-	return chatID == tgEnv.ChatID
+func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID string) bool {
+	return chatID == strconv.FormatInt(tgEnv.ChatID, 10)
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error) {
@@ -470,7 +475,7 @@ func RequestNodesStatus(
 }
 
 func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
-	requestType <- &pair.NodeListRequest{Specific: specific}
+	requestType <- &pair.NodesListRequest{Specific: specific}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodesListResponse)
 	if !ok {
@@ -643,7 +648,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 }
 
 func constructMessage(alertType entities.AlertType, alertJson []byte, msgType expectedMsgType) (string, error) {
-	alert := messaging.Alert{}
+	alert := messaging2.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to unmarshal json")
@@ -679,7 +684,7 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, msgType ex
 	return w.String(), nil
 }
 
-func makeMessagePretty(alertType entities.AlertType, alert messaging.Alert) messaging.Alert {
+func makeMessagePretty(alertType entities.AlertType, alert messaging2.Alert) messaging2.Alert {
 	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {

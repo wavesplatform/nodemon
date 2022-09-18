@@ -21,16 +21,10 @@ import (
 )
 
 const (
-	defaultNetworkTimeout  = 15 * time.Second
-	defaultPollingInterval = 60 * time.Second
-)
-
-const (
+	defaultNetworkTimeout    = 15 * time.Second
+	defaultPollingInterval   = 60 * time.Second
 	defaultRetentionDuration = 12 * time.Hour
-)
-
-const (
-	defaultAPIReadTimeout = 30 * time.Second
+	defaultAPIReadTimeout    = 30 * time.Second
 )
 
 var (
@@ -52,23 +46,25 @@ func main() {
 
 func run() error {
 	var (
-		storage          string
-		nodes            string
-		bindAddress      string
-		interval         time.Duration
-		timeout          time.Duration
-		nanomsgPubSubURL string
-		nanomsgPairURL   string
-		retention        time.Duration
-		apiReadTimeout   time.Duration
+		storage                string
+		nodes                  string
+		bindAddress            string
+		interval               time.Duration
+		timeout                time.Duration
+		nanomsgPubSubURL       string
+		nanomsgPairTelegramURL string
+		nanomsgPairDiscordURL  string
+		retention              time.Duration
+		apiReadTimeout         time.Duration
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	flag.StringVar(&nanomsgPairURL, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
+	flag.StringVar(&nanomsgPairTelegramURL, "nano-msg-pair-telegram-url", "", "Nanomsg IPC URL for pair socket")
+	flag.StringVar(&nanomsgPairDiscordURL, "nano-msg-pair-discord-url", "", "Nanomsg IPC URL for pair socket")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.DurationVar(&apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout, "HTTP API read timeout. Default value is 30s.")
 	flag.Parse()
@@ -88,6 +84,17 @@ func run() error {
 	if retention <= 0 {
 		log.Printf("Invalid retention duration '%s'", retention.String())
 		return errorInvalidParameters
+	}
+	var (
+		runDiscordPairServer  bool
+		runTelegramPairServer bool
+	)
+
+	if nanomsgPairTelegramURL != "" {
+		runTelegramPairServer = true
+	}
+	if nanomsgPairDiscordURL != "" {
+		runDiscordPairServer = true
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
@@ -147,12 +154,23 @@ func run() error {
 		}
 	}()
 
-	go func() {
-		err := pair.StartPairMessagingServer(ctx, nanomsgPairURL, ns, es)
-		if err != nil {
-			log.Printf("failed to start pair messaging service: %v", err)
-		}
-	}()
+	if runTelegramPairServer {
+		go func() {
+			err := pair.StartPairTelegramMessagingServer(ctx, nanomsgPairTelegramURL, ns, es)
+			if err != nil {
+				log.Printf("failed to start pair messaging service: %v", err)
+			}
+		}()
+	}
+
+	if runDiscordPairServer {
+		go func() {
+			err := pair.StartPairTelegramMessagingServer(ctx, nanomsgPairDiscordURL, ns, es)
+			if err != nil {
+				log.Printf("failed to start pair messaging service: %v", err)
+			}
+		}()
+	}
 
 	<-ctx.Done()
 	a.Shutdown()

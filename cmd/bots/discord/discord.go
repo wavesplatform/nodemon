@@ -11,9 +11,10 @@ import (
 	"github.com/procyon-projects/chrono"
 	"nodemon/cmd/bots/internal/common"
 	initial "nodemon/cmd/bots/internal/common/init"
+	"nodemon/cmd/bots/internal/common/messaging/pair"
+	"nodemon/cmd/bots/internal/common/messaging/pubsub"
 	"nodemon/cmd/bots/internal/discord/handlers"
-	"nodemon/pkg/messaging/pair"
-	"nodemon/pkg/messaging/pubsub"
+	pairResponses "nodemon/pkg/messaging/pair"
 )
 
 func main() {
@@ -36,7 +37,7 @@ func runDiscordBot() error {
 		discordChatID    string
 	)
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/discord/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-discord-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&discordBotToken, "discord-bot-token", "", "")
 	flag.StringVar(&discordChatID, "discord-chat-id", "", "discord chat ID to send alerts through")
 	flag.Parse()
@@ -60,8 +61,8 @@ func runDiscordBot() error {
 		return errors.Wrap(err, "failed to init discord bot")
 	}
 
-	pairRequest := make(chan pair.RequestPair)
-	pairResponse := make(chan pair.ResponsePair)
+	pairRequest := make(chan pairResponses.RequestPair)
+	pairResponse := make(chan pairResponses.ResponsePair)
 	handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
 
 	go func() {

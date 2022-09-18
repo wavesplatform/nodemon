@@ -2,11 +2,12 @@ package handlers
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/bots/internal/common"
-	"nodemon/pkg/entities"
+	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/messaging/pair"
 )
 
@@ -17,33 +18,16 @@ func AddNewNodeHandler(
 	responsePairType <-chan pair.ResponsePair,
 	url string,
 	specific bool) error {
-
-	if !environment.IsEligibleForAction(c.Chat().ID) {
-		return c.Send("Sorry, you have no right to add a new node")
-	}
-
-	updatedUrl, err := entities.CheckAndUpdateURL(url)
+	response, err := messaging.AddNewNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url, specific)
 	if err != nil {
-		print(err)
-		return c.Send(
-			"Sorry, the url seems to be incorrect",
-			&tele.SendOptions{ParseMode: tele.ModeDefault},
-		)
-	}
-	requestType <- &pair.InsertNewNodeRequest{Url: updatedUrl, Specific: specific}
-
-	if specific {
-		response := fmt.Sprintf("New specific node was '%s' added", updatedUrl)
-		err = c.Send(
-			response,
-			&tele.SendOptions{ParseMode: tele.ModeHTML})
-		if err != nil {
-			return errors.Wrap(err, "failed to send the message")
+		if err == messaging.IncorrectUrlError || err == messaging.InsufficientPermissionsError {
+			return c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeDefault},
+			)
 		}
-		return nil
+		return errors.Wrap(err, "failed to add a new node")
 	}
-
-	response := fmt.Sprintf("New node was '%s' added", updatedUrl)
 	err = c.Send(
 		response,
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
@@ -72,21 +56,16 @@ func RemoveNodeHandler(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
 	url string) error {
-
-	if !environment.IsEligibleForAction(c.Chat().ID) {
-		return c.Send("Sorry, you have no right to remove a node")
-	}
-
-	urlUpdated, err := entities.CheckAndUpdateURL(url)
+	response, err := messaging.RemoveNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url)
 	if err != nil {
-		return c.Send(
-			"Sorry, the url seems to be incorrect",
-			&tele.SendOptions{ParseMode: tele.ModeDefault},
-		)
+		if err == messaging.IncorrectUrlError || err == messaging.InsufficientPermissionsError {
+			return c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeDefault},
+			)
+		}
+		return errors.Wrap(err, "failed to remove a node")
 	}
-	requestType <- &pair.DeleteNodeRequest{Url: urlUpdated}
-
-	response := fmt.Sprintf("Node '%s' was deleted", url)
 	err = c.Send(
 		response,
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
@@ -115,7 +94,7 @@ func SubscribeHandler(
 	environment *common.TelegramBotEnvironment,
 	alertName string) error {
 
-	if !environment.IsEligibleForAction(c.Chat().ID) {
+	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
 
@@ -166,7 +145,7 @@ func UnsubscribeHandler(
 	environment *common.TelegramBotEnvironment,
 	alertName string) error {
 
-	if !environment.IsEligibleForAction(c.Chat().ID) {
+	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 		return c.Send("Sorry, you have no right to unsubscribe from alerts")
 	}
 

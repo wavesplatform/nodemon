@@ -8,4 +8,5 @@ type Bot interface {
 	Start()
 	SubscribeToAllAlerts() error
 	SetSubSocket(subSocket protocol.Socket)
+	IsEligibleForAction(chatID string) bool
 }

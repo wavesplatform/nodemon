@@ -7,7 +7,7 @@ import (
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/sub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
-	"nodemon/pkg/messaging"
+	"nodemon/cmd/bots/internal/common/messaging"
 )
 
 func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.Bot) error {
