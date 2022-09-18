@@ -41,7 +41,7 @@ var (
 type expectedMsgType byte
 
 const (
-	Html expectedMsgType = iota
+	Html expectedMsgType = iota + 1
 	Markdown
 )
 
@@ -112,7 +112,10 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 }
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
-
+	if len(msg) == 0 {
+		log.Println("received an empty message")
+		return
+	}
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
@@ -189,6 +192,11 @@ func (tgEnv *TelegramBotEnvironment) SetSubSocket(pubSubSocket protocol.Socket) 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	if tgEnv.Mute {
 		log.Printf("received an alert, but asleep now")
+		return
+	}
+
+	if len(msg) == 0 {
+		log.Println("received an empty message")
 		return
 	}
 
@@ -388,7 +396,7 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair, bot messaging.Bot) {
+	responsePairType <-chan pair.ResponsePair, bot messaging.Bot) error {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
 		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
@@ -451,11 +459,9 @@ func ScheduleNodesStatus(
 	}, scheduledTimeExpression)
 
 	if err != nil {
-		taskScheduler.Shutdown()
-		log.Printf("failed to schdule nodes status alert, %v", err)
-		return
+		return err
 	}
-	log.Println("Nodes status alert has been scheduled successfully")
+	return nil
 }
 
 type NodeStatus struct {
@@ -465,37 +471,40 @@ type NodeStatus struct {
 	Height  string
 }
 
-func SortNodesStatuses(statuses []NodeStatus) {
+func sortNodesStatuses(statuses []NodeStatus) {
 	sort.Slice(statuses, func(i, j int) bool {
 		return strings.Compare(statuses[i].URL, statuses[j].URL) < 0
 	})
 }
 
 func executeTemplate(template string, data any, msgType expectedMsgType) (string, error) {
-	var extension string
 	switch msgType {
 	case Html:
-		extension = ".html"
+		extension := ".html"
 		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+extension)
 		if err != nil {
 			log.Printf("failed to parse template file, %v", err)
+			return "", err
 		}
 		buffer := &bytes.Buffer{}
 		err = tmpl.Execute(buffer, data)
 		if err != nil {
 			log.Printf("failed to execute a template, %v", err)
+			return "", err
 		}
 		return buffer.String(), nil
 	case Markdown:
-		extension = ".md"
+		extension := ".md"
 		tmpl, err := textTemplate.ParseFS(templateFiles, template+extension)
 		if err != nil {
 			log.Printf("failed to parse template file, %v", err)
+			return "", err
 		}
 		buffer := &bytes.Buffer{}
 		err = tmpl.Execute(buffer, data)
 		if err != nil {
 			log.Printf("failed to execute a template, %v", err)
+			return "", err
 		}
 		return buffer.String(), nil
 	default:
@@ -531,7 +540,7 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, msgType e
 		}
 		var msg string
 		if len(unavailableNodes) != 0 {
-			SortNodesStatuses(unavailableNodes)
+			sortNodesStatuses(unavailableNodes)
 			unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, msgType)
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
@@ -539,7 +548,7 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, msgType e
 			}
 			msg = fmt.Sprintf(unavailableNodes + "\n")
 		}
-		SortNodesStatuses(differentHeightsNodes)
+		sortNodesStatuses(differentHeightsNodes)
 		differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, msgType)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
@@ -576,7 +585,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 		okNodes = append(okNodes, s)
 	}
 	if len(unavailableNodes) != 0 {
-		SortNodesStatuses(unavailableNodes)
+		sortNodesStatuses(unavailableNodes)
 		unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, msgType)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
@@ -593,7 +602,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 		previousHash = node.Sumhash
 	}
 
-	SortNodesStatuses(okNodes)
+	sortNodesStatuses(okNodes)
 	if !areHashesEqual {
 		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, msgType)
 		if err != nil {
@@ -652,12 +661,15 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, msgType ex
 			log.Printf("failed to construct a markdown message, %v", err)
 			return "", err
 		}
+	default:
+		return "", errors.New("unknown message type")
 	}
 	return w.String(), nil
 }
 
 func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Alert) generalMessaging.Alert {
 	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
+	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpsScheme+"://", "")
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
@@ -674,6 +686,7 @@ func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Aler
 		alert.Level += fmt.Sprintf(" %s", messages.InfoMsg)
 	case entities.ErrorLevel:
 		alert.Level += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
+	default:
 	}
 
 	return alert

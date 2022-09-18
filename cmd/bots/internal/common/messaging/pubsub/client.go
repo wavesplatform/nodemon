@@ -16,8 +16,8 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messagi
 		log.Printf("failed to get new sub socket: %v", err)
 		return err
 	}
-	defer func(pubSubSocket protocol.Socket) {
-		if err := pubSubSocket.Close(); err != nil {
+	defer func(subSocket protocol.Socket) {
+		if err := subSocket.Close(); err != nil {
 			log.Printf("Failed to close pair socket: %v", err)
 		}
 	}(subSocket)

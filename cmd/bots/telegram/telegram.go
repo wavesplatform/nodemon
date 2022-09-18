@@ -44,7 +44,7 @@ func runTelegramBot() error {
 	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-telegram-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&behavior, "behavior", "webhook", "Behavior is either webhook or polling")
 	flag.StringVar(&webhookLocalAddress, "webhook-local-address", ":8081", "The application's webhook address is :8081 by default")
-	flag.StringVar(&tgBotToken, "tg-bot-token", "", "")
+	flag.StringVar(&tgBotToken, "tg-bot-token", "", "The secret token used to authenticate the bot")
 	flag.StringVar(&publicURL, "public-url", "", "The public url for websocket only")
 	flag.Int64Var(&tgChatID, "telegram-chat-id", 0, "telegram chat ID to send alerts through")
 	flag.Parse()
@@ -91,7 +91,13 @@ func runTelegramBot() error {
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv)
+	err = common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv)
+	if err != nil {
+		taskScheduler.Shutdown()
+		log.Printf("failed to schdule nodes status alert, %v", err)
+		return err
+	}
+	log.Println("Nodes status alert has been scheduled successfully")
 
 	tgBotEnv.Start()
 	<-ctx.Done()

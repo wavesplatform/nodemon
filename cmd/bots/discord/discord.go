@@ -38,7 +38,7 @@ func runDiscordBot() error {
 	)
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/discord/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-discord-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
-	flag.StringVar(&discordBotToken, "discord-bot-token", "", "")
+	flag.StringVar(&discordBotToken, "discord-bot-token", "", "The secret token used to authenticate the bot")
 	flag.StringVar(&discordChatID, "discord-chat-id", "", "discord chat ID to send alerts through")
 	flag.Parse()
 
@@ -81,15 +81,23 @@ func runDiscordBot() error {
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, discordBotEnv)
+	err = common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, discordBotEnv)
+	if err != nil {
+		taskScheduler.Shutdown()
+		log.Printf("failed to schdule nodes status alert, %v", err)
+		return err
+	}
+	log.Println("Nodes status alert has been scheduled successfully")
 
 	discordBotEnv.Start()
+	defer func() {
+		err = discordBotEnv.Bot.Close()
+		if err != nil {
+			log.Printf("failed to close discord web socket: %v", err)
+		}
+	}()
 	<-ctx.Done()
 
-	err = discordBotEnv.Bot.Close()
-	if err != nil {
-		log.Printf("failed to close discord web socket: %v", err)
-	}
 	log.Println("Discord bot finished")
 
 	if !taskScheduler.IsShutdown() {
