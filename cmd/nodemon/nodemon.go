@@ -39,6 +39,7 @@ func main() {
 		case errorInvalidParameters:
 			os.Exit(2)
 		default:
+			log.Println(err)
 			os.Exit(1)
 		}
 	}
@@ -156,7 +157,7 @@ func run() error {
 
 	if runTelegramPairServer {
 		go func() {
-			err := pair.StartPairTelegramMessagingServer(ctx, nanomsgPairTelegramURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairTelegramURL, ns, es)
 			if err != nil {
 				log.Printf("failed to start pair messaging service: %v", err)
 			}
@@ -165,7 +166,7 @@ func run() error {
 
 	if runDiscordPairServer {
 		go func() {
-			err := pair.StartPairTelegramMessagingServer(ctx, nanomsgPairDiscordURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairDiscordURL, ns, es)
 			if err != nil {
 				log.Printf("failed to start pair messaging service: %v", err)
 			}

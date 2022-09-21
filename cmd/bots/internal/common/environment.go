@@ -38,11 +38,11 @@ var (
 	templateFiles embed.FS
 )
 
-type expectedMsgType byte
+type expectedExtension string
 
 const (
-	Html expectedMsgType = iota + 1
-	Markdown
+	Html     expectedExtension = ".html"
+	Markdown expectedExtension = ".md"
 )
 
 var errUnknownAlertType = errors.New("received unknown alert type")
@@ -82,20 +82,21 @@ type DiscordBotEnvironment struct {
 	ChatID        string
 	Bot           *discordgo.Session
 	subSocket     protocol.Socket
-	subscriptions subscriptions
+	Subscriptions subscriptions
 }
 
 func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string) *DiscordBotEnvironment {
-	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
+	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
 }
 
-func (dscBot *DiscordBotEnvironment) Start() {
+func (dscBot *DiscordBotEnvironment) Start() error {
 	log.Println("Discord bot started")
 	err := dscBot.Bot.Open()
 	if err != nil {
 		fmt.Println("failed to open connection to discord", err)
-		return
+		return err
 	}
+	return nil
 }
 
 func (dscBot *DiscordBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
@@ -106,6 +107,7 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 
 	_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, msg)
 
+	// TODO change to error type of log
 	if err != nil {
 		log.Printf("failed to send a message to telegram, %v", err)
 	}
@@ -151,7 +153,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 		if err != nil {
 			return err
 		}
-		dscBot.subscriptions.Add(alertType, alertName)
+		dscBot.Subscriptions.Add(alertType, alertName)
 		log.Printf("discord bot subscribed to %s", alertName)
 	}
 
@@ -159,7 +161,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 }
 
 func (dscBot *DiscordBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
-	_, ok := dscBot.subscriptions.Read(alertType)
+	_, ok := dscBot.Subscriptions.Read(alertType)
 	return ok
 }
 
@@ -171,7 +173,7 @@ type TelegramBotEnvironment struct {
 	ChatID        int64
 	Bot           *telebot.Bot
 	Mute          bool // If it used elsewhere, should be protected by mutex
-	pubSubSocket  protocol.Socket
+	subSocket     protocol.Socket
 	subscriptions subscriptions
 }
 
@@ -179,14 +181,15 @@ func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool) *Teleg
 	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
 }
 
-func (tgEnv *TelegramBotEnvironment) Start() {
+func (tgEnv *TelegramBotEnvironment) Start() error {
 	log.Println("Telegram bot started")
 	tgEnv.Bot.Start()
 	log.Println("Telegram bot finished")
+	return nil
 }
 
-func (tgEnv *TelegramBotEnvironment) SetSubSocket(pubSubSocket protocol.Socket) {
-	tgEnv.pubSubSocket = pubSubSocket
+func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
+	tgEnv.subSocket = subSocket
 }
 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
@@ -287,7 +290,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		err := tgEnv.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+		err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
 		if err != nil {
 			return err
 		}
@@ -308,7 +311,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 	}
 
-	err := tgEnv.pubSubSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+	err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
 	if err != nil {
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
@@ -327,7 +330,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 		return errors.Errorf("failed to unsubscribe from %s, was not subscribed to it", alertName)
 	}
 
-	err := tgEnv.pubSubSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
+	err := tgEnv.subSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
 	if err != nil {
 		return errors.Wrap(err, "failed to unsubscribe from alert")
 	}
@@ -346,11 +349,6 @@ type Subscribed struct {
 
 type Unsubscribed struct {
 	AlertName string
-}
-
-type Subscriptions struct {
-	SubscribedTo     []Subscribed
-	UnsubscribedFrom []Unsubscribed
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
@@ -376,8 +374,11 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
 	}
-
-	subscriptions := Subscriptions{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
+	type subscriptionsList struct {
+		SubscribedTo     []Subscribed
+		UnsubscribedFrom []Unsubscribed
+	}
+	subscriptions := subscriptionsList{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
 
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, subscriptions)
@@ -428,18 +429,33 @@ func ScheduleNodesStatus(
 				log.Printf("failed to handle status of nodes, %v", err)
 			}
 		default:
+			// TODO make it an error log
 			log.Println("failed to schedule nodes status, unknown bot type")
 			return
 		}
 
 		if statusCondition.AllNodesAreOk {
 			var msg string
+			shortOkNodes := struct {
+				TimeEmoji   string
+				NodesNumber int
+				Height      string
+			}{
+				TimeEmoji:   messages.TimerMsg,
+				NodesNumber: statusCondition.NodesNumber,
+				Height:      statusCondition.Height,
+			}
 			switch bot.(type) {
 			case *TelegramBotEnvironment:
-				msg = fmt.Sprintf("Status %s\n\nAll <b>%d</b> nodes have the same hashes on height <code>%s</code>", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
+				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Html)
+				if err != nil {
+					log.Printf("failed to construct a message, %v", err)
+				}
 			case *DiscordBotEnvironment:
-				msg = fmt.Sprintf("Status %s\n\nAll %d nodes have the same hashes on height %s", messages.TimerMsg, statusCondition.NodesNumber, statusCondition.Height)
-				msg = fmt.Sprintf("```yaml\n%s\n```", msg)
+				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Markdown)
+				if err != nil {
+					log.Printf("failed to construct a message, %v", err)
+				}
 			default:
 				log.Println("failed to schedule nodes status, unknown bot type")
 				return
@@ -453,6 +469,9 @@ func ScheduleNodesStatus(
 			msg = fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, handledNodesStatus)
 		case *DiscordBotEnvironment:
 			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messages.TimerMsg, handledNodesStatus)
+		default:
+			log.Println("failed to schedule nodes status, unknown bot type")
+			return
 		}
 		bot.SendMessage(msg)
 
@@ -477,11 +496,10 @@ func sortNodesStatuses(statuses []NodeStatus) {
 	})
 }
 
-func executeTemplate(template string, data any, msgType expectedMsgType) (string, error) {
-	switch msgType {
+func executeTemplate(template string, data any, extension expectedExtension) (string, error) {
+	switch extension {
 	case Html:
-		extension := ".html"
-		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+extension)
+		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
 			log.Printf("failed to parse template file, %v", err)
 			return "", err
@@ -494,8 +512,7 @@ func executeTemplate(template string, data any, msgType expectedMsgType) (string
 		}
 		return buffer.String(), nil
 	case Markdown:
-		extension := ".md"
-		tmpl, err := textTemplate.ParseFS(templateFiles, template+extension)
+		tmpl, err := textTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
 			log.Printf("failed to parse template file, %v", err)
 			return "", err
@@ -519,12 +536,13 @@ type StatusCondition struct {
 	Height        string
 }
 
-func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, msgType expectedMsgType) (string, StatusCondition, error) {
+func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	var differentHeightsNodes []NodeStatus
 	var unavailableNodes []NodeStatus
-	if nodesStatusResp.Err == events.BigHeightDifference.Error() {
+
+	if errors.Is(nodesStatusResp.Err, events.BigHeightDifference) {
 		for _, stat := range nodesStatusResp.NodesStatus {
 			s := NodeStatus{}
 			if stat.Status != entities.OK {
@@ -541,7 +559,7 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, msgType e
 		var msg string
 		if len(unavailableNodes) != 0 {
 			sortNodesStatuses(unavailableNodes)
-			unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, msgType)
+			unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
 			if err != nil {
 				log.Printf("failed to construct a message, %v", err)
 				return "", statusCondition, err
@@ -549,22 +567,22 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, msgType e
 			msg = fmt.Sprintf(unavailableNodes + "\n")
 		}
 		sortNodesStatuses(differentHeightsNodes)
-		differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, msgType)
+		differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, extension)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
 		msg += fmt.Sprint(differentHeights)
-		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.Err, msg), statusCondition, nil
+		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.Err.Error(), msg), statusCondition, nil
 	}
-	return nodesStatusResp.Err, statusCondition, nil
+	return nodesStatusResp.Err.Error(), statusCondition, nil
 }
 
-func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expectedMsgType) (string, StatusCondition, error) {
+func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
-	if nodesStatusResp.Err != "" {
-		return HandleNodesStatusError(nodesStatusResp, msgType)
+	if nodesStatusResp.Err != nil {
+		return HandleNodesStatusError(nodesStatusResp, extension)
 	}
 
 	var msg string
@@ -586,7 +604,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 	}
 	if len(unavailableNodes) != 0 {
 		sortNodesStatuses(unavailableNodes)
-		unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, msgType)
+		unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
@@ -604,7 +622,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 
 	sortNodesStatuses(okNodes)
 	if !areHashesEqual {
-		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, msgType)
+		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, extension)
 		if err != nil {
 			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
@@ -612,7 +630,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 		msg += fmt.Sprintf("%s %s", differentHashes, height)
 		return msg, statusCondition, nil
 	}
-	equalHashes, err := executeTemplate("templates/nodes_status_ok", okNodes, msgType)
+	equalHashes, err := executeTemplate("templates/nodes_status_ok", okNodes, extension)
 	if err != nil {
 		log.Printf("failed to construct a message, %v", err)
 		return "", statusCondition, err
@@ -628,7 +646,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, msgType expect
 	return msg, statusCondition, nil
 }
 
-func constructMessage(alertType entities.AlertType, alertJson []byte, msgType expectedMsgType) (string, error) {
+func constructMessage(alertType entities.AlertType, alertJson []byte, extension expectedExtension) (string, error) {
 	alert := generalMessaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {
@@ -637,34 +655,12 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, msgType ex
 
 	prettyAlert := makeMessagePretty(alertType, alert)
 
-	w := &bytes.Buffer{}
-	switch msgType {
-	case Html:
-		tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/alert.html")
-		if err != nil {
-			log.Printf("failed to construct an html message, %v", err)
-			return "", err
-		}
-		err = tmpl.Execute(w, prettyAlert)
-		if err != nil {
-			log.Printf("failed to construct an html message, %v", err)
-			return "", err
-		}
-	case Markdown:
-		tmpl, err := textTemplate.ParseFS(templateFiles, "templates/alert.md")
-		if err != nil {
-			log.Printf("failed to construct a markdown message, %v", err)
-			return "", err
-		}
-		err = tmpl.Execute(w, prettyAlert)
-		if err != nil {
-			log.Printf("failed to construct a markdown message, %v", err)
-			return "", err
-		}
-	default:
-		return "", errors.New("unknown message type")
+	msg, err := executeTemplate("templates/alert", prettyAlert, extension)
+	if err != nil {
+		log.Printf("failed to construct a message, %v", err)
+		return "", err
 	}
-	return w.String(), nil
+	return msg, nil
 }
 
 func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Alert) generalMessaging.Alert {

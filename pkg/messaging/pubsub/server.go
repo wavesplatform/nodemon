@@ -26,8 +26,8 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		log.Printf("Failed to get new pub socket: %v", err)
 		return err
 	}
-	defer func(socketPubSub protocol.Socket) {
-		if err := socketPubSub.Close(); err != nil {
+	defer func(socketPub protocol.Socket) {
+		if err := socketPub.Close(); err != nil {
 			log.Printf("Failed to close pub socket: %v", err)
 		}
 	}(socketPub)

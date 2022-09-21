@@ -24,6 +24,7 @@ func main() {
 		case context.Canceled:
 			os.Exit(130)
 		default:
+			log.Println(err)
 			os.Exit(1)
 		}
 	}
@@ -77,6 +78,7 @@ func runDiscordBot() error {
 		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
 		if err != nil {
 			log.Printf("failed to start pair messaging service: %v", err)
+			return
 		}
 	}()
 
@@ -89,7 +91,11 @@ func runDiscordBot() error {
 	}
 	log.Println("Nodes status alert has been scheduled successfully")
 
-	discordBotEnv.Start()
+	err = discordBotEnv.Start()
+	if err != nil {
+		log.Printf("failed to start discord bot, %v", err)
+		return err
+	}
 	defer func() {
 		err = discordBotEnv.Bot.Close()
 		if err != nil {

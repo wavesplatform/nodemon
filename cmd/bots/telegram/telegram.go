@@ -25,6 +25,7 @@ func main() {
 		case context.Canceled:
 			os.Exit(130)
 		default:
+			log.Println(err)
 			os.Exit(1)
 		}
 	}
@@ -87,7 +88,9 @@ func runTelegramBot() error {
 		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
 		if err != nil {
 			log.Printf("failed to start pair messaging service: %v", err)
+			return
 		}
+
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
@@ -99,7 +102,11 @@ func runTelegramBot() error {
 	}
 	log.Println("Nodes status alert has been scheduled successfully")
 
-	tgBotEnv.Start()
+	err = tgBotEnv.Start()
+	if err != nil {
+		log.Printf("failed to start telegram bot, %v", err)
+		return err
+	}
 	<-ctx.Done()
 
 	if !taskScheduler.IsShutdown() {

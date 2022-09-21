@@ -14,7 +14,7 @@ import (
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairTelegramMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pair socket")
@@ -103,9 +103,9 @@ func StartPairTelegramMessagingServer(ctx context.Context, nanomsgURL string, ns
 				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
 				switch {
 				case errors.Is(err, events.BigHeightDifference):
-					nodesStatusResp.Err = events.BigHeightDifference.Error()
+					nodesStatusResp.Err = events.BigHeightDifference
 				case errors.Is(err, events.StorageIsNotReady):
-					nodesStatusResp.Err = events.StorageIsNotReady.Error()
+					nodesStatusResp.Err = events.StorageIsNotReady
 				default:
 					if err != nil {
 						log.Printf("failed to find all statehashes by last height, %v\n", err)
