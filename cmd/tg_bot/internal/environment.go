@@ -252,6 +252,11 @@ func SortNodesStatuses(statuses []NodeStatus) {
 func (tgEnv *TelegramBotEnvironment) NodesStatus(nodesStatusResp *pair.NodesStatusResponse) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, Nodes: 0, Height: ""}
 
+	for _, node := range nodesStatusResp.NodesStatus {
+		node.Url = strings.ReplaceAll(node.Url, entities.HttpScheme+"://", "")
+		node.Url = strings.ReplaceAll(node.Url, entities.HttpsScheme+"://", "")
+	}
+
 	if nodesStatusResp.Err != "" {
 		var differentHeightsNodes []NodeStatus
 		var unavailableNodes []NodeStatus
