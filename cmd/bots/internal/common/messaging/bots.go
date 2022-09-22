@@ -4,7 +4,9 @@ import "go.nanomsg.org/mangos/v3/protocol"
 
 type Bot interface {
 	SendAlertMessage(msg []byte)
-	Start()
+	SendMessage(msg string)
+	Start() error
 	SubscribeToAllAlerts() error
-	SetPubSubSocket(pubSubSocket protocol.Socket)
+	SetSubSocket(subSocket protocol.Socket)
+	IsEligibleForAction(chatID string) bool
 }

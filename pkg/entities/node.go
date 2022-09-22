@@ -8,7 +8,8 @@ import (
 )
 
 const (
-	HttpScheme = "http"
+	HttpScheme  = "http"
+	HttpsScheme = "https"
 )
 
 type Node struct {

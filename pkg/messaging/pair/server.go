@@ -103,9 +103,9 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
 				switch {
 				case errors.Is(err, events.BigHeightDifference):
-					nodesStatusResp.Err = events.BigHeightDifference.Error()
+					nodesStatusResp.ErrMessage = events.BigHeightDifference.Error()
 				case errors.Is(err, events.StorageIsNotReady):
-					nodesStatusResp.Err = events.StorageIsNotReady.Error()
+					nodesStatusResp.ErrMessage = events.StorageIsNotReady.Error()
 				default:
 					if err != nil {
 						log.Printf("failed to find all statehashes by last height, %v\n", err)
@@ -116,7 +116,6 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
 					nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)
 				}
-
 				response, err := json.Marshal(nodesStatusResp)
 				if err != nil {
 					log.Printf("failed to marshal list of nodes to json, %v", err)

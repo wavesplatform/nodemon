@@ -9,36 +9,33 @@ import (
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
-
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
-func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
+func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		log.Printf("Invalid nanomsg IPC URL for pubsub server'%s'", nanomsgURL)
+		log.Printf("Invalid nanomsg IPC URL for pub server'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
 
-	socketPubSub, err := pub.NewSocket()
+	socketPub, err := pub.NewSocket()
 	if err != nil {
 		log.Printf("Failed to get new pub socket: %v", err)
 		return err
 	}
-	defer func(socketPubSub protocol.Socket) {
-		if err := socketPubSub.Close(); err != nil {
-			log.Printf("Failed to close pubsub socket: %v", err)
+	defer func(socketPub protocol.Socket) {
+		if err := socketPub.Close(); err != nil {
+			log.Printf("Failed to close pub socket: %v", err)
 		}
-	}(socketPubSub)
+	}(socketPub)
 
-	if err := socketPubSub.Listen(nanomsgURL); err != nil {
+	if err := socketPub.Listen(nanomsgURL); err != nil {
 		log.Printf("Failed to listen on pub socket: %v", err)
 		return err
 	}
-
-	// pubsub messaging
 
 	for {
 		select {
@@ -60,7 +57,7 @@ func StartPubSubMessagingServer(ctx context.Context, nanomsgURL string, alerts <
 			message := &bytes.Buffer{}
 			message.WriteByte(byte(alert.Type()))
 			message.Write(jsonAlert)
-			err = socketPubSub.Send(message.Bytes())
+			err = socketPub.Send(message.Bytes())
 			if err != nil {
 				log.Printf("failed to send a message to socket, %v", err)
 			}
