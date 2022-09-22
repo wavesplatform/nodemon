@@ -13,7 +13,7 @@ type NodesListResponse struct {
 
 type NodesStatusResponse struct {
 	NodesStatus []NodeStatement `json:"nodes_status"`
-	Err         error
+	ErrMessage  string
 }
 
 func (nl *NodesListResponse) responseMarker() {}

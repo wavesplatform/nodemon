@@ -542,7 +542,7 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 	var differentHeightsNodes []NodeStatus
 	var unavailableNodes []NodeStatus
 
-	if errors.Is(nodesStatusResp.Err, events.BigHeightDifference) {
+	if nodesStatusResp.ErrMessage == events.BigHeightDifference.Error() {
 		for _, stat := range nodesStatusResp.NodesStatus {
 			s := NodeStatus{}
 			if stat.Status != entities.OK {
@@ -573,15 +573,15 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 			return "", statusCondition, err
 		}
 		msg += fmt.Sprint(differentHeights)
-		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.Err.Error(), msg), statusCondition, nil
+		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.ErrMessage, msg), statusCondition, nil
 	}
-	return nodesStatusResp.Err.Error(), statusCondition, nil
+	return nodesStatusResp.ErrMessage, statusCondition, nil
 }
 
 func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
-	if nodesStatusResp.Err != nil {
+	if nodesStatusResp.ErrMessage != "" {
 		return HandleNodesStatusError(nodesStatusResp, extension)
 	}
 
