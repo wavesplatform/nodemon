@@ -21,6 +21,7 @@ import (
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"gopkg.in/telebot.v3"
+	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
@@ -675,19 +676,19 @@ func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Aler
 	// simple alert is skipped because it needs to be deleted
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
+		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
 	case entities.IncompleteAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", messages.QuestionMsg)
+		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.QuestionMsg)
 	case entities.AlertFixedType:
-		alert.AlertDescription += fmt.Sprintf(" %s", messages.OkMsg)
+		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.OkMsg)
 	default:
 
 	}
 	switch alert.Level {
 	case entities.InfoLevel:
-		alert.Level += fmt.Sprintf(" %s", messages.InfoMsg)
+		alert.Level += fmt.Sprintf(" %s", commonMessages.InfoMsg)
 	case entities.ErrorLevel:
-		alert.Level += fmt.Sprintf(" %s", messages.ErrorOrDeleteMsg)
+		alert.Level += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
 	default:
 	}
 

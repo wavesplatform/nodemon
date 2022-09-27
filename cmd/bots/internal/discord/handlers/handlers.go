@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/discord/messages"
 	"nodemon/pkg/messaging/pair"
 )
 
@@ -19,6 +20,13 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 		}
 		if m.Content == "/ping" {
 			_, err := s.ChannelMessageSend(environment.ChatID, "Pong!")
+			if err != nil {
+				log.Printf("failed to send a message to discord, %v", err)
+			}
+		}
+
+		if m.Content == "/help" {
+			_, err := s.ChannelMessageSend(environment.ChatID, messages.HelpInfoText)
 			if err != nil {
 				log.Printf("failed to send a message to discord, %v", err)
 			}
