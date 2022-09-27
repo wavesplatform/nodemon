@@ -581,6 +581,12 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
+	// remove all https and http prefixes
+	for i := range nodesStatusResp.NodesStatus {
+		nodesStatusResp.NodesStatus[i].Url = strings.ReplaceAll(nodesStatusResp.NodesStatus[i].Url, entities.HttpsScheme+"://", "")
+		nodesStatusResp.NodesStatus[i].Url = strings.ReplaceAll(nodesStatusResp.NodesStatus[i].Url, entities.HttpScheme+"://", "")
+	}
+
 	if nodesStatusResp.ErrMessage != "" {
 		return HandleNodesStatusError(nodesStatusResp, extension)
 	}
