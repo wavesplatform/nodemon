@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/bots/internal/common"
+	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/buttons"
 	"nodemon/cmd/bots/internal/telegram/messages"
@@ -24,9 +25,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 	environment.Bot.Handle("/ping", func(c tele.Context) error {
 		if environment.Mute {
-			return c.Send(messages.PongText + " I am currently sleeping" + messages.SleepingMsg)
+			return c.Send(messages.PongText + " I am currently sleeping" + commonMessages.SleepingMsg)
 		}
-		return c.Send(messages.PongText + " I am monitoring" + messages.MonitoringMsg)
+		return c.Send(messages.PongText + " I am monitoring" + commonMessages.MonitoringMsg)
 	})
 
 	environment.Bot.Handle("/start", func(c tele.Context) error {
@@ -35,9 +36,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		}
 		if environment.Mute {
 			environment.Mute = false
-			return c.Send("I had been asleep, but started monitoring now... " + messages.MonitoringMsg)
+			return c.Send("I had been asleep, but started monitoring now... " + commonMessages.MonitoringMsg)
 		}
-		return c.Send("I had already been monitoring" + messages.MonitoringMsg)
+		return c.Send("I had already been monitoring" + commonMessages.MonitoringMsg)
 	})
 
 	environment.Bot.Handle("/mute", func(c tele.Context) error {
@@ -45,10 +46,10 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			return c.Send("Sorry, you have no right to mute me")
 		}
 		if environment.Mute {
-			return c.Send("I had already been sleeping, continue sleeping.." + messages.SleepingMsg)
+			return c.Send("I had already been sleeping, continue sleeping.." + commonMessages.SleepingMsg)
 		}
 		environment.Mute = true
-		return c.Send("I had been monitoring, but going to sleep now.." + messages.SleepingMsg)
+		return c.Send("I had been monitoring, but going to sleep now.." + commonMessages.SleepingMsg)
 	})
 
 	environment.Bot.Handle("/help", func(c tele.Context) error {
