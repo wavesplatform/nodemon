@@ -23,7 +23,6 @@ import (
 	"gopkg.in/telebot.v3"
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
-	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
@@ -442,7 +441,7 @@ func ScheduleNodesStatus(
 				NodesNumber int
 				Height      string
 			}{
-				TimeEmoji:   messages.TimerMsg,
+				TimeEmoji:   commonMessages.TimerMsg,
 				NodesNumber: statusCondition.NodesNumber,
 				Height:      statusCondition.Height,
 			}
@@ -467,9 +466,9 @@ func ScheduleNodesStatus(
 		var msg string
 		switch bot.(type) {
 		case *TelegramBotEnvironment:
-			msg = fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("Status %s\n\n%s", commonMessages.TimerMsg, handledNodesStatus)
 		case *DiscordBotEnvironment:
-			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", commonMessages.TimerMsg, handledNodesStatus)
 		default:
 			log.Println("failed to schedule nodes status, unknown bot type")
 			return
