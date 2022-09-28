@@ -11,7 +11,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1
-	github.com/procyon-projects/chrono v1.1.0
+	github.com/procyon-projects/chrono v1.1.2
 	github.com/stretchr/testify v1.8.0
 	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.2-0.20220817081803-6008477aab3d
