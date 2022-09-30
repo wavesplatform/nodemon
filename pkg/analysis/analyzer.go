@@ -2,10 +2,11 @@ package analysis
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -23,9 +24,10 @@ type Analyzer struct {
 	es   *events.Storage
 	as   *alertsStorage
 	opts *AnalyzerOptions
+	zap  *zap.Logger
 }
 
-func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) *Analyzer {
 	if opts == nil {
 		opts = &AnalyzerOptions{}
 	}
@@ -37,7 +39,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
 	}
 
 	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
-	return &Analyzer{es: es, as: as, opts: opts}
+	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
@@ -96,7 +98,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
-				log.Printf("Error occured on criterion routine: %v", err)
+				a.zap.Error("Error occurred on criterion routine", zap.Error(err))
 			}
 		}(f)
 	}
@@ -137,18 +139,17 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 		for n := range notifications {
 			switch notificcationType := n.(type) {
 			case *entities.OnPollingComplete:
-				log.Printf("On polling complete of %d nodes", len(notificcationType.Nodes()))
+				a.zap.Info(fmt.Sprintf("On polling complete of %d nodes", len(notificcationType.Nodes())))
 				cnt, err := a.es.StatementsCount()
 				if err != nil {
-					log.Printf("Failed to query statements: %v", err)
+					a.zap.Error("Failed to get statements count", zap.Error(err))
 				}
-				log.Printf("Total statemetns count: %d", cnt)
-
+				a.zap.Info(fmt.Sprintf("Total statemetns count: %d", cnt))
 				if err := a.analyze(alerts, notificcationType); err != nil {
-					log.Printf("Failed to analyze nodes: %v", err)
+					a.zap.Error("Failed to analyze nodes statements", zap.Error(err))
 				}
 			default:
-				log.Printf("Unknown alanyzer notification (%T)", notificcationType)
+				a.zap.Error(fmt.Sprintf("Unknown alanyzer notification (%T)", notificcationType))
 			}
 		}
 	}(out)

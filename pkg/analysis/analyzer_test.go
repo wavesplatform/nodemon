@@ -3,12 +3,14 @@ package analysis
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -84,6 +86,17 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 func TestAnalyzer_analyzeStateHash(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	var (
 		forkA             = generateStateHashes(0, 5)
 		forkB             = generateStateHashes(50, 5)
@@ -127,7 +140,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute)
+			es, err := events.NewStorage(time.Minute, zap)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
@@ -140,10 +153,14 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 			}()
 			fillEventsStorage(t, es, test.historyData)
 
+			zap, err := zapLogger.NewDevelopment()
+			if err != nil {
+				log.Fatalf("can't initialize zap logger: %v", err)
+			}
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				analyzer := NewAnalyzer(es, test.opts)
+				analyzer := NewAnalyzer(es, test.opts, zap)
 				event := entities.NewOnPollingComplete(test.nodes, mkTimestamp(test.height))
 				err := analyzer.analyze(alerts, event)
 				require.NoError(t, err)

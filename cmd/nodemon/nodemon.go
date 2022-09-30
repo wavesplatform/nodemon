@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 
@@ -46,6 +48,16 @@ func main() {
 }
 
 func run() error {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
 	var (
 		storage                string
 		nodes                  string
@@ -71,19 +83,19 @@ func run() error {
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
-		log.Printf("Invalid storage path '%s'", storage)
+		zap.Error(fmt.Sprintf("Invalid storage path '%s'", storage))
 		return errorInvalidParameters
 	}
 	if interval <= 0 {
-		log.Printf("Invalid polling interval '%s'", interval.String())
+		zap.Error(fmt.Sprintf("Invalid polling interval '%s'", interval.String()))
 		return errorInvalidParameters
 	}
 	if timeout <= 0 {
-		log.Printf("Invalid network timout '%s'", timeout.String())
+		zap.Error(fmt.Sprintf("Invalid network timeout '%s'", timeout.String()))
 		return errorInvalidParameters
 	}
 	if retention <= 0 {
-		log.Printf("Invalid retention duration '%s'", retention.String())
+		zap.Error(fmt.Sprintf("Invalid retention duration '%s'", retention.String()))
 		return errorInvalidParameters
 	}
 	var (
@@ -103,78 +115,78 @@ func run() error {
 
 	ns, err := nodesStorage.NewStorage(storage, nodes)
 	if err != nil {
-		log.Printf("Nodes storage failure: %v", err)
+		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
 		return err
 	}
 	defer func(cs *nodesStorage.Storage) {
 		err := cs.Close()
 		if err != nil {
-			log.Printf("Failed to close nodes storage: %v", err)
+			zap.Error("failed to close nodes storage", zapLogger.Error(err))
 		}
 	}(ns)
 
-	es, err := eventsStorage.NewStorage(retention)
+	es, err := eventsStorage.NewStorage(retention, zap)
 	if err != nil {
-		log.Printf("Events storage failure: %v", err)
+		zap.Error("failed to initialize events storage", zapLogger.Error(err))
 		return err
 	}
 	defer func(es *eventsStorage.Storage) {
 		if err := es.Close(); err != nil {
-			log.Printf("Failed to close events storage: %v", err)
+			zap.Error("failed to close events storage", zapLogger.Error(err))
 		}
 	}(es)
 
 	var ts int64 = 0
 	var specificNodesTs = &ts
 
-	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout)
+	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout, zap)
 	if err != nil {
-		log.Printf("API failure: %v", err)
+		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err
 	}
 	if err := a.Start(); err != nil {
-		log.Printf("Failed to start API: %v", err)
+		zap.Error("failed to start API", zapLogger.Error(err))
 		return err
 	}
 
-	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout, zap)
 	if err != nil {
-		log.Printf("ERROR: Failed to start monitoring: %v", err)
+		zap.Error("failed to initialize scraper", zapLogger.Error(err))
 		return err
 	}
 	notifications := scraper.Start(ctx, specificNodesTs)
 
-	analyzer := analysis.NewAnalyzer(es, nil)
+	analyzer := analysis.NewAnalyzer(es, nil, zap)
 
 	alerts := analyzer.Start(notifications)
 
 	go func() {
-		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts)
+		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts, zap)
 		if err != nil {
-			log.Printf("failed to start pair messaging service: %v", err)
+			zap.Fatal("failed to start pub messaging server", zapLogger.Error(err))
 		}
 	}()
 
 	if runTelegramPairServer {
 		go func() {
-			err := pair.StartPairMessagingServer(ctx, nanomsgPairTelegramURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairTelegramURL, ns, es, zap)
 			if err != nil {
-				log.Printf("failed to start pair messaging service: %v", err)
+				zap.Fatal("failed to start pair messaging server", zapLogger.Error(err))
 			}
 		}()
 	}
 
 	if runDiscordPairServer {
 		go func() {
-			err := pair.StartPairMessagingServer(ctx, nanomsgPairDiscordURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairDiscordURL, ns, es, zap)
 			if err != nil {
-				log.Printf("failed to start pair messaging service: %v", err)
+				zap.Fatal("failed to start pair messaging server", zapLogger.Error(err))
 			}
 		}()
 	}
 
 	<-ctx.Done()
 	a.Shutdown()
-	log.Println("Terminated")
+	zap.Info("shutting down")
 	return nil
 }

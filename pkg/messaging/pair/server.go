@@ -3,35 +3,32 @@ package pair
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"strings"
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage, logger *zap.Logger) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		log.Printf("Invalid nanomsg IPC URL for pair socket'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pair socket")
 	}
 	socketPair, err := pair.NewSocket()
 	if err != nil {
-		log.Printf("Failed to get new pair socket: %v", err)
 		return err
 	}
 	defer func(socketPair protocol.Socket) {
 		if err := socketPair.Close(); err != nil {
-			log.Printf("Failed to close pubsub socket: %v", err)
+			logger.Error("Failed to close pair socket", zap.Error(err))
 		}
 	}(socketPair)
 
 	if err := socketPair.Listen(nanomsgURL); err != nil {
-		log.Printf("Failed to listen on pair socket: %v", err)
 		return err
 	}
 
@@ -42,7 +39,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 		default:
 			msg, err := socketPair.Recv()
 			if err != nil {
-				log.Printf("failed to receive a message from pair socket: %v", err)
+				logger.Error("Failed to receive a message from pair socket", zap.Error(err))
 				return nil
 			}
 			request := RequestPairType(msg[0])
@@ -52,13 +49,13 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				if request == RequestNodeListT {
 					nodes, err = ns.Nodes(false)
 					if err != nil {
-						log.Printf("failed to receive list of nodes from storage, %v", err)
+						logger.Error("Failed to get list of nodes from storage", zap.Error(err))
 						return err
 					}
 				} else {
 					nodes, err = ns.Nodes(true)
 					if err != nil {
-						log.Printf("failed to receive list of specific nodes from storage, %v", err)
+						logger.Error("Failed to receive list of specific nodes from storage", zap.Error(err))
 						return err
 					}
 				}
@@ -70,30 +67,30 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				}
 				response, err := json.Marshal(nodeList)
 				if err != nil {
-					log.Printf("failed to marshal list of nodes to json, %v", err)
+					logger.Error("Failed to marshal node list to json", zap.Error(err))
 				}
 				err = socketPair.Send(response)
 				if err != nil {
-					log.Printf("failed to receive a response from pair socket, %v", err)
+					logger.Error("Failed to send a node list to pair socket", zap.Error(err))
 				}
 
 			case RequestInsertNewNodeT:
 				url := msg[1:]
 				err := ns.InsertIfNew(string(url))
 				if err != nil {
-					log.Printf("failed to insert a new node to storage, %v", err)
+					logger.Error("Failed to insert a new node to storage", zap.Error(err))
 				}
 			case RequestInsertSpecificNewNodeT:
 				url := msg[1:]
 				err := ns.InsertSpecificIfNew(string(url))
 				if err != nil {
-					log.Printf("failed to insert a new specific node to storage, %v", err)
+					logger.Error("Failed to insert a new specific node to storage", zap.Error(err))
 				}
 			case RequestDeleteNodeT:
 				url := msg[1:]
 				err := ns.Delete(string(url))
 				if err != nil {
-					log.Printf("failed to delete a node from storage, %v", err)
+					logger.Error("Failed to delete a node from storage", zap.Error(err))
 				}
 			case RequestNodesStatus:
 				listOfNodes := msg[1:]
@@ -108,7 +105,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 					nodesStatusResp.ErrMessage = events.StorageIsNotReady.Error()
 				default:
 					if err != nil {
-						log.Printf("failed to find all statehashes by last height, %v\n", err)
+						logger.Error("failed to find all statehashes by last height", zap.Error(err))
 					}
 				}
 
@@ -118,15 +115,15 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				}
 				response, err := json.Marshal(nodesStatusResp)
 				if err != nil {
-					log.Printf("failed to marshal list of nodes to json, %v", err)
+					logger.Error("Failed to marshal node status to json", zap.Error(err))
 				}
 				err = socketPair.Send(response)
 				if err != nil {
-					log.Printf("failed to receive a response from pair socket, %v", err)
+					logger.Error("Failed to receive a response from pair socket", zap.Error(err))
 				}
 
 			default:
-				log.Printf("request type to the pair socket is unknown: %c", request)
+				logger.Error("Unknown request type", zap.String("request", string(request)))
 			}
 
 		}

@@ -7,8 +7,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
+	zapLogger "go.uber.org/zap"
 	"nodemon/cmd/bots/internal/common"
 	initial "nodemon/cmd/bots/internal/common/init"
 	"nodemon/cmd/bots/internal/common/messaging/pair"
@@ -32,6 +32,17 @@ func main() {
 }
 
 func runTelegramBot() error {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	var (
 		nanomsgPubSubURL    string
 		nanomsgPairUrl      string
@@ -51,25 +62,24 @@ func runTelegramBot() error {
 	flag.Parse()
 
 	if tgBotToken == "" {
-		log.Println("telegram token is invalid")
+		zap.Error("telegram bot token is required")
 		return common.ErrorInvalidParameters
 	}
 	if behavior == config.WebhookMethod && publicURL == "" {
-		log.Println("invalid public url for webhook")
+		zap.Error("public url is required for webhook method")
 		return common.ErrorInvalidParameters
 	}
 	if tgChatID == 0 {
-		log.Println("invalid telegram chat ID")
+		zap.Error("telegram chat ID is required")
 		return common.ErrorInvalidParameters
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	tgBotEnv, err := initial.InitTgBot(behavior, webhookLocalAddress, publicURL, tgBotToken, tgChatID)
+	tgBotEnv, err := initial.InitTgBot(behavior, webhookLocalAddress, publicURL, tgBotToken, tgChatID, zap)
 	if err != nil {
-		log.Println("failed to initialize telegram bot")
-		return errors.Wrap(err, "failed to init tg bot")
+		zap.Fatal("failed to initialize telegram bot", zapLogger.Error(err))
 	}
 
 	pairRequest := make(chan pairResponses.RequestPair)
@@ -77,41 +87,38 @@ func runTelegramBot() error {
 	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
 
 	go func() {
-		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv)
+		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv, zap)
 		if err != nil {
-			log.Printf("failed to start pubsub messaging service: %v", err)
-			return
+			zap.Fatal("failed to start sub messaging service", zapLogger.Error(err))
 		}
 	}()
 
 	go func() {
-		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse)
+		err := pair.StartPairMessagingClient(ctx, nanomsgPairUrl, pairRequest, pairResponse, zap)
 		if err != nil {
-			log.Printf("failed to start pair messaging service: %v", err)
-			return
+			zap.Fatal("failed to start pair messaging service", zapLogger.Error(err))
 		}
 
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err = common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv)
+	err = common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv, zap)
 	if err != nil {
 		taskScheduler.Shutdown()
-		log.Printf("failed to schdule nodes status alert, %v", err)
-		return err
+		zap.Fatal("failed to schedule nodes status alert", zapLogger.Error(err))
 	}
-	log.Println("Nodes status alert has been scheduled successfully")
+	zap.Info("Nodes status alert has been scheduled successfully")
 
 	err = tgBotEnv.Start()
 	if err != nil {
-		log.Printf("failed to start telegram bot, %v", err)
+		zap.Fatal("failed to start telegram bot", zapLogger.Error(err))
 		return err
 	}
 	<-ctx.Done()
 
 	if !taskScheduler.IsShutdown() {
 		taskScheduler.Shutdown()
-		log.Println("scheduler finished")
+		zap.Info("Task scheduler has been shutdown successfully")
 	}
 	return nil
 }

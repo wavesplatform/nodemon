@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	htmlTemplate "html/template"
-	"log"
 	"net/url"
 	"sort"
 	"strconv"
@@ -20,6 +19,7 @@ import (
 	"github.com/procyon-projects/chrono"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
+	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
@@ -83,17 +83,18 @@ type DiscordBotEnvironment struct {
 	Bot           *discordgo.Session
 	subSocket     protocol.Socket
 	Subscriptions subscriptions
+	Zap           *zap.Logger
 }
 
-func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string) *DiscordBotEnvironment {
-	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
+func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger) *DiscordBotEnvironment {
+	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, Zap: zap}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
-	log.Println("Discord bot started")
+	dscBot.Zap.Info("Discord bot started")
 	err := dscBot.Bot.Open()
 	if err != nil {
-		fmt.Println("failed to open connection to discord", err)
+		dscBot.Zap.Error("failed to open discord bot", zap.Error(err))
 		return err
 	}
 	return nil
@@ -104,42 +105,38 @@ func (dscBot *DiscordBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 }
 
 func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
-
 	_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, msg)
-
-	// TODO change to error type of log
 	if err != nil {
-		log.Printf("failed to send a message to telegram, %v", err)
+		dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
 	}
 }
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	if len(msg) == 0 {
-		log.Println("received an empty message")
+		dscBot.Zap.Error("received empty alert message")
 		return
 	}
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		log.Printf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
-
+		dscBot.Zap.Error(fmt.Sprintf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType))
 		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
 
 		if err != nil {
-			log.Printf("failed to send a message to discord, %v", err)
+			dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
 		}
 		return
 	}
 
 	messageToBot, err := constructMessage(alertType, msg[1:], Markdown)
 	if err != nil {
-		log.Printf("failed to construct message, %v\n", err)
+		dscBot.Zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
 	_, err = dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
 
 	if err != nil {
-		log.Printf("failed to send a message to discord, %v", err)
+		dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
 	}
 }
 
@@ -154,7 +151,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		dscBot.Subscriptions.Add(alertType, alertName)
-		log.Printf("discord bot subscribed to %s", alertName)
+		dscBot.Zap.Info(fmt.Sprintf("subscribed to %s", alertName))
 	}
 
 	return nil
@@ -175,16 +172,17 @@ type TelegramBotEnvironment struct {
 	Mute          bool // If it used elsewhere, should be protected by mutex
 	subSocket     protocol.Socket
 	subscriptions subscriptions
+	Zap           *zap.Logger
 }
 
-func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}}
+func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger) *TelegramBotEnvironment {
+	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, Zap: zap}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
-	log.Println("Telegram bot started")
+	tgEnv.Zap.Info("Telegram bot started")
 	tgEnv.Bot.Start()
-	log.Println("Telegram bot finished")
+	tgEnv.Zap.Info("Telegram bot finished")
 	return nil
 }
 
@@ -194,12 +192,12 @@ func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	if tgEnv.Mute {
-		log.Printf("received an alert, but asleep now")
+		tgEnv.Zap.Info("received an alert, but asleep now")
 		return
 	}
 
 	if len(msg) == 0 {
-		log.Println("received an empty message")
+		tgEnv.Zap.Info("received an empty message")
 		return
 	}
 
@@ -208,21 +206,21 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		log.Printf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+		tgEnv.Zap.Error(fmt.Sprintf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType))
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
 			&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 		)
 		if err != nil {
-			log.Printf("failed to send a message to telegram, %v", err)
+			tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
 		}
 		return
 	}
 
 	messageToBot, err := constructMessage(alertType, msg[1:], Html)
 	if err != nil {
-		log.Printf("failed to construct message, %v\n", err)
+		tgEnv.Zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
 	_, err = tgEnv.Bot.Send(
@@ -232,13 +230,13 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	)
 
 	if err != nil {
-		log.Printf("failed to send a message to telegram, %v", err)
+		tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
 }
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	if tgEnv.Mute {
-		log.Printf("received an alert, but asleep now")
+		tgEnv.Zap.Info("received a message, but asleep now")
 		return
 	}
 
@@ -251,7 +249,7 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	)
 
 	if err != nil {
-		log.Printf("failed to send a message to telegram, %v", err)
+		tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
 }
 
@@ -263,7 +261,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
 
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
+		tgEnv.Zap.Error("failed to parse nodes list template", zap.Error(err))
 		return "", err
 	}
 	var nodes []entities.Node
@@ -279,7 +277,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, er
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, nodes)
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
+		tgEnv.Zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -295,7 +293,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		tgEnv.subscriptions.Add(alertType, alertName)
-		log.Printf("telegram bot subscribed to %s", alertName)
+		tgEnv.Zap.Info(fmt.Sprintf("Telegram bot subscribed to %s", alertName))
 	}
 
 	return nil
@@ -316,7 +314,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
 	tgEnv.subscriptions.Add(alertType, alertName)
-	log.Printf("Subscribed to %s", alertName)
+	tgEnv.Zap.Info(fmt.Sprintf("Telegram bot subscribed to %s", alertName))
 	return nil
 }
 
@@ -339,7 +337,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
 	}
 	tgEnv.subscriptions.Delete(alertType)
-	log.Printf("Unsubscribed from %s", alertName)
+	tgEnv.Zap.Info(fmt.Sprintf("Telegram bot unsubscribed from %s", alertName))
 	return nil
 }
 
@@ -355,7 +353,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/subscriptions.html")
 
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
+		tgEnv.Zap.Error("failed to parse subscriptions template", zap.Error(err))
 		return "", err
 	}
 	var subscribedTo []Subscribed
@@ -383,7 +381,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, subscriptions)
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
+		tgEnv.Zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -397,22 +395,22 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair, bot messaging.Bot) error {
+	responsePairType <-chan pair.ResponsePair, bot messaging.Bot, zapLogger *zap.Logger) error {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
 		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
-			log.Printf("failed to request list of nodes, %v", err)
+			zapLogger.Error("failed to get nodes list", zap.Error(err))
 		}
 		additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
 		if err != nil {
-			log.Printf("failed to request list of additional nodes, %v", err)
+			zapLogger.Error("failed to get additional nodes list", zap.Error(err))
 		}
 		urls = append(urls, additionalUrls...)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
-			log.Printf("failed to request status of nodes, %v", err)
+			zapLogger.Error("failed to get nodes status", zap.Error(err))
 		}
 
 		var handledNodesStatus string
@@ -421,16 +419,15 @@ func ScheduleNodesStatus(
 		case *TelegramBotEnvironment:
 			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Html)
 			if err != nil {
-				log.Printf("failed to handle status of nodes, %v", err)
+				zapLogger.Error("failed to handle nodes status", zap.Error(err))
 			}
 		case *DiscordBotEnvironment:
 			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Markdown)
 			if err != nil {
-				log.Printf("failed to handle status of nodes, %v", err)
+				zapLogger.Error("failed to handle nodes status", zap.Error(err))
 			}
 		default:
-			// TODO make it an error log
-			log.Println("failed to schedule nodes status, unknown bot type")
+			zapLogger.Error("failed to schedule nodes status, unknown bot type")
 			return
 		}
 
@@ -449,15 +446,15 @@ func ScheduleNodesStatus(
 			case *TelegramBotEnvironment:
 				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Html)
 				if err != nil {
-					log.Printf("failed to construct a message, %v", err)
+					zapLogger.Error("failed to construct a message", zap.Error(err))
 				}
 			case *DiscordBotEnvironment:
 				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Markdown)
 				if err != nil {
-					log.Printf("failed to construct a message, %v", err)
+					zapLogger.Error("failed to construct a message", zap.Error(err))
 				}
 			default:
-				log.Println("failed to schedule nodes status, unknown bot type")
+				zapLogger.Error("failed to schedule nodes status, unknown bot type")
 				return
 			}
 			bot.SendMessage(msg)
@@ -470,7 +467,7 @@ func ScheduleNodesStatus(
 		case *DiscordBotEnvironment:
 			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", commonMessages.TimerMsg, handledNodesStatus)
 		default:
-			log.Println("failed to schedule nodes status, unknown bot type")
+			zapLogger.Error("failed to schedule nodes status, unknown bot type")
 			return
 		}
 		bot.SendMessage(msg)
@@ -501,26 +498,22 @@ func executeTemplate(template string, data any, extension expectedExtension) (st
 	case Html:
 		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
-			log.Printf("failed to parse template file, %v", err)
 			return "", err
 		}
 		buffer := &bytes.Buffer{}
 		err = tmpl.Execute(buffer, data)
 		if err != nil {
-			log.Printf("failed to execute a template, %v", err)
 			return "", err
 		}
 		return buffer.String(), nil
 	case Markdown:
 		tmpl, err := textTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
-			log.Printf("failed to parse template file, %v", err)
 			return "", err
 		}
 		buffer := &bytes.Buffer{}
 		err = tmpl.Execute(buffer, data)
 		if err != nil {
-			log.Printf("failed to execute a template, %v", err)
 			return "", err
 		}
 		return buffer.String(), nil
@@ -561,7 +554,6 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 			sortNodesStatuses(unavailableNodes)
 			unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
 			if err != nil {
-				log.Printf("failed to construct a message, %v", err)
 				return "", statusCondition, err
 			}
 			msg = fmt.Sprintf(unavailableNodes + "\n")
@@ -569,7 +561,6 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 		sortNodesStatuses(differentHeightsNodes)
 		differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, extension)
 		if err != nil {
-			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
 		msg += fmt.Sprint(differentHeights)
@@ -612,7 +603,6 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 		sortNodesStatuses(unavailableNodes)
 		unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
 		if err != nil {
-			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
 		msg = fmt.Sprintf(unavailableNodes + "\n")
@@ -630,7 +620,6 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 	if !areHashesEqual {
 		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, extension)
 		if err != nil {
-			log.Printf("failed to construct a message, %v", err)
 			return "", statusCondition, err
 		}
 		msg += fmt.Sprintf("%s %s", differentHashes, height)
@@ -638,7 +627,6 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 	}
 	equalHashes, err := executeTemplate("templates/nodes_status_ok", okNodes, extension)
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
 		return "", statusCondition, err
 	}
 
@@ -663,7 +651,6 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, extension 
 
 	msg, err := executeTemplate("templates/alert", prettyAlert, extension)
 	if err != nil {
-		log.Printf("failed to construct a message, %v", err)
 		return "", err
 	}
 	return msg, nil

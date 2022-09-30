@@ -2,10 +2,11 @@ package scraping
 
 import (
 	"context"
-	"log"
+	"fmt"
 	"sync"
 	"time"
 
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
@@ -16,10 +17,11 @@ type Scraper struct {
 	es       *events.Storage
 	interval time.Duration
 	timeout  time.Duration
+	zap      *zap.Logger
 }
 
-func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Duration) (*Scraper, error) {
-	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout}, nil
+func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Duration, logger *zap.Logger) (*Scraper, error) {
+	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 
 func (s *Scraper) Start(ctx context.Context, specificNodesTs *int64) <-chan entities.Notification {
@@ -57,7 +59,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 
 	enabledNodes, err := s.ns.EnabledNodes()
 	if err != nil {
-		log.Printf("Failed to get nodes from storage: %v", err)
+		s.zap.Error("Failed to get nodes from storage", zap.Error(err))
 	}
 	wg.Add(len(enabledNodes))
 	for i := range enabledNodes {
@@ -71,7 +73,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 		cnt := 0
 		for e := range ec {
 			if err := s.es.PutEvent(e); err != nil {
-				log.Printf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err)
+				s.zap.Error(fmt.Sprintf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err))
 			}
 			switch e.(type) {
 			case *entities.UnreachableEvent, *entities.InvalidHeightEvent, *entities.StateHashEvent:
@@ -79,7 +81,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 			}
 			cnt++
 		}
-		log.Printf("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt)
+		s.zap.Info(fmt.Sprintf("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt))
 	}()
 	wg.Wait()
 	urls := make([]string, len(enabledNodes))
@@ -91,7 +93,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
-	node := newNodeClient(url, s.timeout)
+	node := newNodeClient(url, s.timeout, s.zap)
 	v, err := node.version(ctx)
 	if err != nil {
 		events <- entities.NewUnreachableEvent(url, ts)
