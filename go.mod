@@ -16,7 +16,7 @@ require (
 	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.2-0.20220817081803-6008477aab3d
 	go.nanomsg.org/mangos/v3 v3.4.2
-	gopkg.in/telebot.v3 v3.0.0
+	gopkg.in/telebot.v3 v3.0.1
 )
 
 require (
