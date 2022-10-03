@@ -228,9 +228,6 @@ func (a *HeightAlert) ID() string {
 	var buff bytes.Buffer
 	buff.WriteString(a.ShortDescription())
 
-	for _, node := range a.MaxHeightGroup.Nodes {
-		buff.WriteString(node)
-	}
 	for _, node := range a.OtherHeightGroup.Nodes {
 		buff.WriteString(node)
 	}
