@@ -124,8 +124,12 @@ func run() error {
 		}
 	}(es)
 
-	var ts int64 = 0
-	var specificNodesTs = &ts
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
+	if err != nil {
+		log.Printf("ERROR: Failed to start monitoring: %v", err)
+		return err
+	}
+	notifications, specificNodesTs := scraper.Start(ctx)
 
 	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout)
 	if err != nil {
@@ -136,13 +140,6 @@ func run() error {
 		log.Printf("Failed to start API: %v", err)
 		return err
 	}
-
-	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
-	if err != nil {
-		log.Printf("ERROR: Failed to start monitoring: %v", err)
-		return err
-	}
-	notifications := scraper.Start(ctx, specificNodesTs)
 
 	analyzer := analysis.NewAnalyzer(es, nil)
 
