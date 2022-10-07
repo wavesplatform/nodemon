@@ -2,10 +2,6 @@ module nodemon
 
 go 1.18
 
-// exclude vulnerable dependency: github.com/wavesplatform/gowaves ->
-// -> github.com/prometheus/client_golang -> github.com/prometheus/common@v0.4.1 -> vulnerable
-exclude github.com/gogo/protobuf v1.1.1
-
 require (
 	github.com/bwmarrin/discordgo v0.26.1
 	github.com/go-chi/chi v4.1.2+incompatible
