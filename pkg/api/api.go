@@ -16,6 +16,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	"go.uber.org/atomic"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
@@ -25,15 +26,15 @@ type API struct {
 	srv                   *http.Server
 	nodesStorage          *nodes.Storage
 	eventsStorage         *events.Storage
-	specificNodesSettings SpecificNodesSettings
+	specificNodesSettings specificNodesSettings
 }
 
-type SpecificNodesSettings struct {
-	currentTimestamp *int64
+type specificNodesSettings struct {
+	currentTimestamp *atomic.Int64
 }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *int64, apiReadTimeout time.Duration) (*API, error) {
-	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: SpecificNodesSettings{currentTimestamp: specificNodesTs}}
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *atomic.Int64, apiReadTimeout time.Duration) (*API, error) {
+	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: specificNodesSettings{currentTimestamp: specificNodesTs}}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -132,7 +133,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	currentTs := *a.specificNodesSettings.currentTimestamp
+	currentTs := a.specificNodesSettings.currentTimestamp.Load()
 
 	var events []entities.Event
 

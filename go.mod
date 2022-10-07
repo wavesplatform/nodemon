@@ -16,6 +16,7 @@ require (
 	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.2-0.20220817081803-6008477aab3d
 	go.nanomsg.org/mangos/v3 v3.4.2
+	go.uber.org/atomic v1.10.0
 	gopkg.in/telebot.v3 v3.0.1
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/tidwall/tinyqueue v0.1.1 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20210128110402-41364ca56ca8 // indirect
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
-	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.22.0 // indirect
