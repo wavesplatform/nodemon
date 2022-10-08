@@ -53,7 +53,7 @@ func runDiscordBot() error {
 		return common.ErrorInvalidParameters
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer done()
 
 	discordBotEnv, err := initial.InitDiscordBot(discordBotToken, discordChatID)

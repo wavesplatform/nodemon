@@ -63,7 +63,7 @@ func runTelegramBot() error {
 		return common.ErrorInvalidParameters
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer done()
 
 	tgBotEnv, err := initial.InitTgBot(behavior, webhookLocalAddress, publicURL, tgBotToken, tgChatID)

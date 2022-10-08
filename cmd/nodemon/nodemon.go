@@ -98,7 +98,7 @@ func run() error {
 		runDiscordPairServer = true
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, os.Kill)
 	defer done()
 
 	ns, err := nodesStorage.NewStorage(storage, nodes)
