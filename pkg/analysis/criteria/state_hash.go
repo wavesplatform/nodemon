@@ -9,8 +9,14 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
+const (
+	defaultMaxForkDepth = 5
+	defaultHeightBucket = 5
+)
+
 type StateHashCriterionOptions struct {
 	MaxForkDepth int
+	HeightBucket int
 }
 
 type StateHashCriterion struct {
@@ -21,17 +27,37 @@ type StateHashCriterion struct {
 func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions) *StateHashCriterion {
 	if opts == nil { // default
 		opts = &StateHashCriterionOptions{
-			MaxForkDepth: 5,
+			MaxForkDepth: defaultMaxForkDepth,
+			HeightBucket: defaultHeightBucket,
 		}
 	}
 	return &StateHashCriterion{opts: opts, es: es}
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
-	splitHeight := statements.SplitByNodeHeight()
-	for height, nodeStatements := range splitHeight {
-		if err := c.analyzeNodesOnSameHeight(alerts, height, timestamp, nodeStatements); err != nil {
-			return err
+	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucket)
+	for bucketHeight, nodeStatements := range splitByBucketHeight {
+		statementsAtBucketHeight := make(entities.NodeStatements, 0, len(nodeStatements))
+		for _, statement := range nodeStatements {
+			var statementAtBucketHeight entities.NodeStatement
+			if statement.Height == bucketHeight {
+				statementAtBucketHeight = statement
+			} else {
+				var err error
+				statementAtBucketHeight, err = c.es.GetStatementAtHeight(statement.Node, bucketHeight)
+				if err != nil {
+					if errors.Is(err, events.NoFullStatementError) {
+						// TODO: should we ignore statement in such case?
+						//  consider creating new alert with warning level for such situations
+						continue
+					}
+					return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
+				}
+			}
+			statementsAtBucketHeight = append(statementsAtBucketHeight, statementAtBucketHeight)
+		}
+		if err := c.analyzeNodesOnSameHeight(alerts, bucketHeight, timestamp, statementsAtBucketHeight); err != nil {
+			return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
 		}
 	}
 	return nil
@@ -39,14 +65,14 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 
 func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	alerts chan<- entities.Alert,
-	groupHeight int,
+	bucketHeight int,
 	timestamp int64,
 	statements entities.NodeStatements,
 ) error {
 	splitStateHash, others := statements.SplitBySumStateHash()
 	if l := len(others); l != 0 {
 		return errors.Errorf("failed to analyze nodes at height %d by statehash criterion %v",
-			groupHeight, others.Nodes(),
+			bucketHeight, others.Nodes(),
 		)
 	}
 	if len(splitStateHash) < 2 { // same state hash
@@ -82,11 +108,12 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 					)
 				}
 			}
-			if groupHeight-lastCommonStateHashHeight > c.opts.MaxForkDepth {
+			forkDepth := bucketHeight - lastCommonStateHashHeight
+			if forkDepth > c.opts.MaxForkDepth {
 				skip[skipKey] = struct{}{}
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,
-					CurrentGroupsHeight:       groupHeight,
+					CurrentGroupsBucketHeight: bucketHeight,
 					LastCommonStateHashExist:  lastCommonStateHashExist,
 					LastCommonStateHashHeight: lastCommonStateHashHeight,
 					LastCommonStateHash:       lastCommonStateHash,

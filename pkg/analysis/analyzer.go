@@ -97,6 +97,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
+				// TODO: send internal analyzer alert
 				a.zap.Error("Error occurred on criterion routine", zap.Error(err))
 			}
 		}(f)
