@@ -64,7 +64,7 @@ func (s NodeStatements) Nodes() Nodes {
 
 func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, NodeStatements) {
 	var (
-		split            = make(NodeStatementsSplitByStateHash, len(s))
+		split            = make(NodeStatementsSplitByStateHash)
 		withoutStateHash NodeStatements
 	)
 	for _, statement := range s {
@@ -79,7 +79,7 @@ func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, N
 }
 
 func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
-	split := make(NodeStatementsSplitByStatus, len(s))
+	split := make(NodeStatementsSplitByStatus)
 	for _, statement := range s {
 		status := statement.Status
 		split[status] = append(split[status], statement)
@@ -88,7 +88,7 @@ func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
 }
 
 func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
-	split := make(NodeStatementsSplitByHeight, len(s))
+	split := make(NodeStatementsSplitByHeight)
 	for _, statement := range s {
 		height := statement.Height
 		split[height] = append(split[height], statement)
@@ -97,7 +97,7 @@ func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
 }
 
 func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
-	split := make(NodeStatementsSplitByVersion, len(s))
+	split := make(NodeStatementsSplitByVersion)
 	for _, statement := range s {
 		version := statement.Version
 		split[version] = append(split[version], statement)
