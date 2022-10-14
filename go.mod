@@ -13,7 +13,7 @@ require (
 	github.com/wavesplatform/gowaves v0.10.2-0.20221014041633-2bcd897e5d29
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/atomic v1.10.0
-	gopkg.in/telebot.v3 v3.1.0
+	gopkg.in/telebot.v3 v3.1.2
 )
 
 require (
