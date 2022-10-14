@@ -10,8 +10,8 @@ import (
 )
 
 const (
-	defaultMaxForkDepth = 5
-	defaultHeightBucket = 5
+	defaultMaxForkDepth = 3
+	defaultHeightBucket = 3
 )
 
 type StateHashCriterionOptions struct {
