@@ -485,6 +485,7 @@ type NodeStatus struct {
 	Sumhash string
 	Status  string
 	Height  string
+	BlockID string
 }
 
 func sortNodesStatuses(statuses []NodeStatus) {
@@ -597,6 +598,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 		s.Sumhash = stat.StateHash.SumHash.String()
 		s.URL = stat.Url
 		s.Status = string(stat.Status)
+		s.BlockID = stat.StateHash.BlockID.String()
 		okNodes = append(okNodes, s)
 	}
 	if len(unavailableNodes) != 0 {

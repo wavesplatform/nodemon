@@ -136,8 +136,12 @@ func run() error {
 		}
 	}(es)
 
-	var ts int64 = 0
-	var specificNodesTs = &ts
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout, zap)
+	if err != nil {
+		zap.Error("failed to initialize scraper", zapLogger.Error(err))
+		return err
+	}
+	notifications, specificNodesTs := scraper.Start(ctx)
 
 	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout, zap)
 	if err != nil {
@@ -148,13 +152,6 @@ func run() error {
 		zap.Error("failed to start API", zapLogger.Error(err))
 		return err
 	}
-
-	scraper, err := scraping.NewScraper(ns, es, interval, timeout, zap)
-	if err != nil {
-		zap.Error("failed to initialize scraper", zapLogger.Error(err))
-		return err
-	}
-	notifications := scraper.Start(ctx, specificNodesTs)
 
 	analyzer := analysis.NewAnalyzer(es, nil, zap)
 

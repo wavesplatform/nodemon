@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -24,7 +25,8 @@ func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Du
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context, specificNodesTs *int64) <-chan entities.Notification {
+func (s *Scraper) Start(ctx context.Context) (<-chan entities.Notification, *atomic.Int64) {
+	specificNodesTs := new(atomic.Int64)
 	out := make(chan entities.Notification)
 	go func(notifications chan<- entities.Notification) {
 		ticker := time.NewTicker(s.interval)
@@ -33,7 +35,9 @@ func (s *Scraper) Start(ctx context.Context, specificNodesTs *int64) <-chan enti
 			close(notifications)
 		}()
 		for {
-			s.poll(ctx, notifications, specificNodesTs)
+			now := time.Now().Unix()
+			specificNodesTs.Store(now)
+			s.poll(ctx, notifications, now)
 			select {
 			case <-ticker.C:
 				continue
@@ -42,14 +46,10 @@ func (s *Scraper) Start(ctx context.Context, specificNodesTs *int64) <-chan enti
 			}
 		}
 	}(out)
-	return out
+	return out, specificNodesTs
 }
 
-func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification, specificNodesTs *int64) {
-	ts := time.Now().Unix()
-
-	*specificNodesTs = ts
-
+func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification, now int64) {
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -65,7 +65,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 	for i := range enabledNodes {
 		n := enabledNodes[i]
 		go func() {
-			s.queryNode(cc, n.URL, ec, ts)
+			s.queryNode(cc, n.URL, ec, now)
 		}()
 	}
 
@@ -89,7 +89,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 		urls[i] = enabledNodes[i].URL
 	}
 
-	notifications <- entities.NewOnPollingComplete(urls, ts)
+	notifications <- entities.NewOnPollingComplete(urls, now)
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
