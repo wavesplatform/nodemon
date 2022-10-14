@@ -97,6 +97,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
 				log.Printf("Error occured on criterion routine: %v", err)
+				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), err)
 			}
 		}(f)
 	}
@@ -135,6 +136,7 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
 		for n := range notifications {
+			// TODO: send InternalErrorAlert in case of error
 			switch notificcationType := n.(type) {
 			case *entities.OnPollingComplete:
 				log.Printf("On polling complete of %d nodes", len(notificcationType.Nodes()))
