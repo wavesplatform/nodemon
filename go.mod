@@ -14,7 +14,7 @@ require (
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/atomic v1.10.0
 	go.uber.org/zap v1.23.0
-	gopkg.in/telebot.v3 v3.1.0
+	gopkg.in/telebot.v3 v3.1.2
 )
 
 require (
