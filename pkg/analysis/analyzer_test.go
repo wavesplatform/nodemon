@@ -111,7 +111,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucket: 3}},
+			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3}},
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(commonStateHashes[:1], forkA[:3])...),
 				mkEvents("b", 1, mergeShInfo(commonStateHashes[:1], forkB[:4])...),

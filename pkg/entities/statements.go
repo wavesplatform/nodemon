@@ -102,11 +102,11 @@ func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
 	return split
 }
 
-func (s NodeStatements) SplitByNodeHeightBuckets(heightBucket int) NodeStatementsSplitByHeightBucket {
+func (s NodeStatements) SplitByNodeHeightBuckets(heightBucketSize int) NodeStatementsSplitByHeightBucket {
 	split := make(NodeStatementsSplitByHeightBucket)
 	for _, statement := range s {
 		height := statement.Height
-		bucketHeight := height - height%heightBucket
+		bucketHeight := height - height%heightBucketSize
 		split[bucketHeight] = append(split[bucketHeight], statement)
 	}
 	return split

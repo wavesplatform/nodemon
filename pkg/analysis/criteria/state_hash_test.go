@@ -109,7 +109,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 		forkB             = generateStateHashes(50, 5)
 		forkC             = generateStateHashes(100, 5)
 		commonStateHashes = generateStateHashes(250, 5)
-		opts              = &StateHashCriterionOptions{MaxForkDepth: 1, HeightBucket: 2}
+		opts              = &StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 2}
 	)
 	tests := []struct {
 		opts           *StateHashCriterionOptions

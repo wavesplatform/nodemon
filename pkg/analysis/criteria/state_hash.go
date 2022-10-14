@@ -10,13 +10,13 @@ import (
 )
 
 const (
-	defaultMaxForkDepth = 3
-	defaultHeightBucket = 3
+	defaultMaxForkDepth     = 3
+	defaultHeightBucketSize = 3
 )
 
 type StateHashCriterionOptions struct {
-	MaxForkDepth int
-	HeightBucket int
+	MaxForkDepth     int
+	HeightBucketSize int
 }
 
 type StateHashCriterion struct {
@@ -27,15 +27,15 @@ type StateHashCriterion struct {
 func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions) *StateHashCriterion {
 	if opts == nil { // default
 		opts = &StateHashCriterionOptions{
-			MaxForkDepth: defaultMaxForkDepth,
-			HeightBucket: defaultHeightBucket,
+			MaxForkDepth:     defaultMaxForkDepth,
+			HeightBucketSize: defaultHeightBucketSize,
 		}
 	}
 	return &StateHashCriterion{opts: opts, es: es}
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
-	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucket)
+	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
 		statementsAtBucketHeight := make(entities.NodeStatements, 0, len(nodeStatements))
 		for _, statement := range nodeStatements {
