@@ -4,6 +4,10 @@ import (
 	"nodemon/pkg/entities"
 )
 
+const (
+	defaultMaxHeightDiff = 3
+)
+
 type HeightCriterionOptions struct {
 	MaxHeightDiff int
 }
@@ -15,7 +19,7 @@ type HeightCriterion struct {
 func NewHeightCriterion(opts *HeightCriterionOptions) *HeightCriterion {
 	if opts == nil { // default
 		opts = &HeightCriterionOptions{
-			MaxHeightDiff: 20,
+			MaxHeightDiff: defaultMaxHeightDiff,
 		}
 	}
 	return &HeightCriterion{opts: opts}
