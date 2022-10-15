@@ -415,8 +415,8 @@ github.com/umbracle/fastrlp v0.1.0 h1:V0W3f6ZKWqbu1KggdhnRWOi+t7+PfL3VyAffJqayI5
 github.com/umbracle/fastrlp v0.1.0/go.mod h1:5RHgqiFjd4vLJESMWagP/E7su+5Gzk0iqqmrotR8WdA=
 github.com/valyala/bytebufferpool v1.0.0 h1:GqA5TC/0021Y/b9FG4Oi9Mr3q7XYx6KllzawFIhcdPw=
 github.com/valyala/bytebufferpool v1.0.0/go.mod h1:6bBcMArwyJ5K/AmCkWv1jt77kVWyCJ6HpOuEn7z0Csc=
-github.com/wavesplatform/gowaves v0.10.2-0.20221014041633-2bcd897e5d29 h1:1Nmgq4cgblU3t3wJitCbnTJGymzmGr+h/4rFSP1KBuY=
-github.com/wavesplatform/gowaves v0.10.2-0.20221014041633-2bcd897e5d29/go.mod h1:KrcSK+gunAyLKaBvcStmpQkv8qTAbEowW8f6uUEbqFk=
+github.com/wavesplatform/gowaves v0.10.2-0.20221015120133-1ea0d7ff7a82 h1:Mr3s4vrB46lkmRnCUcJem4Tdmb6nnkzXSviNd6uGuI8=
+github.com/wavesplatform/gowaves v0.10.2-0.20221015120133-1ea0d7ff7a82/go.mod h1:KrcSK+gunAyLKaBvcStmpQkv8qTAbEowW8f6uUEbqFk=
 github.com/yuin/goldmark v1.1.25/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.27/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
 github.com/yuin/goldmark v1.1.32/go.mod h1:3hX8gzYuyVAZsxl0MRgGTJEmQBFcNTphYh9decYSb74=
