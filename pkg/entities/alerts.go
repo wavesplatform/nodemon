@@ -266,10 +266,12 @@ func (a *StateHashAlert) ShortDescription() string {
 func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
-			"Different state hash between nodes on same height %d: %q=%v, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
+			"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
 			a.CurrentGroupsHeight,
+			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
 			a.FirstGroup.Nodes,
+			a.SecondGroup.StateHash.BlockID.String(),
 			a.SecondGroup.StateHash.SumHash.Hex(),
 			a.SecondGroup.Nodes,
 			a.LastCommonStateHashHeight,
@@ -278,10 +280,12 @@ func (a *StateHashAlert) Message() string {
 		)
 	}
 	return fmt.Sprintf(
-		"Different state hash between nodes on same height %d: %q=%v, %q=%v. Failed to find last common state hash and blockID",
+		"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Failed to find last common state hash and blockID",
 		a.CurrentGroupsHeight,
+		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
 		a.FirstGroup.Nodes,
+		a.SecondGroup.StateHash.BlockID.String(),
 		a.SecondGroup.StateHash.SumHash.Hex(),
 		a.SecondGroup.Nodes,
 	)
