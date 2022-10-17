@@ -604,7 +604,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 			continue
 		}
 		height = strconv.Itoa(stat.Height)
-		s.Sumhash = stat.StateHash.SumHash.String()
+		s.Sumhash = stat.StateHash.SumHash.Hex()
 		s.URL = stat.Url
 		s.Status = string(stat.Status)
 		s.BlockID = stat.StateHash.BlockID.String()
