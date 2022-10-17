@@ -17,6 +17,7 @@ type AnalyzerOptions struct {
 	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
 	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
+	BaseTargetCriterionOpts *criteria.BaseTargetCriterionOptions
 }
 
 type Analyzer struct {
@@ -76,6 +77,11 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		func(in chan<- entities.Alert) error {
 			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+		},
+		func(in chan<- entities.Alert) error {
+			criterion := criteria.NewBaseTargetCriterion(a.opts.BaseTargetCriterionOpts)
+			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			return nil
 		},
 	}
 	var (

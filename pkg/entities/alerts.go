@@ -20,6 +20,7 @@ const (
 	HeightAlertType
 	StateHashAlertType
 	AlertFixedType
+	BaseTargetAlertType
 )
 
 var AlertTypes = map[AlertType]string{
@@ -30,6 +31,7 @@ var AlertTypes = map[AlertType]string{
 	HeightAlertType:        HeightAlertNotification,
 	StateHashAlertType:     StateHashAlertNotification,
 	AlertFixedType:         AlertFixedNotification,
+	BaseTargetAlertType:    BaseTargetAlertNotification,
 }
 
 const (
@@ -40,6 +42,7 @@ const (
 	HeightAlertNotification        = "HeightAlert"
 	StateHashAlertNotification     = "StateHashAlert"
 	AlertFixedNotification         = "AlertFixed"
+	BaseTargetAlertNotification    = "BaseTargetAlert"
 )
 
 const (
@@ -359,4 +362,56 @@ func (a *AlertFixed) Type() AlertType {
 
 func (a *AlertFixed) Level() string {
 	return InfoLevel
+}
+
+type BaseTargetValue struct {
+	Node       string `json:"node"`
+	BaseTarget int64  `json:"base_target"`
+}
+
+type BaseTargetAlert struct {
+	Timestamp        int64             `json:"timestamp"`
+	BaseTargetValues []BaseTargetValue `json:"thresh_holds"`
+	Threshold        int64             `json:"default_value"`
+}
+
+func (a *BaseTargetAlert) ShortDescription() string {
+	return BaseTargetAlertNotification
+}
+
+func (a *BaseTargetAlert) ID() string {
+	var buff bytes.Buffer
+	buff.WriteString(a.ShortDescription())
+
+	for _, baseTarget := range a.BaseTargetValues {
+		buff.WriteString(baseTarget.Node)
+	}
+
+	digest := crypto.MustFastHash(buff.Bytes())
+	return digest.String()
+}
+
+func (a *BaseTargetAlert) Message() string {
+	msg := fmt.Sprintf("Base target is greater than the treshold value. The treshold value is %d\n\n", a.Threshold)
+	for _, baseTarget := range a.BaseTargetValues {
+		msg += fmt.Sprintf("Node %s\n: Base target: %d\n\n", baseTarget.Node, baseTarget.BaseTarget)
+	}
+
+	return msg
+}
+
+func (a *BaseTargetAlert) Time() time.Time {
+	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *BaseTargetAlert) String() string {
+	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+}
+
+func (a *BaseTargetAlert) Type() AlertType {
+	return BaseTargetAlertType
+}
+
+func (a *BaseTargetAlert) Level() string {
+	return ErrorLevel
 }

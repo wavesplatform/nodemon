@@ -2,8 +2,12 @@ package scraping
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"path"
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/client"
@@ -53,4 +57,51 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 		return nil, err
 	}
 	return sh, nil
+}
+
+func (c *nodeClient) baseTarget(height int) (int64, error) {
+	url, err := joinUrl(c.cl.GetOptions().BaseUrl, fmt.Sprintf("/blocks/headers/at/%d", height))
+	if err != nil {
+		return 0, err
+	}
+
+	resp, err := http.Get(url.String())
+	if err != nil {
+		return 0, err
+	}
+	defer resp.Body.Close()
+
+	b := struct {
+		NxtConsensus struct {
+			BaseTarget int `json:"base-target"`
+		} `json:"nxt-consensus"`
+	}{}
+
+	if err := json.NewDecoder(resp.Body).Decode(&b); err != nil {
+		return 0, err
+	}
+
+	return int64(b.NxtConsensus.BaseTarget), nil
+}
+
+func joinUrl(baseRaw string, pathRaw string) (*url.URL, error) {
+	baseUrl, err := url.Parse(baseRaw)
+	if err != nil {
+		return nil, err
+	}
+
+	pathUrl, err := url.Parse(pathRaw)
+	if err != nil {
+		return nil, err
+	}
+	// nosemgrep: go.lang.correctness.use-filepath-join.use-filepath-join
+	baseUrl.Path = path.Join(baseUrl.Path, pathUrl.Path)
+
+	query := baseUrl.Query()
+	for k := range pathUrl.Query() {
+		query.Set(k, pathUrl.Query().Get(k))
+	}
+	baseUrl.RawQuery = query.Encode()
+
+	return baseUrl, nil
 }

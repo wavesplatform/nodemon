@@ -182,3 +182,46 @@ func (e *StateHashEvent) Statement() NodeStatement {
 		StateHash: e.StateHash(),
 	}
 }
+
+type BaseTargetEvent struct {
+	node       string
+	ts         int64
+	v          string
+	h          int
+	baseTarget int64
+}
+
+func NewBaseTargetEvent(node string, ts int64, v string, h int, baseTarget int64) *BaseTargetEvent {
+	return &BaseTargetEvent{node: node, ts: ts, v: v, h: h, baseTarget: baseTarget}
+}
+
+func (e *BaseTargetEvent) Node() string {
+	return e.node
+}
+
+func (e *BaseTargetEvent) Timestamp() int64 {
+	return e.ts
+}
+
+func (e *BaseTargetEvent) Version() string {
+	return e.v
+}
+
+func (e *BaseTargetEvent) Height() int {
+	return e.h
+}
+
+func (e *BaseTargetEvent) BaseTarget() int64 {
+	return e.baseTarget
+}
+
+func (e *BaseTargetEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:       e.Node(),
+		Timestamp:  e.Timestamp(),
+		Status:     OK,
+		Version:    e.Version(),
+		Height:     e.Height(),
+		BaseTarget: e.BaseTarget(),
+	}
+}

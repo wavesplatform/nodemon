@@ -115,4 +115,11 @@ func (s *Scraper) queryNode(ctx context.Context, url string, events chan entitie
 		return
 	}
 	events <- entities.NewStateHashEvent(url, ts, v, h, sh)
+
+	bs, err := node.baseTarget(h)
+	if err != nil {
+		events <- entities.NewUnreachableEvent(url, ts)
+		return
+	}
+	events <- entities.NewBaseTargetEvent(url, ts, v, h, bs)
 }
