@@ -1,6 +1,7 @@
 package criteria
 
 import (
+	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
 )
 
@@ -12,13 +13,11 @@ type BaseTargetCriterion struct {
 	opts *BaseTargetCriterionOptions
 }
 
-func NewBaseTargetCriterion(opts *BaseTargetCriterionOptions) *BaseTargetCriterion {
-	if opts == nil { // default
-		opts = &BaseTargetCriterionOptions{
-			Threshold: opts.Threshold,
-		}
+func NewBaseTargetCriterion(opts *BaseTargetCriterionOptions) (*BaseTargetCriterion, error) {
+	if opts == nil {
+		return nil, errors.New("provided <nil> base target criterion options")
 	}
-	return &BaseTargetCriterion{opts: opts}
+	return &BaseTargetCriterion{opts: opts}, nil
 }
 
 func (c *BaseTargetCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) {

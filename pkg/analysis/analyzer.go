@@ -79,7 +79,10 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewBaseTargetCriterion(a.opts.BaseTargetCriterionOpts)
+			criterion, err := criteria.NewBaseTargetCriterion(a.opts.BaseTargetCriterionOpts)
+			if err != nil {
+				return err
+			}
 			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 			return nil
 		},
