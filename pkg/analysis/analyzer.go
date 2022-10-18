@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -137,22 +138,31 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
 		for n := range notifications {
-			// TODO: send InternalErrorAlert in case of error
-			switch notificcationType := n.(type) {
-			case *entities.OnPollingComplete:
-				a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificcationType.Nodes()))
-				cnt, err := a.es.StatementsCount()
-				if err != nil {
-					a.zap.Error("Failed to get statements count", zap.Error(err))
-				}
-				a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
-				if err := a.analyze(alerts, notificcationType); err != nil {
-					a.zap.Error("Failed to analyze nodes statements", zap.Error(err))
-				}
-			default:
-				a.zap.Sugar().Errorf("Unknown alanyzer notification (%T)", notificcationType)
+			err := a.processNotification(alerts, n)
+			if err != nil {
+				a.zap.Error("Failed to process notification", zap.Error(err))
+				ts := time.Now().Unix()
+				alerts <- entities.NewInternalErrorAlert(ts, err)
 			}
 		}
 	}(out)
 	return out
+}
+
+func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.Notification) error {
+	switch notificationType := n.(type) {
+	case *entities.OnPollingComplete:
+		a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificationType.Nodes()))
+		cnt, err := a.es.StatementsCount()
+		if err != nil {
+			return errors.Wrap(err, "failed to get statements count")
+		}
+		a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
+		if err := a.analyze(alerts, notificationType); err != nil {
+			return errors.Wrap(err, "failed to analyze nodes statements")
+		}
+		return nil
+	default:
+		return errors.Errorf("unknown alanyzer notification (%T)", notificationType)
+	}
 }
