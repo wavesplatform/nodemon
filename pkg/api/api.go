@@ -152,7 +152,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	heightEvent := entities.NewHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
 	events = append(events, heightEvent)
 
-	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, statement.Height, statehash)
+	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, statement.Height, statehash, 0) // TODO: these nodes don't send base target value at the moment
 	events = append(events, stateHashEvent)
 
 	for _, event := range events {

@@ -141,15 +141,16 @@ func (e *InvalidHeightEvent) Statement() NodeStatement {
 }
 
 type StateHashEvent struct {
-	node string
-	ts   int64
-	v    string
-	h    int
-	sh   *proto.StateHash
+	node       string
+	ts         int64
+	v          string
+	h          int
+	sh         *proto.StateHash
+	baseTarget int64
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash) *StateHashEvent {
-	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh}
+func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int64) *StateHashEvent {
+	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt}
 }
 
 func (e *StateHashEvent) Node() string {
@@ -172,14 +173,19 @@ func (e *StateHashEvent) StateHash() *proto.StateHash {
 	return e.sh
 }
 
+func (e *StateHashEvent) BaseTarget() int64 {
+	return e.baseTarget
+}
+
 func (e *StateHashEvent) Statement() NodeStatement {
 	return NodeStatement{
-		Node:      e.Node(),
-		Timestamp: e.Timestamp(),
-		Status:    OK,
-		Version:   e.Version(),
-		Height:    e.Height(),
-		StateHash: e.StateHash(),
+		Node:       e.Node(),
+		Timestamp:  e.Timestamp(),
+		Status:     OK,
+		Version:    e.Version(),
+		Height:     e.Height(),
+		StateHash:  e.StateHash(),
+		BaseTarget: e.BaseTarget(),
 	}
 }
 
@@ -219,7 +225,7 @@ func (e *BaseTargetEvent) Statement() NodeStatement {
 	return NodeStatement{
 		Node:       e.Node(),
 		Timestamp:  e.Timestamp(),
-		Status:     OK,
+		Status:     Incomplete,
 		Version:    e.Version(),
 		Height:     e.Height(),
 		BaseTarget: e.BaseTarget(),

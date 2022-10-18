@@ -107,21 +107,19 @@ func (s *Scraper) queryNode(ctx context.Context, url string, events chan entitie
 		events <- entities.NewInvalidHeightEvent(url, ts, v, h)
 		return
 	}
+	events <- entities.NewHeightEvent(url, ts, v, h)
 
 	bs, err := node.baseTarget(h)
 	if err != nil {
-		events <- entities.NewUnreachableEvent(url, ts)
-		return
+		log.Printf("Failed to get base target for node %s: %v", url, err) // TODO change it to zap error log
 	}
-	events <- entities.NewBaseTargetEvent(url, ts, v, h-1, bs)
 
-	events <- entities.NewHeightEvent(url, ts, v, h)
 	h = h - 1 // Go to previous height to request state hash
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
 		events <- entities.NewUnreachableEvent(url, ts)
 		return
 	}
-	events <- entities.NewStateHashEvent(url, ts, v, h, sh)
+	events <- entities.NewStateHashEvent(url, ts, v, h, sh, bs)
 
 }

@@ -388,11 +388,11 @@ func she(n string, h int, ts int64) entities.Event {
 }
 
 func fshe(n string, h int, ts int64, sh *proto.StateHash) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, sh)
+	return entities.NewStateHashEvent(n, ts, "", h, sh, 1)
 }
 
 func he(n string, h int, ts int64) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, nil)
+	return entities.NewStateHashEvent(n, ts, "", h, nil, 1)
 }
 
 func loadEvents(t *testing.T, st *Storage, events []entities.Event) {
