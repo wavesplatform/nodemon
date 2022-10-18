@@ -47,7 +47,7 @@ const (
 
 const (
 	InfoLevel  = "Info"
-	WarnLevel  = "Warn"
+	WarnLevel  = "Warning"
 	ErrorLevel = "Error"
 )
 
@@ -387,7 +387,7 @@ func (a *InternalErrorAlert) ID() string {
 }
 
 func (a *InternalErrorAlert) Message() string {
-	return fmt.Sprintf("Internal monitoring error occurred: %s", a.Error)
+	return fmt.Sprintf("An internal error has occurred: %s", a.Error)
 }
 
 func (a *InternalErrorAlert) Time() time.Time {
