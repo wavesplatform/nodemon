@@ -113,7 +113,7 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodesStorage.NewStorage(storage, nodes)
+	ns, err := nodesStorage.NewStorage(storage, nodes, zap)
 	if err != nil {
 		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
 		return err

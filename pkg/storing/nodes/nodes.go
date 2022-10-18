@@ -1,12 +1,12 @@
 package nodes
 
 import (
-	"log"
 	"strings"
 
 	"github.com/jameycribbs/hare"
 	"github.com/jameycribbs/hare/datastores/disk"
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/common"
 )
@@ -35,10 +35,11 @@ func (n *node) AfterFind(_ *hare.Database) error {
 }
 
 type Storage struct {
-	db *hare.Database
+	db  *hare.Database
+	zap *zap.Logger
 }
 
-func NewStorage(path string, nodes string) (*Storage, error) {
+func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error) {
 	ds, err := disk.New(path, common.DefaultStorageExtension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
@@ -57,7 +58,7 @@ func NewStorage(path string, nodes string) (*Storage, error) {
 			return nil, errors.Wrapf(err, "failed to initialize specific nodes storage at '%s'", path)
 		}
 	}
-	cs := &Storage{db: db}
+	cs := &Storage{db: db, zap: logger}
 	err = cs.populate(nodes)
 	if err != nil {
 		return nil, err
@@ -90,7 +91,7 @@ func (cs *Storage) InsertIfNew(url string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("New node #%d at '%s' was stored", id, url)
+		cs.zap.Sugar().Infof("New node #%d at '%s' was stored", id, url)
 	}
 	return nil
 }
@@ -108,7 +109,7 @@ func (cs *Storage) InsertSpecificIfNew(url string) error {
 		if err != nil {
 			return err
 		}
-		log.Printf("New node #%d at '%s' was stored", id, url)
+		cs.zap.Sugar().Infof("New node #%d at '%s' was stored", id, url)
 	}
 	return nil
 }
@@ -128,7 +129,7 @@ func (cs *Storage) Delete(url string) error {
 			if err != nil {
 				return err
 			}
-			log.Printf("Node #%d at '%s' was deleted", id, url)
+			cs.zap.Sugar().Infof("Node #%d at '%s' was deleted", id, url)
 
 		}
 	}
