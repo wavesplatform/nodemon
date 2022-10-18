@@ -294,7 +294,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		if statement.Height == minHeight {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
+			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d", node, minHeight, statement.Height)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 		}
 	}
