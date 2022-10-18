@@ -2,7 +2,6 @@ package events
 
 import (
 	"encoding/json"
-	"log"
 	"math"
 	"strconv"
 	"time"
@@ -10,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
@@ -25,14 +25,15 @@ const (
 type Storage struct {
 	db                *buntdb.DB
 	retentionDuration time.Duration
+	zap               *zap.Logger
 }
 
-func NewStorage(retentionDuration time.Duration) (*Storage, error) {
+func NewStorage(retentionDuration time.Duration, logger *zap.Logger) (*Storage, error) {
 	db, err := buntdb.Open(":memory:")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
 	}
-	return &Storage{db: db, retentionDuration: retentionDuration}, nil
+	return &Storage{db: db, retentionDuration: retentionDuration, zap: logger}, nil
 }
 
 func (s *Storage) Close() error {
@@ -93,8 +94,7 @@ func (s *Storage) PutEvent(event entities.Event) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to store event")
 	}
-	// TODO: uncomment and move to DEBUG logging mode (https://github.com/wavesplatform/nodemon/issues/71)
-	//log.Printf("New statement for node %s:\n%s\n", event.Node(), v)
+	s.zap.Debug("New statement for node", zap.String("node", event.Node()), zap.String("statement", v))
 	return nil
 }
 
@@ -287,14 +287,14 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 			if !errors.Is(err, NoFullStatementError) {
 				return nil, errors.Wrapf(err, "failed to find statement at height %d for node '%s'", minHeight, node)
 			}
-			log.Printf("failed to find a statement for node %s on height %d: %v\n", node, minHeight, err)
+			s.zap.Error("failed to find statement at height", zap.Int("height", minHeight), zap.String("node", node), zap.Error(err))
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
 		if statement.Height == minHeight {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			log.Printf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
+			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d", node, minHeight, statement.Height)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 		}
 	}

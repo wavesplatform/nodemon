@@ -2,11 +2,11 @@ package handlers
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/bots/internal/common"
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
@@ -228,22 +228,26 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle("/status", func(c tele.Context) error {
 		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
 		if err != nil {
-			log.Printf("failed to request list of nodes, %v", err)
+			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
+			return err
 		}
 		additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
 		if err != nil {
-			log.Printf("failed to request list of specific nodes, %v", err)
+			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
+			return err
 		}
 		urls = append(urls, additionalUrls...)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
-			log.Printf("failed to request status of nodes, %v", err)
+			environment.Zap.Error("failed to request status of nodes", zap.Error(err))
+			return err
 		}
 
 		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html)
 		if err != nil {
-			log.Printf("failed to handle status of nodes, %v", err)
+			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
+			return err
 		}
 
 		if statusCondition.AllNodesAreOk {
