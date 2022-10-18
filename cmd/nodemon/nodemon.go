@@ -34,30 +34,28 @@ var (
 )
 
 func main() {
-	if err := run(); err != nil {
-		switch err {
-		case context.Canceled:
-			os.Exit(130)
-		case errorInvalidParameters:
-			os.Exit(2)
-		default:
-			log.Println(err)
-			os.Exit(1)
-		}
-	}
-}
-
-func run() error {
 	zap, err := zapLogger.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
+		if err := zap.Sync(); err != nil {
 			log.Println(err)
 		}
 	}(zap)
+	if err := run(zap); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			os.Exit(130)
+		case errors.Is(err, errorInvalidParameters):
+			os.Exit(2)
+		default:
+			zap.Sugar().Fatal(err)
+		}
+	}
+}
+
+func run(zap *zapLogger.Logger) error {
 	var (
 		storage                string
 		nodes                  string
