@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -40,7 +39,7 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case <-ctx.Done():
 			return nil
 		case alert := <-alerts:
-			logger.Info(fmt.Sprintf("Alert has been generated: %v", alert))
+			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
 			jsonAlert, err := json.Marshal(
 				messaging.Alert{

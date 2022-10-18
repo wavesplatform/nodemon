@@ -55,7 +55,7 @@ func (a *API) Start() error {
 	go func() {
 		err := a.srv.Serve(l)
 		if err != nil && err != http.ErrServerClosed {
-			a.zap.Fatal(fmt.Sprintf("Failed to serve REST API at '%s': %v", a.srv.Addr, err))
+			a.zap.Sugar().Fatalf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
 		}
 	}()
 	return nil
@@ -173,7 +173,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sumhash := strings.Replace(statehash.SumHash.Hex(), "\n", "", -1)
 	sumhash = strings.Replace(sumhash, "\r", "", -1)
-	a.zap.Info(fmt.Sprintf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash))
+	a.zap.Sugar().Infof("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash)
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {

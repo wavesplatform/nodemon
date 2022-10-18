@@ -2,7 +2,6 @@ package events
 
 import (
 	"encoding/json"
-	"fmt"
 	"math"
 	"strconv"
 	"time"
@@ -295,7 +294,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 		if statement.Height == minHeight {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			s.zap.Error(fmt.Sprintf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height))
+			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d\n, received %d\n", node, minHeight, statement.Height)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 		}
 	}

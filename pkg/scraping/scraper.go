@@ -2,7 +2,6 @@ package scraping
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -73,7 +72,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 		cnt := 0
 		for e := range ec {
 			if err := s.es.PutEvent(e); err != nil {
-				s.zap.Error(fmt.Sprintf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err))
+				s.zap.Sugar().Errorf("Failed to collect event '%T' from node %s: %v", e, e.Node(), err)
 			}
 			switch e.(type) {
 			case *entities.UnreachableEvent, *entities.InvalidHeightEvent, *entities.StateHashEvent:
@@ -81,7 +80,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 			}
 			cnt++
 		}
-		s.zap.Info(fmt.Sprintf("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt))
+		s.zap.Sugar().Infof("Polling of %d nodes completed with %d events collected", len(enabledNodes), cnt)
 	}()
 	wg.Wait()
 	urls := make([]string, len(enabledNodes))

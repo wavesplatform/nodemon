@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -139,17 +138,17 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 		for n := range notifications {
 			switch notificcationType := n.(type) {
 			case *entities.OnPollingComplete:
-				a.zap.Info(fmt.Sprintf("On polling complete of %d nodes", len(notificcationType.Nodes())))
+				a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificcationType.Nodes()))
 				cnt, err := a.es.StatementsCount()
 				if err != nil {
 					a.zap.Error("Failed to get statements count", zap.Error(err))
 				}
-				a.zap.Info(fmt.Sprintf("Total statemetns count: %d", cnt))
+				a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
 				if err := a.analyze(alerts, notificcationType); err != nil {
 					a.zap.Error("Failed to analyze nodes statements", zap.Error(err))
 				}
 			default:
-				a.zap.Error(fmt.Sprintf("Unknown alanyzer notification (%T)", notificcationType))
+				a.zap.Sugar().Errorf("Unknown alanyzer notification (%T)", notificcationType)
 			}
 		}
 	}(out)

@@ -119,7 +119,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		dscBot.Zap.Error(fmt.Sprintf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType))
+		dscBot.Zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
 
 		if err != nil {
@@ -151,7 +151,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		dscBot.Subscriptions.Add(alertType, alertName)
-		dscBot.Zap.Info(fmt.Sprintf("subscribed to %s", alertName))
+		dscBot.Zap.Sugar().Infof("subscribed to %s", alertName)
 	}
 
 	return nil
@@ -206,7 +206,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		tgEnv.Zap.Error(fmt.Sprintf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType))
+		tgEnv.Zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
@@ -293,7 +293,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		tgEnv.subscriptions.Add(alertType, alertName)
-		tgEnv.Zap.Info(fmt.Sprintf("Telegram bot subscribed to %s", alertName))
+		tgEnv.Zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	}
 
 	return nil
@@ -314,7 +314,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
 	tgEnv.subscriptions.Add(alertType, alertName)
-	tgEnv.Zap.Info(fmt.Sprintf("Telegram bot subscribed to %s", alertName))
+	tgEnv.Zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	return nil
 }
 
@@ -337,7 +337,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
 	}
 	tgEnv.subscriptions.Delete(alertType)
-	tgEnv.Zap.Info(fmt.Sprintf("Telegram bot unsubscribed from %s", alertName))
+	tgEnv.Zap.Sugar().Infof("Telegram bot unsubscribed from %s", alertName)
 	return nil
 }
 
