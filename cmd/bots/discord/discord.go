@@ -19,29 +19,26 @@ import (
 )
 
 func main() {
-	err := runDiscordBot()
-	if err != nil {
-		switch err {
-		case context.Canceled:
-			os.Exit(130)
-		default:
-			log.Println(err)
-			os.Exit(1)
-		}
-	}
-}
-
-func runDiscordBot() error {
 	zap, err := zapLogger.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
+		if err := zap.Sync(); err != nil {
 			log.Println(err)
 		}
 	}(zap)
+	if err := runDiscordBot(zap); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
+			os.Exit(130)
+		default:
+			zap.Sugar().Fatal(err)
+		}
+	}
+}
+
+func runDiscordBot(zap *zapLogger.Logger) error {
 
 	var (
 		nanomsgPubSubURL string
