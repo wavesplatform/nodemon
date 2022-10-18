@@ -1,8 +1,6 @@
 package init
 
 import (
-	"log"
-
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -27,7 +25,7 @@ func InitTgBot(behavior string,
 		return nil, errors.Wrap(err, "failed to start telegram bot")
 	}
 
-	log.Printf("telegram chat id for sending alerts is %d", chatID)
+	logger.Sugar().Debugf("telegram chat id for sending alerts is %d", chatID)
 
 	tgBotEnv := common.NewTelegramBotEnvironment(bot, chatID, false, logger)
 	return tgBotEnv, nil
@@ -42,7 +40,7 @@ func InitDiscordBot(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start discord bot")
 	}
-	log.Printf("discord chat id for sending alerts is %s", chatID)
+	logger.Sugar().Debugf("discord chat id for sending alerts is %s", chatID)
 
 	bot.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 	dscBotEnv := common.NewDiscordBotEnvironment(bot, chatID, logger)
