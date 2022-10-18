@@ -394,7 +394,7 @@ func (a *BaseTargetAlert) ID() string {
 func (a *BaseTargetAlert) Message() string {
 	msg := fmt.Sprintf("Base target is greater than the treshold value. The treshold value is %d\n\n", a.Threshold)
 	for _, baseTarget := range a.BaseTargetValues {
-		msg += fmt.Sprintf("Node %s\n: Base target: %d\n\n", baseTarget.Node, baseTarget.BaseTarget)
+		msg += fmt.Sprintf("Node %s\nBase target: %d\n\n", baseTarget.Node, baseTarget.BaseTarget)
 	}
 
 	return msg
