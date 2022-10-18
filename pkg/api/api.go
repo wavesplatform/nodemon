@@ -171,7 +171,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 
-	sumhash := strings.Replace(statehash.SumHash.String(), "\n", "", -1)
+	sumhash := strings.Replace(statehash.SumHash.Hex(), "\n", "", -1)
 	sumhash = strings.Replace(sumhash, "\r", "", -1)
 	a.zap.Info(fmt.Sprintf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash))
 }
