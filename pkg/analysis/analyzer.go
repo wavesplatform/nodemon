@@ -76,7 +76,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.zap)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}

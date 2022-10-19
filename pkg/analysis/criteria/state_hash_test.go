@@ -109,6 +109,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 		forkB             = generateStateHashes(50, 5)
 		forkC             = generateStateHashes(100, 5)
 		commonStateHashes = generateStateHashes(250, 5)
+		opts              = &StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 2}
 	)
 	tests := []struct {
 		opts           *StateHashCriterionOptions
@@ -117,18 +118,18 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &StateHashCriterionOptions{MaxForkDepth: 1},
+			opts: opts,
 			historyData: mergeEvents(
-				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:1])...),
+				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:2])...),
 				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
 			),
 			data: eventsToStatements(mergeEvents(
-				mkEvents("a", 4, forkA[1:2]...),
+				mkEvents("a", 5, forkA[2:3]...),
 				mkEvents("b", 4, forkB[1:2]...),
 			)),
 			expectedAlerts: []entities.StateHashAlert{
 				{
-					CurrentGroupsHeight:       4,
+					CurrentGroupsBucketHeight: 4,
 					LastCommonStateHashExist:  true,
 					LastCommonStateHashHeight: 2,
 					LastCommonStateHash:       commonStateHashes[1].sh,
@@ -144,7 +145,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			},
 		},
 		{
-			opts: &StateHashCriterionOptions{MaxForkDepth: 1},
+			opts: opts,
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:1])...),
 				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:1])...),
@@ -159,7 +160,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			)),
 			expectedAlerts: []entities.StateHashAlert{
 				{
-					CurrentGroupsHeight:       4,
+					CurrentGroupsBucketHeight: 4,
 					LastCommonStateHashExist:  true,
 					LastCommonStateHashHeight: 2,
 					LastCommonStateHash:       commonStateHashes[1].sh,
@@ -173,7 +174,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 					},
 				},
 				{
-					CurrentGroupsHeight:       4,
+					CurrentGroupsBucketHeight: 4,
 					LastCommonStateHashExist:  true,
 					LastCommonStateHashHeight: 2,
 					LastCommonStateHash:       commonStateHashes[1].sh,
@@ -189,7 +190,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			},
 		},
 		{
-			opts: &StateHashCriterionOptions{MaxForkDepth: 1},
+			opts: opts,
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(forkA[:1])...),
 				mkEvents("b", 1, mergeShInfo(forkB[:1])...),
@@ -200,7 +201,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			)),
 			expectedAlerts: []entities.StateHashAlert{
 				{
-					CurrentGroupsHeight:       2,
+					CurrentGroupsBucketHeight: 2,
 					LastCommonStateHashExist:  false,
 					LastCommonStateHashHeight: 0,
 					LastCommonStateHash:       proto.StateHash{},
@@ -235,7 +236,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewStateHashCriterion(es, test.opts)
+				criterion := NewStateHashCriterion(es, test.opts, zap)
 				err := criterion.Analyze(alerts, 0, test.data)
 				require.NoError(t, err)
 			}()

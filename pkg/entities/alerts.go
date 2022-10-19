@@ -255,10 +255,10 @@ type StateHashGroup struct {
 
 type StateHashAlert struct {
 	Timestamp                 int64           `json:"timestamp"`
-	CurrentGroupsHeight       int             `json:"current_groups_height"`
+	CurrentGroupsBucketHeight int             `json:"current_groups_bucket_height"`
 	LastCommonStateHashExist  bool            `json:"last_common_state_hash_exist"`
 	LastCommonStateHashHeight int             `json:"last_common_state_hash_height"` // can be empty if LastCommonStateHashExist == false
-	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        /// can be empty if LastCommonStateHashExist == false
+	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        // can be empty if LastCommonStateHashExist == false
 	FirstGroup                StateHashGroup  `json:"first_group"`
 	SecondGroup               StateHashGroup  `json:"second_group"`
 }
@@ -271,7 +271,7 @@ func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
 			"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
-			a.CurrentGroupsHeight,
+			a.CurrentGroupsBucketHeight,
 			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
 			a.FirstGroup.Nodes,
@@ -285,7 +285,7 @@ func (a *StateHashAlert) Message() string {
 	}
 	return fmt.Sprintf(
 		"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Failed to find last common state hash and blockID",
-		a.CurrentGroupsHeight,
+		a.CurrentGroupsBucketHeight,
 		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
 		a.FirstGroup.Nodes,
