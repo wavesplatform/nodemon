@@ -1,9 +1,11 @@
 package criteria
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -22,16 +24,17 @@ type StateHashCriterionOptions struct {
 type StateHashCriterion struct {
 	opts *StateHashCriterionOptions
 	es   *events.Storage
+	zap  *zap.Logger
 }
 
-func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions) *StateHashCriterion {
+func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, zap *zap.Logger) *StateHashCriterion {
 	if opts == nil { // default
 		opts = &StateHashCriterionOptions{
 			MaxForkDepth:     defaultMaxForkDepth,
 			HeightBucketSize: defaultHeightBucketSize,
 		}
 	}
-	return &StateHashCriterion{opts: opts, es: es}
+	return &StateHashCriterion{opts: opts, es: es, zap: zap}
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
@@ -47,8 +50,11 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 				statementAtBucketHeight, err = c.es.GetStatementAtHeight(statement.Node, bucketHeight)
 				if err != nil {
 					if errors.Is(err, events.NoFullStatementError) {
-						// TODO: should we ignore statement in such case?
-						//  consider creating new alert with warning level for such situations
+						msg := fmt.Sprintf("StateHashCriterion: No full statement for node %q at height %d",
+							statement.Node, statement.Height,
+						)
+						c.zap.Warn(msg)
+						alerts <- entities.NewInternalErrorAlert(timestamp, errors.New(msg))
 						continue
 					}
 					return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)

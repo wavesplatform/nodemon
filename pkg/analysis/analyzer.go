@@ -76,7 +76,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.zap)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 	}
@@ -98,7 +98,6 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
-				// TODO: send internal analyzer alert
 				a.zap.Error("Error occurred on criterion routine", zap.Error(err))
 				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), err)
 			}

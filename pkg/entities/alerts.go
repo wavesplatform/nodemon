@@ -365,8 +365,6 @@ func (a *AlertFixed) Level() string {
 	return InfoLevel
 }
 
-// TODO: create internal error alert for analyzer
-
 type InternalErrorAlert struct {
 	Timestamp int64  `json:"timestamp"`
 	Error     string `json:"error"`

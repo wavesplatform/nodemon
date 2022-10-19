@@ -236,7 +236,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewStateHashCriterion(es, test.opts)
+				criterion := NewStateHashCriterion(es, test.opts, zap)
 				err := criterion.Analyze(alerts, 0, test.data)
 				require.NoError(t, err)
 			}()
