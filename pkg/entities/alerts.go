@@ -20,6 +20,7 @@ const (
 	HeightAlertType
 	StateHashAlertType
 	AlertFixedType
+	InternalErrorAlertType
 )
 
 var AlertTypes = map[AlertType]string{
@@ -30,6 +31,7 @@ var AlertTypes = map[AlertType]string{
 	HeightAlertType:        HeightAlertNotification,
 	StateHashAlertType:     StateHashAlertNotification,
 	AlertFixedType:         AlertFixedNotification,
+	InternalErrorAlertType: InternalErrorNotification,
 }
 
 const (
@@ -40,10 +42,12 @@ const (
 	HeightAlertNotification        = "HeightAlert"
 	StateHashAlertNotification     = "StateHashAlert"
 	AlertFixedNotification         = "AlertFixed"
+	InternalErrorNotification      = "InternalErrorAlert"
 )
 
 const (
 	InfoLevel  = "Info"
+	WarnLevel  = "Warning"
 	ErrorLevel = "Error"
 )
 
@@ -359,4 +363,45 @@ func (a *AlertFixed) Type() AlertType {
 
 func (a *AlertFixed) Level() string {
 	return InfoLevel
+}
+
+type InternalErrorAlert struct {
+	Timestamp int64  `json:"timestamp"`
+	Error     string `json:"error"`
+}
+
+func NewInternalErrorAlert(timestamp int64, err error) *InternalErrorAlert {
+	return &InternalErrorAlert{
+		Timestamp: timestamp,
+		Error:     fmt.Sprintf("%v", err),
+	}
+}
+
+func (a *InternalErrorAlert) ShortDescription() string {
+	return InternalErrorNotification
+}
+
+func (a *InternalErrorAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Error))
+	return digest.String()
+}
+
+func (a *InternalErrorAlert) Message() string {
+	return fmt.Sprintf("An internal error has occurred: %s", a.Error)
+}
+
+func (a *InternalErrorAlert) Time() time.Time {
+	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *InternalErrorAlert) Type() AlertType {
+	return InternalErrorAlertType
+}
+
+func (a *InternalErrorAlert) Level() string {
+	return WarnLevel
+}
+
+func (a *InternalErrorAlert) String() string {
+	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }
