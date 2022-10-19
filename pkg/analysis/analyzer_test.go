@@ -162,8 +162,13 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 				defer close(done)
 				analyzer := NewAnalyzer(es, test.opts, zap)
 				event := entities.NewOnPollingComplete(test.nodes, mkTimestamp(test.height))
-				err := analyzer.analyze(alerts, event)
-				require.NoError(t, err)
+				notifications := make(chan entities.Notification)
+				analyzerOut := analyzer.Start(notifications)
+				notifications <- event
+				close(notifications)
+				for alert := range analyzerOut {
+					alerts <- alert
+				}
 			}()
 			for j := range test.expectedAlerts {
 				select {

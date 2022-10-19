@@ -665,6 +665,8 @@ func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Aler
 	switch alertType {
 	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
 		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
+	case entities.InternalErrorAlertType:
+		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.WarnMsg)
 	case entities.IncompleteAlertType:
 		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.QuestionMsg)
 	case entities.AlertFixedType:
@@ -675,6 +677,8 @@ func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Aler
 	switch alert.Level {
 	case entities.InfoLevel:
 		alert.Level += fmt.Sprintf(" %s", commonMessages.InfoMsg)
+	case entities.WarnLevel:
+		alert.Level += fmt.Sprintf(" %s", commonMessages.WarnMsg)
 	case entities.ErrorLevel:
 		alert.Level += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
 	default:
