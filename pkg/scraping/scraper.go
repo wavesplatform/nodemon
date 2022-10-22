@@ -3,7 +3,6 @@ package scraping
 import (
 	"context"
 	"log"
-	u "net/url"
 	"sync"
 	"time"
 
@@ -12,8 +11,6 @@ import (
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 )
-
-var goNode = "mainnet-statehash-go-htz-fsn1-1.wavesnodes.com"
 
 type Scraper struct {
 	ns       *nodes.Storage
@@ -112,18 +109,12 @@ func (s *Scraper) queryNode(ctx context.Context, url string, events chan entitie
 	}
 	events <- entities.NewHeightEvent(url, ts, v, h)
 
-	bs, err := node.baseTarget(h)
+	bs, err := node.baseTarget(ctx, h)
 	if err != nil {
-		nodeUrl, err := u.Parse(node.cl.GetOptions().BaseUrl)
-		if err != nil {
-			log.Printf("Failed to parse node url: %v", err)
-			return
-		}
 		log.Printf("failed to get base target for height %d from node %s: %v", h, url, err)
-		if nodeUrl.Hostname() != goNode { // skip go node
-			events <- entities.NewBaseTargetEvent(url, ts, v, h, bs)
-			return
-		}
+		events <- entities.NewBaseTargetEvent(url, ts, v, h, bs)
+		return
+
 	}
 
 	h = h - 1 // Go to previous height to request state hash

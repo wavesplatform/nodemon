@@ -58,14 +58,14 @@ func run() error {
 		nanomsgPairDiscordURL  string
 		retention              time.Duration
 		apiReadTimeout         time.Duration
-		baseTargetThreshold    int64
+		baseTargetThreshold    int
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.Int64Var(&baseTargetThreshold, "base-target-threshold", 0, "Base target threshold. Must be specified")
+	flag.IntVar(&baseTargetThreshold, "base-target-threshold", 0, "Base target threshold. Must be specified")
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairTelegramURL, "nano-msg-pair-telegram-url", "", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&nanomsgPairDiscordURL, "nano-msg-pair-discord-url", "", "Nanomsg IPC URL for pair socket")

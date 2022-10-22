@@ -146,10 +146,10 @@ type StateHashEvent struct {
 	v          string
 	h          int
 	sh         *proto.StateHash
-	baseTarget int64
+	baseTarget int
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int64) *StateHashEvent {
+func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int) *StateHashEvent {
 	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt}
 }
 
@@ -173,7 +173,7 @@ func (e *StateHashEvent) StateHash() *proto.StateHash {
 	return e.sh
 }
 
-func (e *StateHashEvent) BaseTarget() int64 {
+func (e *StateHashEvent) BaseTarget() int {
 	return e.baseTarget
 }
 
@@ -194,10 +194,10 @@ type BaseTargetEvent struct {
 	ts         int64
 	v          string
 	h          int
-	baseTarget int64
+	baseTarget int
 }
 
-func NewBaseTargetEvent(node string, ts int64, v string, h int, baseTarget int64) *BaseTargetEvent {
+func NewBaseTargetEvent(node string, ts int64, v string, h int, baseTarget int) *BaseTargetEvent {
 	return &BaseTargetEvent{node: node, ts: ts, v: v, h: h, baseTarget: baseTarget}
 }
 
@@ -217,7 +217,7 @@ func (e *BaseTargetEvent) Height() int {
 	return e.h
 }
 
-func (e *BaseTargetEvent) BaseTarget() int64 {
+func (e *BaseTargetEvent) BaseTarget() int {
 	return e.baseTarget
 }
 

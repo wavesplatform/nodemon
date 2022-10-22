@@ -366,13 +366,13 @@ func (a *AlertFixed) Level() string {
 
 type BaseTargetValue struct {
 	Node       string `json:"node"`
-	BaseTarget int64  `json:"base_target"`
+	BaseTarget int    `json:"base_target"`
 }
 
 type BaseTargetAlert struct {
 	Timestamp        int64             `json:"timestamp"`
 	BaseTargetValues []BaseTargetValue `json:"thresh_holds"`
-	Threshold        int64             `json:"default_value"`
+	Threshold        int               `json:"default_value"`
 }
 
 func (a *BaseTargetAlert) ShortDescription() string {

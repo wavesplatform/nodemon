@@ -24,7 +24,7 @@ type NodeStatement struct {
 	Version    string           `json:"version,omitempty"`
 	Height     int              `json:"height,omitempty"`
 	StateHash  *proto.StateHash `json:"state_hash,omitempty"`
-	BaseTarget int64            `json:"base_target,omitempty"`
+	BaseTarget int              `json:"base_target,omitempty"`
 }
 
 type Nodes []string
