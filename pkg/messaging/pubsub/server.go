@@ -4,36 +4,33 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
 	"strings"
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pub"
 	_ "go.nanomsg.org/mangos/v3/transport/all"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
 )
 
-func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert) error {
+func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		log.Printf("Invalid nanomsg IPC URL for pub server'%s'", nanomsgURL)
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
 
 	socketPub, err := pub.NewSocket()
 	if err != nil {
-		log.Printf("Failed to get new pub socket: %v", err)
 		return err
 	}
 	defer func(socketPub protocol.Socket) {
 		if err := socketPub.Close(); err != nil {
-			log.Printf("Failed to close pub socket: %v", err)
+			logger.Error("Failed to close pub socket", zap.Error(err))
 		}
 	}(socketPub)
 
 	if err := socketPub.Listen(nanomsgURL); err != nil {
-		log.Printf("Failed to listen on pub socket: %v", err)
 		return err
 	}
 
@@ -42,7 +39,7 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case <-ctx.Done():
 			return nil
 		case alert := <-alerts:
-			log.Printf("Alert has been generated: %v", alert)
+			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
 			jsonAlert, err := json.Marshal(
 				messaging.Alert{
@@ -51,7 +48,7 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 					Details:          alert.Message(),
 				})
 			if err != nil {
-				log.Printf("failed to marshal alert to json, %v", err)
+				logger.Error("Failed to marshal alert to json", zap.Error(err))
 			}
 
 			message := &bytes.Buffer{}
@@ -59,7 +56,7 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 			message.Write(jsonAlert)
 			err = socketPub.Send(message.Bytes())
 			if err != nil {
-				log.Printf("failed to send a message to socket, %v", err)
+				logger.Error("Failed to send alert to socket", zap.Error(err))
 			}
 		}
 	}

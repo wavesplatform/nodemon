@@ -21,6 +21,7 @@ const (
 	StateHashAlertType
 	AlertFixedType
 	BaseTargetAlertType
+	InternalErrorAlertType
 )
 
 var AlertTypes = map[AlertType]string{
@@ -32,6 +33,7 @@ var AlertTypes = map[AlertType]string{
 	StateHashAlertType:     StateHashAlertNotification,
 	AlertFixedType:         AlertFixedNotification,
 	BaseTargetAlertType:    BaseTargetAlertNotification,
+	InternalErrorAlertType: InternalErrorNotification,
 }
 
 const (
@@ -43,10 +45,12 @@ const (
 	StateHashAlertNotification     = "StateHashAlert"
 	AlertFixedNotification         = "AlertFixed"
 	BaseTargetAlertNotification    = "BaseTargetAlert"
+	InternalErrorNotification      = "InternalErrorAlert"
 )
 
 const (
 	InfoLevel  = "Info"
+	WarnLevel  = "Warning"
 	ErrorLevel = "Error"
 )
 
@@ -254,10 +258,10 @@ type StateHashGroup struct {
 
 type StateHashAlert struct {
 	Timestamp                 int64           `json:"timestamp"`
-	CurrentGroupsHeight       int             `json:"current_groups_height"`
+	CurrentGroupsBucketHeight int             `json:"current_groups_bucket_height"`
 	LastCommonStateHashExist  bool            `json:"last_common_state_hash_exist"`
 	LastCommonStateHashHeight int             `json:"last_common_state_hash_height"` // can be empty if LastCommonStateHashExist == false
-	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        /// can be empty if LastCommonStateHashExist == false
+	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        // can be empty if LastCommonStateHashExist == false
 	FirstGroup                StateHashGroup  `json:"first_group"`
 	SecondGroup               StateHashGroup  `json:"second_group"`
 }
@@ -270,7 +274,7 @@ func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
 			"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
-			a.CurrentGroupsHeight,
+			a.CurrentGroupsBucketHeight,
 			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
 			a.FirstGroup.Nodes,
@@ -284,7 +288,7 @@ func (a *StateHashAlert) Message() string {
 	}
 	return fmt.Sprintf(
 		"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Failed to find last common state hash and blockID",
-		a.CurrentGroupsHeight,
+		a.CurrentGroupsBucketHeight,
 		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
 		a.FirstGroup.Nodes,
@@ -414,4 +418,45 @@ func (a *BaseTargetAlert) Type() AlertType {
 
 func (a *BaseTargetAlert) Level() string {
 	return ErrorLevel
+}
+
+type InternalErrorAlert struct {
+	Timestamp int64  `json:"timestamp"`
+	Error     string `json:"error"`
+}
+
+func NewInternalErrorAlert(timestamp int64, err error) *InternalErrorAlert {
+	return &InternalErrorAlert{
+		Timestamp: timestamp,
+		Error:     fmt.Sprintf("%v", err),
+	}
+}
+
+func (a *InternalErrorAlert) ShortDescription() string {
+	return InternalErrorNotification
+}
+
+func (a *InternalErrorAlert) ID() string {
+	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Error))
+	return digest.String()
+}
+
+func (a *InternalErrorAlert) Message() string {
+	return fmt.Sprintf("An internal error has occurred: %s", a.Error)
+}
+
+func (a *InternalErrorAlert) Time() time.Time {
+	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *InternalErrorAlert) Type() AlertType {
+	return InternalErrorAlertType
+}
+
+func (a *InternalErrorAlert) Level() string {
+	return WarnLevel
+}
+
+func (a *InternalErrorAlert) String() string {
+	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }

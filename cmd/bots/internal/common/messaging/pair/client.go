@@ -4,30 +4,29 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log"
 	"strings"
 
+	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	pairProtocol "go.nanomsg.org/mangos/v3/protocol/pair"
+	"go.uber.org/zap"
 	"nodemon/pkg/messaging/pair"
 )
 
-func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPair chan pair.RequestPair, responsePair chan pair.ResponsePair) error {
+func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPair chan pair.RequestPair, responsePair chan pair.ResponsePair, logger *zap.Logger) error {
 	pairSocket, err := pairProtocol.NewSocket()
 	if err != nil {
-		log.Printf("failed to get new pair socket: %v", err)
-		return err
+		return errors.Wrap(err, "failed to get new pair socket")
 	}
 
 	defer func(pairSocket protocol.Socket) {
 		if err := pairSocket.Close(); err != nil {
-			log.Printf("Failed to close pair socket: %v", err)
+			logger.Error("failed to close a pair socket", zap.Error(err))
 		}
 	}(pairSocket)
 
 	if err := pairSocket.Dial(nanomsgURL); err != nil {
-		log.Printf("failed to dial on pair socket: %v", err)
-		return err
+		return errors.Wrap(err, "failed to dial on pair socket")
 	}
 
 	go func() {
@@ -51,17 +50,17 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
-						log.Printf("faied to send a request to pair socket, %v", err)
+						logger.Error("failed to send message", zap.Error(err))
 					}
 
 					response, err := pairSocket.Recv()
 					if err != nil {
-						log.Printf("failed to receive a response from pair socket, %v", err)
+						logger.Error("failed to receive message", zap.Error(err))
 					}
 					nodeList := pair.NodesListResponse{}
 					err = json.Unmarshal(response, &nodeList)
 					if err != nil {
-						log.Printf("failed to unmarshal response from pair socket, %v", err)
+						logger.Error("failed to unmarshal message", zap.Error(err))
 					}
 					responsePair <- &nodeList
 				case *pair.InsertNewNodeRequest:
@@ -74,7 +73,7 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					message.Write([]byte(r.Url))
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
-						log.Printf("faied to send a request to pair socket, %v", err)
+						logger.Error("failed to send message", zap.Error(err))
 					}
 
 				case *pair.DeleteNodeRequest:
@@ -83,7 +82,7 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					message.Write([]byte(r.Url))
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
-						log.Printf("faied to send a request to pair socket, %v", err)
+						logger.Error("failed to send a request to pair socket", zap.Error(err))
 					}
 				case *pair.NodesStatusRequest:
 					message.WriteByte(byte(pair.RequestNodesStatus))
@@ -91,23 +90,22 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 					message.Write([]byte(strings.Join(r.Urls, ",")))
 					err = pairSocket.Send(message.Bytes())
 					if err != nil {
-						log.Printf("faied to send a request to pair socket, %v", err)
+						logger.Error("failed to send a request to pair socket", zap.Error(err))
 					}
 
 					response, err := pairSocket.Recv()
 					if err != nil {
-						log.Printf("failed to receive a response from pair socket, %v", err)
+						logger.Error("failed to receive message from pair socket", zap.Error(err))
 					}
 					nodesStatusResp := pair.NodesStatusResponse{}
 					err = json.Unmarshal(response, &nodesStatusResp)
 					if err != nil {
-						log.Printf("failed to unmarshal response from pair socket, %v", err)
+						logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
 					}
 					responsePair <- &nodesStatusResp
 
 				default:
-					log.Printf("request type to the pair socket is unknown: %T", r)
-
+					logger.Error("unknown request type to pair socket")
 				}
 
 			}
@@ -115,6 +113,6 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 	}()
 
 	<-ctx.Done()
-	log.Println("pair messaging service finished")
+	logger.Info("pair messaging service finished")
 	return nil
 }

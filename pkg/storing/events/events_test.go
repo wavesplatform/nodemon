@@ -2,6 +2,7 @@ package events
 
 import (
 	"errors"
+	"log"
 	"sort"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
@@ -20,7 +22,17 @@ type EventsStorageTestSuite struct {
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
-	es, err := NewStorage(time.Minute)
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+	es, err := NewStorage(time.Minute, zap)
 	s.Require().NoError(err)
 	s.es = es
 }
@@ -291,6 +303,17 @@ func TestEventsStorage(t *testing.T) {
 }
 
 func TestEarliestHeight(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	for _, test := range []struct {
 		node     string
 		events   []entities.Event
@@ -303,7 +326,7 @@ func TestEarliestHeight(t *testing.T) {
 		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
 		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 2},
 	} {
-		storage, err := NewStorage(time.Minute)
+		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		loadEvents(t, storage, test.events)
 		h, err := storage.EarliestHeight(test.node)
@@ -317,6 +340,17 @@ func TestEarliestHeight(t *testing.T) {
 }
 
 func TestLatestHeight(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	for _, test := range []struct {
 		node     string
 		events   []entities.Event
@@ -329,7 +363,7 @@ func TestLatestHeight(t *testing.T) {
 		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
 		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 3},
 	} {
-		storage, err := NewStorage(time.Minute)
+		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		loadEvents(t, storage, test.events)
 		h, err := storage.LatestHeight(test.node)
@@ -343,6 +377,17 @@ func TestLatestHeight(t *testing.T) {
 }
 
 func TestLastStateHashAtHeight(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	d1 := crypto.Digest([32]byte{0x01})
 	d2 := crypto.Digest([32]byte{0x02})
 	d3 := crypto.Digest([32]byte{0x03})
@@ -366,7 +411,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 		{"A", events(he("A", 1, 100), he("A", 1, 110), he("A", 2, 200)), 2, true, proto.StateHash{}},
 		{"A", events(fshe("A", 1, 100, sh1), he("A", 1, 110), he("A", 2, 200)), 1, false, *sh1},
 	} {
-		storage, err := NewStorage(time.Minute)
+		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		loadEvents(t, storage, test.events)
 		sh, err := storage.LastStateHashAtHeight(test.node, test.height)

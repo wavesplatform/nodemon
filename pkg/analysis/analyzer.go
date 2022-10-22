@@ -2,10 +2,11 @@ package analysis
 
 import (
 	"context"
-	"log"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -24,9 +25,10 @@ type Analyzer struct {
 	es   *events.Storage
 	as   *alertsStorage
 	opts *AnalyzerOptions
+	zap  *zap.Logger
 }
 
-func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) *Analyzer {
 	if opts == nil {
 		opts = &AnalyzerOptions{}
 	}
@@ -38,7 +40,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions) *Analyzer {
 	}
 
 	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
-	return &Analyzer{es: es, as: as, opts: opts}
+	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
@@ -75,7 +77,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.zap)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 		},
 		func(in chan<- entities.Alert) error {
@@ -101,11 +103,12 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 
 	// run criterion routines
 	wg.Add(len(routines))
-	for _, f := range routines {
+	for _, f := range &routines {
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if err := f(criteriaOut); err != nil {
-				log.Printf("Error occured on criterion routine: %v", err)
+				a.zap.Error("Error occurred on criterion routine", zap.Error(err))
+				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), err)
 			}
 		}(f)
 	}
@@ -144,22 +147,31 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
 		for n := range notifications {
-			switch notificcationType := n.(type) {
-			case *entities.OnPollingComplete:
-				log.Printf("On polling complete of %d nodes", len(notificcationType.Nodes()))
-				cnt, err := a.es.StatementsCount()
-				if err != nil {
-					log.Printf("Failed to query statements: %v", err)
-				}
-				log.Printf("Total statemetns count: %d", cnt)
-
-				if err := a.analyze(alerts, notificcationType); err != nil {
-					log.Printf("Failed to analyze nodes: %v", err)
-				}
-			default:
-				log.Printf("Unknown alanyzer notification (%T)", notificcationType)
+			err := a.processNotification(alerts, n)
+			if err != nil {
+				a.zap.Error("Failed to process notification", zap.Error(err))
+				ts := time.Now().Unix()
+				alerts <- entities.NewInternalErrorAlert(ts, err)
 			}
 		}
 	}(out)
 	return out
+}
+
+func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.Notification) error {
+	switch notificationType := n.(type) {
+	case *entities.OnPollingComplete:
+		a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificationType.Nodes()))
+		cnt, err := a.es.StatementsCount()
+		if err != nil {
+			return errors.Wrap(err, "failed to get statements count")
+		}
+		a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
+		if err := a.analyze(alerts, notificationType); err != nil {
+			return errors.Wrap(err, "failed to analyze nodes statements")
+		}
+		return nil
+	default:
+		return errors.Errorf("unknown alanyzer notification (%T)", notificationType)
+	}
 }

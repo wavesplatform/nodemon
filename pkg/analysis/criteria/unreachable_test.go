@@ -2,10 +2,12 @@ package criteria
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -19,6 +21,16 @@ func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
 }
 
 func TestUnreachableCriterion_Analyze(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
 	var (
 		commonStateHashes = generateStateHashes(250, 5)
 	)
@@ -60,7 +72,7 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute)
+			es, err := events.NewStorage(time.Minute, zap)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {

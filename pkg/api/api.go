@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -17,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"go.uber.org/atomic"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
@@ -27,14 +27,15 @@ type API struct {
 	nodesStorage          *nodes.Storage
 	eventsStorage         *events.Storage
 	specificNodesSettings specificNodesSettings
+	zap                   *zap.Logger
 }
 
 type specificNodesSettings struct {
 	currentTimestamp *atomic.Int64
 }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *atomic.Int64, apiReadTimeout time.Duration) (*API, error) {
-	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: specificNodesSettings{currentTimestamp: specificNodesTs}}
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *atomic.Int64, apiReadTimeout time.Duration, logger *zap.Logger) (*API, error) {
+	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: specificNodesSettings{currentTimestamp: specificNodesTs}, zap: logger}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -54,7 +55,7 @@ func (a *API) Start() error {
 	go func() {
 		err := a.srv.Serve(l)
 		if err != nil && err != http.ErrServerClosed {
-			log.Printf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
+			a.zap.Sugar().Fatalf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
 		}
 	}()
 	return nil
@@ -65,7 +66,7 @@ func (a *API) Shutdown() {
 	defer cancel()
 
 	if err := a.srv.Shutdown(ctx); err != nil {
-		log.Printf("Failed to shutdown REST API properly: %v", err)
+		a.zap.Error("Failed to shutdown REST API", zap.Error(err))
 	}
 }
 
@@ -93,7 +94,7 @@ func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	buf, err := io.ReadAll(r.Body)
 	if err != nil {
-		log.Printf("Failed to read body: %v", err)
+		a.zap.Error("Failed to read request body", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -104,7 +105,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	err = DecodeValueFromBody(stateHashReader, statehash)
 	if err != nil {
-		log.Printf("Failed to decode statehash: %v", err)
+		a.zap.Error("Failed to decode statehash", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -116,20 +117,20 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	statement := NodeShortStatement{}
 	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
-		log.Printf("Failed to decode specific nodes statements: %v", err)
+		a.zap.Error("Failed to decode a specific nodes statement", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
 	updatedUrl, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
-		log.Printf("Failed to check node name: %v", err)
+		a.zap.Error("Failed to check and update node's url", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusInternalServerError)
 		return
 	}
 	statement.Node = updatedUrl
 
 	if a.specificNodesSettings.currentTimestamp == nil {
-		log.Print("current timestamp of analyzed nodes is nil yet")
+		a.zap.Error("current timestamp of analyzed nodes is nil yet")
 		w.WriteHeader(http.StatusOK)
 		return
 	}
@@ -141,7 +142,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
 		err := a.eventsStorage.PutEvent(invalidHeightEvent)
 		if err != nil {
-			log.Printf("Failed to put event: %v", err)
+			a.zap.Error("Failed to put invalid height event", zap.Error(err))
 		}
 		return
 	}
@@ -158,13 +159,13 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	for _, event := range events {
 		err := a.eventsStorage.PutEvent(event)
 		if err != nil {
-			log.Printf("Failed to put event: %v", err)
+			a.zap.Error("Failed to put event", zap.Error(err))
 		}
 	}
 
 	err = json.NewEncoder(w).Encode(statement)
 	if err != nil {
-		log.Printf("Failed to marshal statements: %v", err)
+		a.zap.Error("Failed to marshal statements", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to marshal statements to JSON: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -172,7 +173,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sumhash := strings.Replace(statehash.SumHash.Hex(), "\n", "", -1)
 	sumhash = strings.Replace(sumhash, "\r", "", -1)
-	log.Printf("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height-1, sumhash)
+	a.zap.Sugar().Infof("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash)
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {

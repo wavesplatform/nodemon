@@ -4,12 +4,14 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 	"strings"
 	"time"
 
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
@@ -33,20 +35,28 @@ var (
 )
 
 func main() {
-	if err := run(); err != nil {
-		switch err {
-		case context.Canceled:
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		if err := zap.Sync(); err != nil {
+			log.Println(err)
+		}
+	}(zap)
+	if err := run(zap); err != nil {
+		switch {
+		case errors.Is(err, context.Canceled):
 			os.Exit(130)
-		case errorInvalidParameters:
+		case errors.Is(err, errorInvalidParameters):
 			os.Exit(2)
 		default:
-			log.Println(err)
-			os.Exit(1)
+			zap.Sugar().Fatal(err)
 		}
 	}
 }
 
-func run() error {
+func run(zap *zapLogger.Logger) error {
 	var (
 		storage                string
 		nodes                  string
@@ -74,19 +84,19 @@ func run() error {
 	flag.Parse()
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
-		log.Printf("Invalid storage path '%s'", storage)
+		zap.Error(fmt.Sprintf("Invalid storage path '%s'", storage))
 		return errorInvalidParameters
 	}
 	if interval <= 0 {
-		log.Printf("Invalid polling interval '%s'", interval.String())
+		zap.Error(fmt.Sprintf("Invalid polling interval '%s'", interval.String()))
 		return errorInvalidParameters
 	}
 	if timeout <= 0 {
-		log.Printf("Invalid network timout '%s'", timeout.String())
+		zap.Error(fmt.Sprintf("Invalid network timeout '%s'", timeout.String()))
 		return errorInvalidParameters
 	}
 	if retention <= 0 {
-		log.Printf("Invalid retention duration '%s'", retention.String())
+		zap.Error(fmt.Sprintf("Invalid retention duration '%s'", retention.String()))
 		return errorInvalidParameters
 	}
 	if baseTargetThreshold == 0 {
@@ -108,80 +118,80 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodesStorage.NewStorage(storage, nodes)
+	ns, err := nodesStorage.NewStorage(storage, nodes, zap)
 	if err != nil {
-		log.Printf("Nodes storage failure: %v", err)
+		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
 		return err
 	}
 	defer func(cs *nodesStorage.Storage) {
 		err := cs.Close()
 		if err != nil {
-			log.Printf("Failed to close nodes storage: %v", err)
+			zap.Error("failed to close nodes storage", zapLogger.Error(err))
 		}
 	}(ns)
 
-	es, err := eventsStorage.NewStorage(retention)
+	es, err := eventsStorage.NewStorage(retention, zap)
 	if err != nil {
-		log.Printf("Events storage failure: %v", err)
+		zap.Error("failed to initialize events storage", zapLogger.Error(err))
 		return err
 	}
 	defer func(es *eventsStorage.Storage) {
 		if err := es.Close(); err != nil {
-			log.Printf("Failed to close events storage: %v", err)
+			zap.Error("failed to close events storage", zapLogger.Error(err))
 		}
 	}(es)
 
-	scraper, err := scraping.NewScraper(ns, es, interval, timeout)
+	scraper, err := scraping.NewScraper(ns, es, interval, timeout, zap)
 	if err != nil {
-		log.Printf("ERROR: Failed to start monitoring: %v", err)
+		zap.Error("failed to initialize scraper", zapLogger.Error(err))
 		return err
 	}
 	notifications, specificNodesTs := scraper.Start(ctx)
 
-	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout)
+	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout, zap)
 	if err != nil {
-		log.Printf("API failure: %v", err)
+		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err
 	}
 	if err := a.Start(); err != nil {
-		log.Printf("Failed to start API: %v", err)
+		zap.Error("failed to start API", zapLogger.Error(err))
 		return err
 	}
 
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: baseTargetThreshold},
 	}
-	analyzer := analysis.NewAnalyzer(es, opts)
+	analyzer := analysis.NewAnalyzer(es, opts, zap)
 
 	alerts := analyzer.Start(notifications)
 
 	go func() {
-		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts)
+		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts, zap)
 		if err != nil {
-			log.Printf("failed to start pair messaging service: %v", err)
+			zap.Fatal("failed to start pub messaging server", zapLogger.Error(err))
 		}
 	}()
 
 	if runTelegramPairServer {
 		go func() {
-			err := pair.StartPairMessagingServer(ctx, nanomsgPairTelegramURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairTelegramURL, ns, es, zap)
 			if err != nil {
-				log.Printf("failed to start pair messaging service: %v", err)
+				zap.Fatal("failed to start pair messaging server", zapLogger.Error(err))
 			}
 		}()
 	}
 
 	if runDiscordPairServer {
 		go func() {
-			err := pair.StartPairMessagingServer(ctx, nanomsgPairDiscordURL, ns, es)
+			err := pair.StartPairMessagingServer(ctx, nanomsgPairDiscordURL, ns, es, zap)
 			if err != nil {
-				log.Printf("failed to start pair messaging service: %v", err)
+				zap.Fatal("failed to start pair messaging server", zapLogger.Error(err))
 			}
 		}()
 	}
 
 	<-ctx.Done()
 	a.Shutdown()
-	log.Println("Terminated")
+	zap.Info("shutting down")
 	return nil
 }

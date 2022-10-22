@@ -2,6 +2,7 @@ package finders
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -67,6 +69,17 @@ func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
 }
 
 func TestFindLastCommonBlock(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	forkA := generateStateHashes(0, 5)
 	forkB := generateStateHashes(50, 5)
 	for i, test := range []struct {
@@ -102,7 +115,8 @@ func TestFindLastCommonBlock(t *testing.T) {
 			false, 13, forkA[2].id},
 	} {
 		testN := fmt.Sprintf("#%d", i+1)
-		storage, err := events.NewStorage(10 * time.Minute)
+
+		storage, err := events.NewStorage(10*time.Minute, zap)
 		ff := NewForkFinder(storage)
 		require.NoError(t, err, testN)
 		loadEvents(t, storage, test.eventsA, test.eventsB)
@@ -118,6 +132,17 @@ func TestFindLastCommonBlock(t *testing.T) {
 }
 
 func TestFindLastCommonStateHash(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	forkA := generateStateHashes(0, 5)
 	forkB := generateStateHashes(50, 5)
 	for i, test := range []struct {
@@ -153,7 +178,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 			false, 13, forkA[2].sh},
 	} {
 		testN := fmt.Sprintf("#%d", i+1)
-		storage, err := events.NewStorage(10 * time.Minute)
+		storage, err := events.NewStorage(10*time.Minute, zap)
 		ff := NewForkFinder(storage)
 		require.NoError(t, err, testN)
 		loadEvents(t, storage, test.eventsA, test.eventsB)

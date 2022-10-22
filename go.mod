@@ -13,6 +13,7 @@ require (
 	github.com/wavesplatform/gowaves v0.10.2-0.20221015120133-1ea0d7ff7a82
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/atomic v1.10.0
+	go.uber.org/zap v1.23.0
 	gopkg.in/telebot.v3 v3.1.2
 )
 
@@ -39,7 +40,6 @@ require (
 	github.com/valyala/bytebufferpool v1.0.0 // indirect
 	go.uber.org/goleak v1.1.12 // indirect
 	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.23.0 // indirect
 	golang.org/x/crypto v0.0.0-20221005025214-4161e89ecf1b // indirect
 	golang.org/x/net v0.0.0-20220809184613-07c6da5e1ced // indirect
 	golang.org/x/sys v0.0.0-20220928140112-f11e5e49a4ec // indirect

@@ -36,11 +36,17 @@ func (n Nodes) Sort() Nodes {
 
 type NodeStatements []NodeStatement
 
+type NodeStatementsWithMinHeight struct {
+	Statements NodeStatements
+	MinHeight  int
+}
+
 type (
-	NodeStatementsSplitByStatus    map[NodeStatus]NodeStatements
-	NodeStatementsSplitByVersion   map[string]NodeStatements
-	NodeStatementsSplitByHeight    map[int]NodeStatements
-	NodeStatementsSplitByStateHash map[crypto.Digest]NodeStatements
+	NodeStatementsSplitByStatus       map[NodeStatus]NodeStatements
+	NodeStatementsSplitByVersion      map[string]NodeStatements
+	NodeStatementsSplitByHeight       map[int]NodeStatements
+	NodeStatementsSplitByStateHash    map[crypto.Digest]NodeStatements
+	NodeStatementsSplitByHeightBucket map[int]NodeStatements // map[heightBucket]NodeStatements
 )
 
 func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
@@ -65,7 +71,7 @@ func (s NodeStatements) Nodes() Nodes {
 
 func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, NodeStatements) {
 	var (
-		split            = make(NodeStatementsSplitByStateHash, len(s))
+		split            = make(NodeStatementsSplitByStateHash)
 		withoutStateHash NodeStatements
 	)
 	for _, statement := range s {
@@ -80,7 +86,7 @@ func (s NodeStatements) SplitBySumStateHash() (NodeStatementsSplitByStateHash, N
 }
 
 func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
-	split := make(NodeStatementsSplitByStatus, len(s))
+	split := make(NodeStatementsSplitByStatus)
 	for _, statement := range s {
 		status := statement.Status
 		split[status] = append(split[status], statement)
@@ -89,7 +95,7 @@ func (s NodeStatements) SplitByNodeStatus() NodeStatementsSplitByStatus {
 }
 
 func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
-	split := make(NodeStatementsSplitByHeight, len(s))
+	split := make(NodeStatementsSplitByHeight)
 	for _, statement := range s {
 		height := statement.Height
 		split[height] = append(split[height], statement)
@@ -97,8 +103,18 @@ func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
 	return split
 }
 
+func (s NodeStatements) SplitByNodeHeightBuckets(heightBucketSize int) NodeStatementsSplitByHeightBucket {
+	split := make(NodeStatementsSplitByHeightBucket)
+	for _, statement := range s {
+		height := statement.Height
+		bucketHeight := height - height%heightBucketSize
+		split[bucketHeight] = append(split[bucketHeight], statement)
+	}
+	return split
+}
+
 func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
-	split := make(NodeStatementsSplitByVersion, len(s))
+	split := make(NodeStatementsSplitByVersion)
 	for _, statement := range s {
 		version := statement.Version
 		split[version] = append(split[version], statement)

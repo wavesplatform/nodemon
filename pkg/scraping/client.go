@@ -9,28 +9,30 @@ import (
 
 	"github.com/wavesplatform/gowaves/pkg/client"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	"go.uber.org/zap"
 )
 
 type nodeClient struct {
-	cl *client.Client
+	cl  *client.Client
+	zap *zap.Logger
 }
 
 // ATTENTION! `url` MUST BE validated for proper format before passing to this function.
-func newNodeClient(url string, timeout time.Duration) *nodeClient {
+func newNodeClient(url string, timeout time.Duration, logger *zap.Logger) *nodeClient {
 	opts := client.Options{
 		BaseUrl: url,
 		Client:  &http.Client{Timeout: timeout},
 	}
 	// The error can be safely ignored because `NewClient` function only checks the number of passed `opts`
 	cl, _ := client.NewClient(opts)
-	return &nodeClient{cl: cl}
+	return &nodeClient{cl: cl, zap: logger}
 }
 
 func (c *nodeClient) version(ctx context.Context) (string, error) {
 	version, _, err := c.cl.NodeInfo.Version(ctx)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		log.Printf("Version request to %q failed: %v", nodeURL, err)
+		c.zap.Error("Version request failed", zap.String("node", nodeURL), zap.Error(err))
 		return "", err
 	}
 	return version, nil
@@ -40,7 +42,7 @@ func (c *nodeClient) height(ctx context.Context) (int, error) {
 	height, _, err := c.cl.Blocks.Height(ctx)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		log.Printf("Height request to %q failed: %v", nodeURL, err)
+		c.zap.Error("Height request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
 	return int(height.Height), nil
@@ -50,7 +52,7 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 	sh, _, err := c.cl.Debug.StateHash(ctx, uint64(height))
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		log.Printf("StateHash request to %q failed: %v", nodeURL, err)
+		c.zap.Error("State hash request failed", zap.String("node", nodeURL), zap.Error(err))
 		return nil, err
 	}
 	return sh, nil

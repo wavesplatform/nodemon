@@ -3,12 +3,14 @@ package analysis
 import (
 	"encoding/binary"
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -84,6 +86,17 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 func TestAnalyzer_analyzeStateHash(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	var (
 		forkA             = generateStateHashes(0, 5)
 		forkB             = generateStateHashes(50, 5)
@@ -98,20 +111,20 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1}, BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: 2}},
+			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3}, BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: 2}},
 			historyData: mergeEvents(
-				mkEvents("a", 1, mergeShInfo(commonStateHashes[:2], forkA[:2])...),
-				mkEvents("b", 1, mergeShInfo(commonStateHashes[:2], forkB[:2])...),
+				mkEvents("a", 1, mergeShInfo(commonStateHashes[:1], forkA[:3])...),
+				mkEvents("b", 1, mergeShInfo(commonStateHashes[:1], forkB[:4])...),
 			),
 			nodes:  entities.Nodes{"a", "b"},
 			height: 4,
 			expectedAlerts: []entities.StateHashAlert{
 				{
 					Timestamp:                 mkTimestamp(4),
-					CurrentGroupsHeight:       4,
+					CurrentGroupsBucketHeight: 3,
 					LastCommonStateHashExist:  true,
-					LastCommonStateHashHeight: 2,
-					LastCommonStateHash:       commonStateHashes[1].sh,
+					LastCommonStateHashHeight: 1,
+					LastCommonStateHash:       commonStateHashes[0].sh,
 					FirstGroup: entities.StateHashGroup{
 						Nodes:     entities.Nodes{"a"},
 						StateHash: forkA[1].sh,
@@ -127,7 +140,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute)
+			es, err := events.NewStorage(time.Minute, zap)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
@@ -140,13 +153,22 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 			}()
 			fillEventsStorage(t, es, test.historyData)
 
+			zap, err := zapLogger.NewDevelopment()
+			if err != nil {
+				log.Fatalf("can't initialize zap logger: %v", err)
+			}
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				analyzer := NewAnalyzer(es, test.opts)
+				analyzer := NewAnalyzer(es, test.opts, zap)
 				event := entities.NewOnPollingComplete(test.nodes, mkTimestamp(test.height))
-				err := analyzer.analyze(alerts, event)
-				require.NoError(t, err)
+				notifications := make(chan entities.Notification)
+				analyzerOut := analyzer.Start(notifications)
+				notifications <- event
+				close(notifications)
+				for alert := range analyzerOut {
+					alerts <- alert
+				}
 			}()
 			for j := range test.expectedAlerts {
 				select {
