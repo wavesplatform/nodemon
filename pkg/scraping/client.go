@@ -3,7 +3,6 @@ package scraping
 import (
 	"context"
 	"encoding/json"
-	"log"
 	"net/http"
 	"time"
 
@@ -63,7 +62,7 @@ func (c *nodeClient) baseTarget(ctx context.Context, height int) (int, error) {
 	_, resp, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		log.Printf("header at request to %q failed: %v", nodeURL, err)
+		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
 	b := struct {

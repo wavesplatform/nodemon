@@ -100,7 +100,7 @@ func run(zap *zapLogger.Logger) error {
 		return errorInvalidParameters
 	}
 	if baseTargetThreshold == 0 {
-		log.Printf("Invalid base target threshold '%d'", baseTargetThreshold)
+		zap.Error(fmt.Sprintf("Invalid base target threshold '%d'", baseTargetThreshold))
 		return errorInvalidParameters
 	}
 	var (
