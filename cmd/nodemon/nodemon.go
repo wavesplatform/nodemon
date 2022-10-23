@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
@@ -35,28 +36,20 @@ var (
 )
 
 func main() {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zapLogger.Logger) {
-		if err := zap.Sync(); err != nil {
-			log.Println(err)
-		}
-	}(zap)
-	if err := run(zap); err != nil {
+
+	if err := run(); err != nil {
 		switch {
 		case errors.Is(err, context.Canceled):
 			os.Exit(130)
 		case errors.Is(err, errorInvalidParameters):
 			os.Exit(2)
 		default:
-			zap.Sugar().Fatal(err)
+			log.Fatal(err)
 		}
 	}
 }
 
-func run(zap *zapLogger.Logger) error {
+func run() error {
 	var (
 		storage                string
 		nodes                  string
@@ -69,6 +62,7 @@ func run(zap *zapLogger.Logger) error {
 		retention              time.Duration
 		apiReadTimeout         time.Duration
 		baseTargetThreshold    int
+		logLevel               string
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
@@ -81,7 +75,15 @@ func run(zap *zapLogger.Logger) error {
 	flag.StringVar(&nanomsgPairDiscordURL, "nano-msg-pair-discord-url", "", "Nanomsg IPC URL for pair socket")
 	flag.DurationVar(&retention, "retention", defaultRetentionDuration, "Events retention duration. Default value is 12h")
 	flag.DurationVar(&apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout, "HTTP API read timeout. Default value is 30s.")
+	flag.StringVar(&logLevel, "log-level", "INFO", "Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	flag.Parse()
+
+	zap, _ := gow.SetupLogger(logLevel)
+	defer func(zap *zapLogger.Logger) {
+		if err := zap.Sync(); err != nil {
+			log.Println(err)
+		}
+	}(zap)
 
 	if len(storage) == 0 || len(strings.Fields(storage)) > 1 {
 		zap.Error(fmt.Sprintf("Invalid storage path '%s'", storage))
