@@ -9,6 +9,7 @@ import (
 	"os/signal"
 
 	"github.com/procyon-projects/chrono"
+	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
 	"nodemon/cmd/bots/internal/common"
 	initial "nodemon/cmd/bots/internal/common/init"
@@ -20,26 +21,17 @@ import (
 )
 
 func main() {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zapLogger.Logger) {
-		if err := zap.Sync(); err != nil {
-			log.Println(err)
-		}
-	}(zap)
-	if err := runTelegramBot(zap); err != nil {
+	if err := runTelegramBot(); err != nil {
 		switch {
 		case errors.Is(err, context.Canceled):
 			os.Exit(130)
 		default:
-			zap.Sugar().Fatal(err)
+			log.Fatal(err)
 		}
 	}
 }
 
-func runTelegramBot(zap *zapLogger.Logger) error {
+func runTelegramBot() error {
 	var (
 		nanomsgPubSubURL    string
 		nanomsgPairUrl      string
@@ -48,6 +40,7 @@ func runTelegramBot(zap *zapLogger.Logger) error {
 		publicURL           string // only for webhook method
 		tgBotToken          string
 		tgChatID            int64
+		logLevel            string
 	)
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/telegram/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairUrl, "nano-msg-pair-telegram-url", "ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
@@ -56,7 +49,16 @@ func runTelegramBot(zap *zapLogger.Logger) error {
 	flag.StringVar(&tgBotToken, "tg-bot-token", "", "The secret token used to authenticate the bot")
 	flag.StringVar(&publicURL, "public-url", "", "The public url for websocket only")
 	flag.Int64Var(&tgChatID, "telegram-chat-id", 0, "telegram chat ID to send alerts through")
+	flag.StringVar(&logLevel, "log-level", "INFO", "Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	flag.Parse()
+
+	zap, _ := gow.SetupLogger(logLevel)
+
+	defer func(zap *zapLogger.Logger) {
+		if err := zap.Sync(); err != nil {
+			log.Println(err)
+		}
+	}(zap)
 
 	if tgBotToken == "" {
 		zap.Error("telegram bot token is required")
