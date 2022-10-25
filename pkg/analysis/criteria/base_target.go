@@ -37,6 +37,9 @@ func mostFrequentBaseTarget(statements entities.NodeStatements) int {
 	var max int
 	var maxKey int
 	for _, s := range statements {
+		if s.BaseTarget == 0 {
+			continue
+		}
 		v := s.BaseTarget
 		m[v]++
 		if m[v] > max {

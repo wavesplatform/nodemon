@@ -2,7 +2,6 @@ package scraping
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"time"
 
@@ -59,21 +58,12 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 
 func (c *nodeClient) baseTarget(ctx context.Context, height int) (int, error) {
 
-	_, resp, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
+	headers, _, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
-	b := struct {
-		NxtConsensus struct {
-			BaseTarget int `json:"base-target"`
-		} `json:"nxt-consensus"`
-	}{}
 
-	if err := json.NewDecoder(resp.Body).Decode(&b); err != nil {
-		return 0, err
-	}
-
-	return b.NxtConsensus.BaseTarget, nil
+	return int(headers.NxtConsensus.BaseTarget), nil
 }
