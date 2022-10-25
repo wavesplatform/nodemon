@@ -53,6 +53,9 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		return errors.Wrap(err, "failed to analyze nodes statements")
 	}
 	statusSplit := statements.SplitByNodeStatus()
+	for _, nodeStatements := range statusSplit {
+		nodeStatements.SortByNodeAsc()
+	}
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
