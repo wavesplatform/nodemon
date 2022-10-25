@@ -21,16 +21,15 @@ func NewBaseTargetCriterion(opts *BaseTargetCriterionOptions) (*BaseTargetCriter
 }
 
 func (c *BaseTargetCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) {
-	var baseTargetValues []entities.BaseTargetValue
 	baseTarget := mostFrequentBaseTarget(statements)
-
+	if baseTarget <= c.opts.Threshold {
+		return // it's ok, nothing to do
+	}
+	baseTargetValues := make([]entities.BaseTargetValue, 0, len(statements))
 	for _, nodeStatement := range statements {
 		baseTargetValues = append(baseTargetValues, entities.BaseTargetValue{Node: nodeStatement.Node, BaseTarget: nodeStatement.BaseTarget})
 	}
-
-	if baseTarget > c.opts.Threshold {
-		alerts <- &entities.BaseTargetAlert{Timestamp: timestamp, BaseTargetValues: baseTargetValues, Threshold: c.opts.Threshold}
-	}
+	alerts <- &entities.BaseTargetAlert{Timestamp: timestamp, BaseTargetValues: baseTargetValues, Threshold: c.opts.Threshold}
 }
 
 func mostFrequentBaseTarget(statements entities.NodeStatements) int {
