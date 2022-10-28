@@ -67,14 +67,12 @@ func TestBaseTargetCriterion_Analyze(t *testing.T) {
 			require.NoError(t, err)
 			criterion.Analyze(alerts, timestamp, test.data)
 		}()
-		for j := range test.expectedAlerts {
-			select {
-			case actualAlert := <-alerts:
-				baseTargetAlert := *actualAlert.(*entities.BaseTargetAlert)
-				require.Contains(t, test.expectedAlerts, baseTargetAlert, "test case #%d", j+1)
-			case <-time.After(5 * time.Second):
-				require.Fail(t, "timeout exceeded")
-			}
+		select {
+		case actualAlert := <-alerts:
+			baseTargetAlert := *actualAlert.(*entities.BaseTargetAlert)
+			require.Contains(t, test.expectedAlerts, baseTargetAlert, "test case alert")
+		case <-time.After(5 * time.Second):
+			require.Fail(t, "timeout exceeded")
 		}
 	})
 }
@@ -109,6 +107,7 @@ func TestNoBaseTargetAlertCriterion_Analyze(t *testing.T) {
 		}()
 		go func() {
 			defer close(done)
+			defer close(alerts)
 			criterion, err := NewBaseTargetCriterion(test.opts)
 			require.NoError(t, err)
 			criterion.Analyze(alerts, timestamp, test.data)
