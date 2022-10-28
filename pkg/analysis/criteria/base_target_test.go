@@ -113,14 +113,15 @@ func TestNoBaseTargetAlertCriterion_Analyze(t *testing.T) {
 			require.NoError(t, err)
 			criterion.Analyze(alerts, timestamp, test.data)
 		}()
-		for {
-			select {
-			case actualAlert := <-alerts:
+		select {
+		case actualAlert, ok := <-alerts:
+			if ok {
 				baseTargetAlert := *actualAlert.(*entities.BaseTargetAlert)
 				require.Fail(t, "unexpected alert: %v", baseTargetAlert)
-			case <-time.After(5 * time.Second):
-				return
 			}
+			return
+		case <-time.After(5 * time.Second):
+			return
 		}
 	})
 }
