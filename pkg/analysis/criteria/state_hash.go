@@ -1,7 +1,6 @@
 package criteria
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -50,11 +49,9 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 				statementAtBucketHeight, err = c.es.GetStatementAtHeight(statement.Node, bucketHeight)
 				if err != nil {
 					if errors.Is(err, events.NoFullStatementError) {
-						msg := fmt.Sprintf("StateHashCriterion: No full statement for node %q at height %d",
+						c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q at height %d",
 							statement.Node, statement.Height,
 						)
-						c.zap.Warn(msg)
-						alerts <- entities.NewInternalErrorAlert(timestamp, errors.New(msg))
 						continue
 					}
 					return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
