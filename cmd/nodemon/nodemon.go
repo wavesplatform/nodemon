@@ -14,6 +14,7 @@ import (
 	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 
@@ -148,9 +149,11 @@ func run() error {
 		zap.Error("failed to initialize scraper", zapLogger.Error(err))
 		return err
 	}
-	notifications, specificNodesTs := scraper.Start(ctx)
+	notifications := scraper.Start(ctx)
 
-	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout, zap)
+	privateNodesEvents := entities.NewPrivateNodesEvents()
+
+	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesEvents)
 	if err != nil {
 		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err
@@ -163,7 +166,7 @@ func run() error {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: baseTargetThreshold},
 	}
-	analyzer := analysis.NewAnalyzer(es, opts, zap)
+	analyzer := analysis.NewAnalyzer(es, opts, zap, privateNodesEvents)
 
 	alerts := analyzer.Start(notifications)
 
