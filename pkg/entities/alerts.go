@@ -271,7 +271,7 @@ func (a *StateHashAlert) ShortDescription() string {
 func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
-			"Nodes have different statehashes at the same height %d\n\nFirst group has block ID and statehash:\n%s\n%s\n%s\n\nSecond group has block ID and statehash:\n%s\n%s\n%s\n\nFork occured after block %d\nBlock ID:\n%s\nStatehash:\n%s",
+			"Nodes have different statehashes at the same height %d\n\nFirst group has block ID and statehash:\n•%s\n•%s\n%s\n\nSecond group has block ID and statehash:\n•%s\n•%s\n%s\n\nFork occured after block %d\nBlock ID:\n•%s\nStatehash:\n•%s",
 			a.CurrentGroupsBucketHeight,
 			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
@@ -285,14 +285,14 @@ func (a *StateHashAlert) Message() string {
 		)
 	}
 	return fmt.Sprintf(
-		"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Failed to find last common state hash and blockID",
+		"Nodes have different statehashes at the same height %d\n\nFirst group has block ID and statehash:\n•%s\n•%s\n%s\n\nSecond group has block ID and statehash:\n•%s\n•%s\n%s\n\n",
 		a.CurrentGroupsBucketHeight,
 		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
-		a.FirstGroup.Nodes,
+		strings.Join(a.FirstGroup.Nodes, "\n"),
 		a.SecondGroup.StateHash.BlockID.String(),
 		a.SecondGroup.StateHash.SumHash.Hex(),
-		a.SecondGroup.Nodes,
+		strings.Join(a.SecondGroup.Nodes, "\n"),
 	)
 }
 
