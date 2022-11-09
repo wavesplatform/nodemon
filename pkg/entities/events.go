@@ -141,15 +141,16 @@ func (e *InvalidHeightEvent) Statement() NodeStatement {
 }
 
 type StateHashEvent struct {
-	node string
-	ts   int64
-	v    string
-	h    int
-	sh   *proto.StateHash
+	node       string
+	ts         int64
+	v          string
+	h          int
+	sh         *proto.StateHash
+	baseTarget int
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash) *StateHashEvent {
-	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh}
+func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int) *StateHashEvent {
+	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt}
 }
 
 func (e *StateHashEvent) Node() string {
@@ -172,13 +173,61 @@ func (e *StateHashEvent) StateHash() *proto.StateHash {
 	return e.sh
 }
 
+func (e *StateHashEvent) BaseTarget() int {
+	return e.baseTarget
+}
+
 func (e *StateHashEvent) Statement() NodeStatement {
 	return NodeStatement{
-		Node:      e.Node(),
-		Timestamp: e.Timestamp(),
-		Status:    OK,
-		Version:   e.Version(),
-		Height:    e.Height(),
-		StateHash: e.StateHash(),
+		Node:       e.Node(),
+		Timestamp:  e.Timestamp(),
+		Status:     OK,
+		Version:    e.Version(),
+		Height:     e.Height(),
+		StateHash:  e.StateHash(),
+		BaseTarget: e.BaseTarget(),
+	}
+}
+
+type BaseTargetEvent struct {
+	node       string
+	ts         int64
+	v          string
+	h          int
+	baseTarget int
+}
+
+func NewBaseTargetEvent(node string, ts int64, v string, h int, baseTarget int) *BaseTargetEvent {
+	return &BaseTargetEvent{node: node, ts: ts, v: v, h: h, baseTarget: baseTarget}
+}
+
+func (e *BaseTargetEvent) Node() string {
+	return e.node
+}
+
+func (e *BaseTargetEvent) Timestamp() int64 {
+	return e.ts
+}
+
+func (e *BaseTargetEvent) Version() string {
+	return e.v
+}
+
+func (e *BaseTargetEvent) Height() int {
+	return e.h
+}
+
+func (e *BaseTargetEvent) BaseTarget() int {
+	return e.baseTarget
+}
+
+func (e *BaseTargetEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:       e.Node(),
+		Timestamp:  e.Timestamp(),
+		Status:     Incomplete,
+		Version:    e.Version(),
+		Height:     e.Height(),
+		BaseTarget: e.BaseTarget(),
 	}
 }

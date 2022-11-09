@@ -18,6 +18,7 @@ type AnalyzerOptions struct {
 	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
 	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
+	BaseTargetCriterionOpts *criteria.BaseTargetCriterionOptions
 }
 
 type Analyzer struct {
@@ -52,6 +53,9 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		return errors.Wrap(err, "failed to analyze nodes statements")
 	}
 	statusSplit := statements.SplitByNodeStatus()
+	for _, nodeStatements := range statusSplit {
+		nodeStatements.SortByNodeAsc()
+	}
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
@@ -78,6 +82,14 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 		func(in chan<- entities.Alert) error {
 			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.zap)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+		},
+		func(in chan<- entities.Alert) error {
+			criterion, err := criteria.NewBaseTargetCriterion(a.opts.BaseTargetCriterionOpts)
+			if err != nil {
+				return err
+			}
+			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
+			return nil
 		},
 	}
 	var (
