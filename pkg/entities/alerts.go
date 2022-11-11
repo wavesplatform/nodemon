@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/crypto"
@@ -43,7 +44,7 @@ const (
 	InvalidHeightAlertNotification = "InvalidHeightAlert"
 	HeightAlertNotification        = "HeightAlert"
 	StateHashAlertNotification     = "StateHashAlert"
-	AlertFixedNotification         = "AlertFixed"
+	AlertFixedNotification         = "Resolved"
 	BaseTargetAlertNotification    = "BaseTargetAlert"
 	InternalErrorNotification      = "InternalErrorAlert"
 )
@@ -108,7 +109,7 @@ func (a *UnreachableAlert) ShortDescription() string {
 }
 
 func (a *UnreachableAlert) Message() string {
-	return fmt.Sprintf("Node %q is unreachable", a.Node)
+	return fmt.Sprintf("Node %s is unreachable", a.Node)
 }
 
 func (a *UnreachableAlert) Time() time.Time {
@@ -214,12 +215,12 @@ func (a *HeightAlert) ShortDescription() string {
 }
 
 func (a *HeightAlert) Message() string {
-	return fmt.Sprintf("Too big height (%d - %d = %d) diff between nodes groups: max=%v, other=%v",
-		a.MaxHeightGroup.Height,
-		a.OtherHeightGroup.Height,
+	return fmt.Sprintf("Some node(s) are %d blocks behind\n\nFirst group with height %d:\n%s\n\nSecond group with height %d:\n%s",
 		a.MaxHeightGroup.Height-a.OtherHeightGroup.Height,
-		a.MaxHeightGroup.Nodes,
-		a.OtherHeightGroup.Nodes,
+		a.MaxHeightGroup.Height,
+		strings.Join(a.MaxHeightGroup.Nodes, "\n"),
+		a.OtherHeightGroup.Height,
+		strings.Join(a.OtherHeightGroup.Nodes, "\n"),
 	)
 }
 
@@ -273,28 +274,28 @@ func (a *StateHashAlert) ShortDescription() string {
 func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
-			"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Fork occured after: height %d, statehash %q, blockID %q",
+			"Nodes have different statehashes at the same height %d\n\nFirst group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nSecond group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nFork occured after block %d\nBlock ID: %s\nStatehash: %s",
 			a.CurrentGroupsBucketHeight,
 			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
-			a.FirstGroup.Nodes,
+			strings.Join(a.FirstGroup.Nodes, "\n"),
 			a.SecondGroup.StateHash.BlockID.String(),
 			a.SecondGroup.StateHash.SumHash.Hex(),
-			a.SecondGroup.Nodes,
+			strings.Join(a.SecondGroup.Nodes, "\n"),
 			a.LastCommonStateHashHeight,
-			a.LastCommonStateHash.SumHash.Hex(),
 			a.LastCommonStateHash.BlockID.String(),
+			a.LastCommonStateHash.SumHash.Hex(),
 		)
 	}
 	return fmt.Sprintf(
-		"Different state hash between nodes on same height %d: blockID %q, %q=%v; blockID %q, %q=%v. Failed to find last common state hash and blockID",
+		"Nodes have different statehashes at the same height %d\n\nFirst group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nSecond group has\nBlockID: %s\nStateHash: %s\n\n%s",
 		a.CurrentGroupsBucketHeight,
 		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
-		a.FirstGroup.Nodes,
+		strings.Join(a.FirstGroup.Nodes, "\n"),
 		a.SecondGroup.StateHash.BlockID.String(),
 		a.SecondGroup.StateHash.SumHash.Hex(),
-		a.SecondGroup.Nodes,
+		strings.Join(a.SecondGroup.Nodes, "\n"),
 	)
 }
 
