@@ -160,7 +160,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				analyzer := NewAnalyzer(es, test.opts, zap, entities.NewPrivateNodesEvents())
+				analyzer := NewAnalyzer(es, test.opts, zap)
 				event := entities.NewOnPollingComplete(test.nodes, mkTimestamp(test.height))
 				notifications := make(chan entities.Notification)
 				analyzerOut := analyzer.Start(notifications)

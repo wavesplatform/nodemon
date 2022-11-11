@@ -17,6 +17,7 @@ import (
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
+	"nodemon/pkg/storing/private_nodes"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
@@ -149,9 +150,15 @@ func run() error {
 		zap.Error("failed to initialize scraper", zapLogger.Error(err))
 		return err
 	}
-	notifications := scraper.Start(ctx)
 
-	privateNodesEvents := entities.NewPrivateNodesEvents()
+	wrappedNotifications := scraper.Start(ctx)
+	notifications := make(chan entities.Notification)
+	privateNodesEvents := private_nodes.NewPrivateNodesEvents()
+
+	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap, privateNodesEvents)
+	go func(wn <-chan entities.WrappedNotification, n chan<- entities.Notification, pnh *private_nodes.PrivateNodesHandler) {
+		pnh.HandlePrivateEvents(wn, n)
+	}(wrappedNotifications, notifications, privateNodesHandler)
 
 	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesEvents)
 	if err != nil {
@@ -166,7 +173,7 @@ func run() error {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: baseTargetThreshold},
 	}
-	analyzer := analysis.NewAnalyzer(es, opts, zap, privateNodesEvents)
+	analyzer := analysis.NewAnalyzer(es, opts, zap)
 
 	alerts := analyzer.Start(notifications)
 

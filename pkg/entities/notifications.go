@@ -10,11 +10,11 @@ type Notification interface {
 
 type OnPollingComplete struct {
 	nodes []string
-	ts    int64
+	Ts    int64
 }
 
 func NewOnPollingComplete(nodes []string, ts int64) *OnPollingComplete {
-	return &OnPollingComplete{nodes: nodes, ts: ts}
+	return &OnPollingComplete{nodes: nodes, Ts: ts}
 }
 
 func (n *OnPollingComplete) ShortDescription() string {
@@ -26,5 +26,9 @@ func (n *OnPollingComplete) Nodes() []string {
 }
 
 func (n *OnPollingComplete) Timestamp() int64 {
-	return n.ts
+	return n.Ts
+}
+
+type WrappedNotification interface {
+	ShortDescription() string
 }

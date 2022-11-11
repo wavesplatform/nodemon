@@ -19,6 +19,7 @@ import (
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/private_nodes"
 )
 
 type API struct {
@@ -26,10 +27,10 @@ type API struct {
 	nodesStorage       *nodes.Storage
 	eventsStorage      *events.Storage
 	zap                *zap.Logger
-	privateNodesEvents *entities.PrivateNodesEvents
+	privateNodesEvents *private_nodes.PrivateNodesEvents
 }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents *entities.PrivateNodesEvents) (*API, error) {
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents *private_nodes.PrivateNodesEvents) (*API, error) {
 	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)

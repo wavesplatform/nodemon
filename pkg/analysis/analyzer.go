@@ -22,14 +22,13 @@ type AnalyzerOptions struct {
 }
 
 type Analyzer struct {
-	es            *events.Storage
-	as            *alertsStorage
-	opts          *AnalyzerOptions
-	zap           *zap.Logger
-	privateEvents *entities.PrivateNodesEvents
+	es   *events.Storage
+	as   *alertsStorage
+	opts *AnalyzerOptions
+	zap  *zap.Logger
 }
 
-func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger, privateEvents *entities.PrivateNodesEvents) *Analyzer {
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) *Analyzer {
 	if opts == nil {
 		opts = &AnalyzerOptions{}
 	}
@@ -41,41 +40,10 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger, 
 	}
 
 	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
-	return &Analyzer{es: es, as: as, opts: opts, zap: logger, privateEvents: privateEvents}
-}
-
-func (a *Analyzer) putPrivateNodesEvents(ts int64) {
-
-	a.privateEvents.Mu.RLock()
-	defer a.privateEvents.Mu.RUnlock()
-	for node, event := range a.privateEvents.Data {
-
-		switch e := event.(type) {
-		case *entities.InvalidHeightEvent:
-			updatedEvent := entities.NewInvalidHeightEvent(e.Node(), ts, e.Version(), e.Height())
-			err := a.es.PutEvent(updatedEvent)
-			if err != nil {
-				a.zap.Error("Failed to put event", zap.Error(err))
-				return
-			}
-			a.zap.Sugar().Infof("Statement 'InvalidHeight' for private node %s has been put into the storage, height %d\n", node, e.Height())
-		case *entities.StateHashEvent:
-			updatedEvent := entities.NewStateHashEvent(e.Node(), ts, e.Version(), e.Height(), e.StateHash(), e.BaseTarget())
-			err := a.es.PutEvent(updatedEvent)
-			if err != nil {
-				a.zap.Error("Failed to put event", zap.Error(err))
-				return
-			}
-			a.zap.Sugar().Infof("Statement for private node %s has been put into the storage, height %d, statehash %s\n", node, e.Height(), e.StateHash().SumHash.Hex())
-		}
-
-	}
+	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
-
-	a.putPrivateNodesEvents(pollingResult.Timestamp())
-
 	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)

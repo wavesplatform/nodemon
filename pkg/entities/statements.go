@@ -3,7 +3,6 @@ package entities
 import (
 	"math"
 	"sort"
-	"sync"
 
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
@@ -140,31 +139,4 @@ func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
 		}
 	}
 	return min, max
-}
-
-type PrivateNodesEvents struct {
-	Mu   *sync.RWMutex
-	Data map[string]Event // map[url]NodeStatement
-}
-
-func NewPrivateNodesEvents() *PrivateNodesEvents {
-	return &PrivateNodesEvents{
-		Mu:   new(sync.RWMutex),
-		Data: make(map[string]Event),
-	}
-}
-
-func (p *PrivateNodesEvents) Write(event Event, url string) {
-	p.Mu.Lock()
-	defer p.Mu.Unlock()
-	p.Data[url] = event
-}
-
-func (p *PrivateNodesEvents) Read(url string) Event {
-	p.Mu.RLock()
-	defer p.Mu.RUnlock()
-	if _, ok := p.Data[url]; ok {
-		return p.Data[url]
-	}
-	return nil
 }
