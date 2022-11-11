@@ -42,7 +42,7 @@ const (
 	InvalidHeightAlertNotification = "InvalidHeightAlert"
 	HeightAlertNotification        = "HeightAlert"
 	StateHashAlertNotification     = "StateHashAlert"
-	AlertFixedNotification         = "AlertFixed"
+	AlertFixedNotification         = "Resolved"
 	InternalErrorNotification      = "InternalErrorAlert"
 )
 
