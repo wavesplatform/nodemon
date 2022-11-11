@@ -64,7 +64,7 @@ func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
 		h := startHeight + i
 		ts := mkTimestamp(h)
 		sh := shs[i].sh
-		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh)
+		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh, 1)
 	}
 	return r
 }
@@ -111,7 +111,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 		expectedAlerts []entities.StateHashAlert
 	}{
 		{
-			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3}},
+			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3}, BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: 2}},
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(commonStateHashes[:1], forkA[:3])...),
 				mkEvents("b", 1, mergeShInfo(commonStateHashes[:1], forkB[:4])...),

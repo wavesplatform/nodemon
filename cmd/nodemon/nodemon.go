@@ -13,6 +13,7 @@ import (
 
 	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
+	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 
@@ -60,6 +61,7 @@ func run() error {
 		nanomsgPairDiscordURL  string
 		retention              time.Duration
 		apiReadTimeout         time.Duration
+		baseTargetThreshold    int
 		logLevel               string
 	)
 	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
@@ -67,6 +69,7 @@ func run() error {
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	flag.DurationVar(&timeout, "timeout", defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
+	flag.IntVar(&baseTargetThreshold, "base-target-threshold", 0, "Base target threshold. Must be specified")
 	flag.StringVar(&nanomsgPubSubURL, "nano-msg-pubsub-url", "ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
 	flag.StringVar(&nanomsgPairTelegramURL, "nano-msg-pair-telegram-url", "", "Nanomsg IPC URL for pair socket")
 	flag.StringVar(&nanomsgPairDiscordURL, "nano-msg-pair-discord-url", "", "Nanomsg IPC URL for pair socket")
@@ -96,6 +99,10 @@ func run() error {
 	}
 	if retention <= 0 {
 		zap.Error(fmt.Sprintf("Invalid retention duration '%s'", retention.String()))
+		return errorInvalidParameters
+	}
+	if baseTargetThreshold == 0 {
+		zap.Error(fmt.Sprintf("Invalid base target threshold '%d'", baseTargetThreshold))
 		return errorInvalidParameters
 	}
 	var (
@@ -153,7 +160,10 @@ func run() error {
 		return err
 	}
 
-	analyzer := analysis.NewAnalyzer(es, nil, zap)
+	opts := &analysis.AnalyzerOptions{
+		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: baseTargetThreshold},
+	}
+	analyzer := analysis.NewAnalyzer(es, opts, zap)
 
 	alerts := analyzer.Start(notifications)
 
