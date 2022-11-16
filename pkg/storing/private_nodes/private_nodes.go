@@ -1,7 +1,6 @@
 package private_nodes
 
 import (
-	"fmt"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -90,18 +89,13 @@ func (h *PrivateNodesHandler) Run(input <-chan entities.NodesGatheringNotificati
 
 func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.NodesGatheringNotification, output chan<- entities.NodesGatheringNotification) {
 	defer close(output)
-	for wn := range input {
-		switch notification := wn.(type) {
-		case *entities.OnPollingComplete:
-			var (
-				ts          = notification.Timestamp()
-				polledNodes = notification.Nodes()
-			)
-			storedPrivateNodes := h.putPrivateNodesEvents(ts)
-			h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d", len(storedPrivateNodes), ts)
-			output <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), ts)
-		default:
-			h.zap.Error("unknown analyzer notification", zap.String("type", fmt.Sprintf("%T", notification)))
-		}
+	for notification := range input {
+		var (
+			ts          = notification.Timestamp()
+			polledNodes = notification.Nodes()
+		)
+		storedPrivateNodes := h.putPrivateNodesEvents(ts)
+		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d", len(storedPrivateNodes), ts)
+		output <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), ts)
 	}
 }
