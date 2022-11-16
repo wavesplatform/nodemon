@@ -4,6 +4,10 @@ import (
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
+type EventWithTimestampProducer interface {
+	WithTimestamp(ts int64) Event
+}
+
 type Event interface {
 	Node() string
 	Timestamp() int64
@@ -35,6 +39,12 @@ func (e *UnreachableEvent) Statement() NodeStatement {
 	}
 }
 
+func (e *UnreachableEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
+}
+
 type VersionEvent struct {
 	node string
 	ts   int64
@@ -64,6 +74,12 @@ func (e *VersionEvent) Statement() NodeStatement {
 		Status:    Incomplete,
 		Version:   e.Version(),
 	}
+}
+
+func (e *VersionEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
 }
 
 type HeightEvent struct {
@@ -103,6 +119,12 @@ func (e *HeightEvent) Statement() NodeStatement {
 	}
 }
 
+func (e *HeightEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
+}
+
 type InvalidHeightEvent struct {
 	node string
 	ts   int64
@@ -138,6 +160,12 @@ func (e *InvalidHeightEvent) Statement() NodeStatement {
 		Version:   e.Version(),
 		Height:    e.Height(),
 	}
+}
+
+func (e *InvalidHeightEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
 }
 
 type StateHashEvent struct {
@@ -189,6 +217,12 @@ func (e *StateHashEvent) Statement() NodeStatement {
 	}
 }
 
+func (e *StateHashEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
+}
+
 type BaseTargetEvent struct {
 	node       string
 	ts         int64
@@ -230,4 +264,10 @@ func (e *BaseTargetEvent) Statement() NodeStatement {
 		Height:     e.Height(),
 		BaseTarget: e.BaseTarget(),
 	}
+}
+
+func (e *BaseTargetEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
 }
