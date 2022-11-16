@@ -82,13 +82,13 @@ func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {
 	return nil
 }
 
-func (h *PrivateNodesHandler) Run(input <-chan entities.Notification) <-chan entities.Notification {
-	output := make(chan entities.Notification)
+func (h *PrivateNodesHandler) Run(input <-chan entities.NodesGatheringNotification) <-chan entities.NodesGatheringNotification {
+	output := make(chan entities.NodesGatheringNotification)
 	go h.handlePrivateEvents(input, output)
 	return output
 }
 
-func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.Notification, output chan<- entities.Notification) {
+func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.NodesGatheringNotification, output chan<- entities.NodesGatheringNotification) {
 	defer close(output)
 	for wn := range input {
 		switch notification := wn.(type) {

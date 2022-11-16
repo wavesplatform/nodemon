@@ -43,7 +43,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
-func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
+func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.NodesGatheringNotification) error {
 	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)
@@ -145,7 +145,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	return nil
 }
 
-func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan entities.Alert {
+func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotification) <-chan entities.Alert {
 	out := make(chan entities.Alert)
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
@@ -161,7 +161,7 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	return out
 }
 
-func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.Notification) error {
+func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.NodesGatheringNotification) error {
 	switch notificationType := n.(type) {
 	case *entities.OnPollingComplete:
 		a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificationType.Nodes()))

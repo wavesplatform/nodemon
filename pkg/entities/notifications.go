@@ -8,6 +8,12 @@ type Notification interface {
 	ShortDescription() string
 }
 
+type NodesGatheringNotification interface {
+	Notification
+	Timestamp() int64
+	Nodes() []string
+}
+
 type OnPollingComplete struct {
 	nodes []string
 	ts    int64
