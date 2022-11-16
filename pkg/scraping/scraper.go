@@ -89,6 +89,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
+
 	node := newNodeClient(url, s.timeout, s.zap)
 	v, err := node.version(ctx)
 	if err != nil {
