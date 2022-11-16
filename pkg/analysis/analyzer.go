@@ -44,7 +44,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.NodesGatheringNotification) error {
-	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
+	statements := make(entities.NodeStatements, 0, pollingResult.NodesCount())
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)
 		return true
@@ -162,7 +162,7 @@ func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotificatio
 }
 
 func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.NodesGatheringNotification) error {
-	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", len(n.Nodes()))
+	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", n.NodesCount())
 	cnt, err := a.es.StatementsCount()
 	if err != nil {
 		return errors.Wrap(err, "failed to get statements count")

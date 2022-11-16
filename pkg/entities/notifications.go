@@ -12,6 +12,7 @@ type NodesGatheringNotification interface {
 	Notification
 	Timestamp() int64
 	Nodes() []string
+	NodesCount() int
 }
 
 type NodesGatheringComplete struct {
@@ -29,6 +30,10 @@ func (n *NodesGatheringComplete) ShortDescription() string {
 
 func (n *NodesGatheringComplete) Nodes() []string {
 	return n.nodes
+}
+
+func (n *NodesGatheringComplete) NodesCount() int {
+	return len(n.nodes)
 }
 
 func (n *NodesGatheringComplete) Timestamp() int64 {
