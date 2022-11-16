@@ -32,15 +32,6 @@ func (p *privateNodesEvents) Write(event entities.Event, url string) {
 	p.data[url] = event
 }
 
-func (p *privateNodesEvents) Read(url string) entities.Event {
-	p.mu.RLock()
-	defer p.mu.RUnlock()
-	if _, ok := p.data[url]; ok {
-		return p.data[url]
-	}
-	return nil
-}
-
 type PrivateNodesHandler struct {
 	es            *events.Storage
 	zap           *zap.Logger
