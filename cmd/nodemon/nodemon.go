@@ -151,12 +151,11 @@ func run() error {
 	}
 
 	wrappedNotifications := scraper.Start(ctx)
-	privateNodesEvents := private_nodes.NewPrivateNodesEvents()
 
-	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap, privateNodesEvents)
+	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
 	notifications := privateNodesHandler.Run(wrappedNotifications)
 
-	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesEvents)
+	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter())
 	if err != nil {
 		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err

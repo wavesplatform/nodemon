@@ -14,25 +14,25 @@ type PrivateNodesEventsWriter interface {
 	Write(event entities.Event, url string)
 }
 
-type PrivateNodesEvents struct {
+type privateNodesEvents struct {
 	mu   *sync.RWMutex
 	data map[string]entities.Event // map[url]NodeStatement
 }
 
-func NewPrivateNodesEvents() *PrivateNodesEvents {
-	return &PrivateNodesEvents{
+func newPrivateNodesEvents() *privateNodesEvents {
+	return &privateNodesEvents{
 		mu:   new(sync.RWMutex),
 		data: make(map[string]entities.Event),
 	}
 }
 
-func (p *PrivateNodesEvents) Write(event entities.Event, url string) {
+func (p *privateNodesEvents) Write(event entities.Event, url string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.data[url] = event
 }
 
-func (p *PrivateNodesEvents) Read(url string) entities.Event {
+func (p *privateNodesEvents) Read(url string) entities.Event {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	if _, ok := p.data[url]; ok {
@@ -44,15 +44,19 @@ func (p *PrivateNodesEvents) Read(url string) entities.Event {
 type PrivateNodesHandler struct {
 	es            *events.Storage
 	zap           *zap.Logger
-	privateEvents *PrivateNodesEvents
+	privateEvents *privateNodesEvents
 }
 
-func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, privateNodesEvents *PrivateNodesEvents) *PrivateNodesHandler {
+func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger) *PrivateNodesHandler {
 	return &PrivateNodesHandler{
 		es:            es,
 		zap:           zap,
-		privateEvents: privateNodesEvents,
+		privateEvents: newPrivateNodesEvents(),
 	}
+}
+
+func (h *PrivateNodesHandler) PrivateNodesEventsWriter() PrivateNodesEventsWriter {
+	return h.privateEvents
 }
 
 func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
