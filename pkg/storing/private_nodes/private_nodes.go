@@ -10,6 +10,10 @@ import (
 	"nodemon/pkg/storing/events"
 )
 
+type PrivateNodesEventsWriter interface {
+	Write(event entities.Event, url string)
+}
+
 type PrivateNodesEvents struct {
 	mu   *sync.RWMutex
 	data map[string]entities.Event // map[url]NodeStatement
