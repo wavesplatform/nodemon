@@ -100,7 +100,7 @@ func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.WrappedN
 		switch notification := wn.(type) {
 		case *entities.OnPollingComplete:
 			var (
-				ts          = notification.Ts
+				ts          = notification.Timestamp()
 				polledNodes = notification.Nodes()
 			)
 			storedPrivateNodes := h.putPrivateNodesEvents(ts)
