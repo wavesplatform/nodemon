@@ -96,6 +96,6 @@ func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.NodesGat
 		)
 		storedPrivateNodes := h.putPrivateNodesEvents(ts)
 		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d", len(storedPrivateNodes), ts)
-		output <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), ts)
+		output <- entities.NewNodesGatheringComplete(append(polledNodes, storedPrivateNodes...), ts)
 	}
 }

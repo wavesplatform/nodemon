@@ -85,7 +85,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 		urls[i] = enabledNodes[i].URL
 	}
 
-	notifications <- entities.NewOnPollingComplete(urls, now)
+	notifications <- entities.NewNodesGatheringComplete(urls, now)
 }
 
 func (s *Scraper) queryNode(ctx context.Context, url string, events chan entities.Event, ts int64) {
