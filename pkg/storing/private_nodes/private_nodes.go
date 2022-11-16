@@ -11,25 +11,25 @@ import (
 )
 
 type PrivateNodesEventsWriter interface {
-	Write(event entities.Event, url string)
+	Write(event entities.EventWithTimestampProducer, url string)
 }
 
 type privateNodesEvents struct {
 	mu   *sync.RWMutex
-	data map[string]entities.Event // map[url]NodeStatement
+	data map[string]entities.EventWithTimestampProducer // map[url]NodeStatement
 }
 
 func newPrivateNodesEvents() *privateNodesEvents {
 	return &privateNodesEvents{
 		mu:   new(sync.RWMutex),
-		data: make(map[string]entities.Event),
+		data: make(map[string]entities.EventWithTimestampProducer),
 	}
 }
 
-func (p *privateNodesEvents) Write(event entities.Event, url string) {
+func (p *privateNodesEvents) Write(producer entities.EventWithTimestampProducer, url string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.data[url] = event
+	p.data[url] = producer
 }
 
 type PrivateNodesHandler struct {
@@ -54,7 +54,8 @@ func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
 	nodes := make(entities.Nodes, 0, len(h.privateEvents.data))
 	h.privateEvents.mu.RLock()
 	defer h.privateEvents.mu.RUnlock()
-	for node, event := range h.privateEvents.data {
+	for node, eventProducer := range h.privateEvents.data {
+		event := eventProducer.WithTimestamp(ts)
 		if err := h.handleEventWithTs(ts, event); err != nil {
 			h.zap.Error("Failed to put private node event", zap.Error(err))
 			return nodes
