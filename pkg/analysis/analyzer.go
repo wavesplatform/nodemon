@@ -162,19 +162,14 @@ func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotificatio
 }
 
 func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.NodesGatheringNotification) error {
-	switch notificationType := n.(type) {
-	case *entities.OnPollingComplete:
-		a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificationType.Nodes()))
-		cnt, err := a.es.StatementsCount()
-		if err != nil {
-			return errors.Wrap(err, "failed to get statements count")
-		}
-		a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
-		if err := a.analyze(alerts, notificationType); err != nil {
-			return errors.Wrap(err, "failed to analyze nodes statements")
-		}
-		return nil
-	default:
-		return errors.Errorf("unknown alanyzer notification (%T)", notificationType)
+	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", len(n.Nodes()))
+	cnt, err := a.es.StatementsCount()
+	if err != nil {
+		return errors.Wrap(err, "failed to get statements count")
 	}
+	a.zap.Sugar().Infof("Total statements count: %d", cnt)
+	if err := a.analyze(alerts, n); err != nil {
+		return errors.Wrap(err, "failed to analyze nodes statements")
+	}
+	return nil
 }
