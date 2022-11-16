@@ -11,28 +11,28 @@ import (
 )
 
 type PrivateNodesEvents struct {
-	Mu   *sync.RWMutex
-	Data map[string]entities.Event // map[url]NodeStatement
+	mu   *sync.RWMutex
+	data map[string]entities.Event // map[url]NodeStatement
 }
 
 func NewPrivateNodesEvents() *PrivateNodesEvents {
 	return &PrivateNodesEvents{
-		Mu:   new(sync.RWMutex),
-		Data: make(map[string]entities.Event),
+		mu:   new(sync.RWMutex),
+		data: make(map[string]entities.Event),
 	}
 }
 
 func (p *PrivateNodesEvents) Write(event entities.Event, url string) {
-	p.Mu.Lock()
-	defer p.Mu.Unlock()
-	p.Data[url] = event
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.data[url] = event
 }
 
 func (p *PrivateNodesEvents) Read(url string) entities.Event {
-	p.Mu.RLock()
-	defer p.Mu.RUnlock()
-	if _, ok := p.Data[url]; ok {
-		return p.Data[url]
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if _, ok := p.data[url]; ok {
+		return p.data[url]
 	}
 	return nil
 }
@@ -52,10 +52,10 @@ func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, privateNodesEve
 }
 
 func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
-	nodes := make(entities.Nodes, 0, len(h.privateEvents.Data))
-	h.privateEvents.Mu.RLock()
-	defer h.privateEvents.Mu.RUnlock()
-	for node, event := range h.privateEvents.Data {
+	nodes := make(entities.Nodes, 0, len(h.privateEvents.data))
+	h.privateEvents.mu.RLock()
+	defer h.privateEvents.mu.RUnlock()
+	for node, event := range h.privateEvents.data {
 		if err := h.handleEventWithTs(ts, event); err != nil {
 			h.zap.Error("Failed to put private node event", zap.Error(err))
 			return nodes
