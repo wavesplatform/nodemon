@@ -95,6 +95,7 @@ func (h *PrivateNodesHandler) Run(input <-chan entities.WrappedNotification) <-c
 }
 
 func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.WrappedNotification, output chan<- entities.Notification) {
+	defer close(output)
 	for wn := range input {
 		switch notification := wn.(type) {
 		case *entities.OnPollingComplete:
