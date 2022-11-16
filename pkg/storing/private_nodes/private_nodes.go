@@ -50,42 +50,46 @@ func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, privateNodesEve
 	}
 }
 
-func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) {
-
+func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
+	nodes := make(entities.Nodes, 0, len(h.privateEvents.Data))
 	h.privateEvents.Mu.RLock()
 	defer h.privateEvents.Mu.RUnlock()
 	for node, event := range h.privateEvents.Data {
-
 		switch e := event.(type) {
 		case *entities.InvalidHeightEvent:
 			updatedEvent := entities.NewInvalidHeightEvent(e.Node(), ts, e.Version(), e.Height())
 			err := h.es.PutEvent(updatedEvent)
 			if err != nil {
 				h.zap.Error("Failed to put event", zap.Error(err))
-				return
+				return nodes
 			}
-			h.zap.Sugar().Infof("Statement 'InvalidHeight' for private node %s has been put into the storage, height %d\n", node, e.Height())
+			h.zap.Sugar().Infof("Statement 'InvalidHeight' for private node %s has been put into the storage, height %d", node, e.Height())
 		case *entities.StateHashEvent:
 			updatedEvent := entities.NewStateHashEvent(e.Node(), ts, e.Version(), e.Height(), e.StateHash(), e.BaseTarget())
 			err := h.es.PutEvent(updatedEvent)
 			if err != nil {
 				h.zap.Error("Failed to put event", zap.Error(err))
-				return
+				return nodes
 			}
-			h.zap.Sugar().Infof("Statement for private node %s has been put into the storage, height %d, statehash %s\n", node, e.Height(), e.StateHash().SumHash.Hex())
+			h.zap.Sugar().Infof("Statement for private node %s has been put into the storage, height %d, statehash %s", node, e.Height(), e.StateHash().SumHash.Hex())
+		default:
+			h.zap.Sugar().Errorf("Unknown event type (%T)", e)
+			return nodes
 		}
-
+		nodes = append(nodes, node)
 	}
+	return nodes
 }
 
 func (h *PrivateNodesHandler) HandlePrivateEvents(wrappedNotifications <-chan entities.WrappedNotification, notifications chan<- entities.Notification) {
 	for wn := range wrappedNotifications {
-		switch wrappedNotificationType := wn.(type) {
+		switch notification := wn.(type) {
 		case *entities.OnPollingComplete:
-			h.putPrivateNodesEvents(wrappedNotificationType.Ts)
-			notifications <- wrappedNotificationType
+			polledNodes := notification.Nodes()
+			storedPrivateNodes := h.putPrivateNodesEvents(notification.Ts)
+			notifications <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), notification.Ts)
 		default:
-			h.zap.Error("unknown analyzer notification", zap.String("type", fmt.Sprintf("%T", wrappedNotificationType)))
+			h.zap.Error("unknown analyzer notification", zap.String("type", fmt.Sprintf("%T", notification)))
 		}
 	}
 }
