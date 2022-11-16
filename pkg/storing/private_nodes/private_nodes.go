@@ -56,7 +56,7 @@ func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
 	defer h.privateEvents.mu.RUnlock()
 	for node, eventProducer := range h.privateEvents.data {
 		event := eventProducer.WithTimestamp(ts)
-		if err := h.handleEventWithTs(ts, event); err != nil {
+		if err := h.putPrivateNodesEvent(event); err != nil {
 			h.zap.Error("Failed to put private node event", zap.Error(err))
 			return nodes
 		}
@@ -65,26 +65,19 @@ func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
 	return nodes
 }
 
-func (h *PrivateNodesHandler) handleEventWithTs(ts int64, e entities.Event) error {
+func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {
+	if err := h.es.PutEvent(e); err != nil {
+		return errors.Wrapf(err, "failed to put event (%T) for node %s", e, e.Node())
+	}
 	switch e := e.(type) {
 	case *entities.InvalidHeightEvent:
-		updatedEvent := entities.NewInvalidHeightEvent(e.Node(), ts, e.Version(), e.Height())
-		err := h.es.PutEvent(updatedEvent)
-		if err != nil {
-			return errors.Wrapf(err, "failed to put event (%T) for node %s", e, e.Node())
-		}
-		h.zap.Sugar().Infof("Statement (%T) for private node %s has been put into the storage, height %d", e, e.Node(), e.Height())
+		h.zap.Sugar().Infof("Statement produced by (%T) for private node %s has been put into the storage, height %d", e, e.Node(), e.Height())
 	case *entities.StateHashEvent:
-		updatedEvent := entities.NewStateHashEvent(e.Node(), ts, e.Version(), e.Height(), e.StateHash(), e.BaseTarget())
-		err := h.es.PutEvent(updatedEvent)
-		if err != nil {
-			return errors.Wrapf(err, "failed to put event (%T) for node %s", e, e.Node())
-		}
-		h.zap.Sugar().Infof("Statement (%T) for private node %s has been put into the storage, height %d, statehash %s",
+		h.zap.Sugar().Infof("Statement produced by (%T) for private node %s has been put into the storage, height %d, statehash %s",
 			e, e.Node(), e.Height(), e.StateHash().SumHash.Hex(),
 		)
 	default:
-		return errors.Errorf("unknown event type (%T) for node %s", e, e.Node())
+		h.zap.Sugar().Warnf("Statement produced by unexpected (%T) for private node %s has been put into the storage", e, e.Node())
 	}
 	return nil
 }
