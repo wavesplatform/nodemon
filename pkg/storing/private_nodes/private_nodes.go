@@ -89,8 +89,14 @@ func (h *PrivateNodesHandler) handleEventWithTs(ts int64, e entities.Event) erro
 	return nil
 }
 
-func (h *PrivateNodesHandler) HandlePrivateEvents(wrappedNotifications <-chan entities.WrappedNotification, notifications chan<- entities.Notification) {
-	for wn := range wrappedNotifications {
+func (h *PrivateNodesHandler) Run(input <-chan entities.WrappedNotification) <-chan entities.Notification {
+	output := make(chan entities.Notification)
+	go h.handlePrivateEvents(input, output)
+	return output
+}
+
+func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.WrappedNotification, output chan<- entities.Notification) {
+	for wn := range input {
 		switch notification := wn.(type) {
 		case *entities.OnPollingComplete:
 			var (
@@ -99,7 +105,7 @@ func (h *PrivateNodesHandler) HandlePrivateEvents(wrappedNotifications <-chan en
 			)
 			storedPrivateNodes := h.putPrivateNodesEvents(ts)
 			h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d", len(storedPrivateNodes), ts)
-			notifications <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), ts)
+			output <- entities.NewOnPollingComplete(append(polledNodes, storedPrivateNodes...), ts)
 		default:
 			h.zap.Error("unknown analyzer notification", zap.String("type", fmt.Sprintf("%T", notification)))
 		}

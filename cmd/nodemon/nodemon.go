@@ -14,7 +14,6 @@ import (
 	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
-	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 	"nodemon/pkg/storing/private_nodes"
@@ -152,13 +151,10 @@ func run() error {
 	}
 
 	wrappedNotifications := scraper.Start(ctx)
-	notifications := make(chan entities.Notification)
 	privateNodesEvents := private_nodes.NewPrivateNodesEvents()
 
 	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap, privateNodesEvents)
-	go func(wn <-chan entities.WrappedNotification, n chan<- entities.Notification, pnh *private_nodes.PrivateNodesHandler) {
-		pnh.HandlePrivateEvents(wn, n)
-	}(wrappedNotifications, notifications, privateNodesHandler)
+	notifications := privateNodesHandler.Run(wrappedNotifications)
 
 	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesEvents)
 	if err != nil {
