@@ -150,10 +150,10 @@ func run() error {
 		return err
 	}
 
-	wrappedNotifications := scraper.Start(ctx)
+	notifications := scraper.Start(ctx)
 
 	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
-	notifications := privateNodesHandler.Run(wrappedNotifications)
+	notifications = privateNodesHandler.Run(notifications)
 
 	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter())
 	if err != nil {

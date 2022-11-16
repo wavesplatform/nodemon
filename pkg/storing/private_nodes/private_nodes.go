@@ -88,13 +88,13 @@ func (h *PrivateNodesHandler) handleEventWithTs(ts int64, e entities.Event) erro
 	return nil
 }
 
-func (h *PrivateNodesHandler) Run(input <-chan entities.WrappedNotification) <-chan entities.Notification {
+func (h *PrivateNodesHandler) Run(input <-chan entities.Notification) <-chan entities.Notification {
 	output := make(chan entities.Notification)
 	go h.handlePrivateEvents(input, output)
 	return output
 }
 
-func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.WrappedNotification, output chan<- entities.Notification) {
+func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.Notification, output chan<- entities.Notification) {
 	defer close(output)
 	for wn := range input {
 		switch notification := wn.(type) {

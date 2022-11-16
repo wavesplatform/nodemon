@@ -28,7 +28,3 @@ func (n *OnPollingComplete) Nodes() []string {
 func (n *OnPollingComplete) Timestamp() int64 {
 	return n.ts
 }
-
-type WrappedNotification interface {
-	ShortDescription() string
-}

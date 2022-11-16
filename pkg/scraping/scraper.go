@@ -23,9 +23,9 @@ func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Du
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context) <-chan entities.WrappedNotification {
-	out := make(chan entities.WrappedNotification)
-	go func(notifications chan<- entities.WrappedNotification) {
+func (s *Scraper) Start(ctx context.Context) <-chan entities.Notification {
+	out := make(chan entities.Notification)
+	go func(notifications chan<- entities.Notification) {
 		ticker := time.NewTicker(s.interval)
 		defer func() {
 			ticker.Stop()
@@ -45,7 +45,7 @@ func (s *Scraper) Start(ctx context.Context) <-chan entities.WrappedNotification
 	return out
 }
 
-func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.WrappedNotification, now int64) {
+func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification, now int64) {
 	cc, cancel := context.WithCancel(ctx)
 	defer cancel()
 
