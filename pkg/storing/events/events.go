@@ -149,7 +149,7 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
-func (s *Storage) GetStatementAtHeight(node string, height int) (entities.NodeStatement, error) {
+func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.NodeStatement, error) {
 	pattern := newStatementKey(node, "*")
 	var st entities.NodeStatement
 	notFound := false
@@ -178,7 +178,7 @@ func (s *Storage) GetStatementAtHeight(node string, height int) (entities.NodeSt
 }
 
 func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
-	_, err := s.GetStatementAtHeight(node, height)
+	_, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
 		if errors.Is(err, NoFullStatementError) {
 			return false, nil
@@ -282,7 +282,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
 			continue
 		}
-		statement, err := s.GetStatementAtHeight(node, minHeight)
+		statement, err := s.GetFullStatementAtHeight(node, minHeight)
 		if err != nil {
 			if !errors.Is(err, NoFullStatementError) {
 				return nil, errors.Wrapf(err, "failed to find statement at height %d for node '%s'", minHeight, node)
