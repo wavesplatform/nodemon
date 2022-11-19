@@ -304,26 +304,11 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 }
 
 func (s *Storage) LastStateHashAtHeight(node string, height int) (proto.StateHash, error) {
-	pattern := newStatementKey(node, "*")
-	var sh *proto.StateHash
-	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
-		st := *s
-		if st.Height != height {
-			return true
-		}
-		if st.StateHash != nil {
-			sh = st.StateHash
-			return false
-		}
-		return true
-	})
+	st, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
-		return proto.StateHash{}, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
+		return proto.StateHash{}, errors.Wrapf(err, "failed to get state hash for node '%s' at height %d", node, height)
 	}
-	if sh == nil {
-		return proto.StateHash{}, errors.Errorf("no full statements at height %d for node '%s'", height, node)
-	}
-	return *sh, nil
+	return *st.StateHash, nil
 }
 
 func (s *Storage) viewByKeyPatternWithDescendKeys(pattern string, iter func(*entities.NodeStatement) bool) error {
