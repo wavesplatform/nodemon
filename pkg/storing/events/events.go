@@ -151,27 +151,28 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 
 func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.NodeStatement, error) {
 	pattern := newStatementKey(node, "*")
-	var st entities.NodeStatement
-	notFound := false
+	var (
+		st           = entities.NodeStatement{}
+		notFound     = true
+		notFoundFull = true
+	)
 	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
 		st = *s
-		if st.Height < height {
-			notFound = true
+		if h := st.Height; h != 0 && h < height {
 			return false
 		}
-		if st.Height != height {
-			return true
-		}
-		return false
+		notFound = st.Height != height
+		notFoundFull = notFound || st.StateHash == nil
+		return notFoundFull
 
 	})
 	if err != nil {
-		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
+		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get node statement at height %d for node '%s'", height, node)
 	}
 	if notFound {
-		return entities.NodeStatement{}, errors.Wrapf(NoFullStatementError, "no full statement at height %d for node '%s'", height, node)
+		return entities.NodeStatement{}, errors.Wrapf(NoFullStatementError, "no any statement at height %d for node '%s'", height, node)
 	}
-	if st.StateHash == nil {
+	if notFoundFull {
 		return entities.NodeStatement{}, errors.Wrapf(NoFullStatementError, "no full statement at height %d for node '%s'", height, node)
 	}
 	return st, nil
