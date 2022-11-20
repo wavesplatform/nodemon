@@ -78,6 +78,10 @@ func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
 	return cs.queryNodes(func(n node) bool { return n.Enabled }, 0, false)
 }
 
+func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
+	return cs.queryNodes(func(n node) bool { return n.Enabled }, 0, true)
+}
+
 func (cs *Storage) InsertIfNew(url string) error {
 	ids, err := cs.queryNodes(func(n node) bool { return n.URL == url }, 0, false)
 	if err != nil {

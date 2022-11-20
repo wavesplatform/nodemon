@@ -108,6 +108,12 @@ func (d *dummyEvent) Statement() entities.NodeStatement {
 	return d.NodeStatement
 }
 
+func (d *dummyEvent) WithTimestamp(ts int64) entities.Event {
+	cpy := *d
+	cpy.NodeStatement.Timestamp = ts
+	return &cpy
+}
+
 func (s *EventsStorageTestSuite) TestViewStatementsByNodeURLWithDescendKeys() {
 	tests := []struct {
 		node     string

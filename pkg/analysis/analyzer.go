@@ -43,8 +43,8 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
-func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities.OnPollingComplete) error {
-	statements := make(entities.NodeStatements, 0, len(pollingResult.Nodes()))
+func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.NodesGatheringNotification) error {
+	statements := make(entities.NodeStatements, 0, pollingResult.NodesCount())
 	err := a.es.ViewStatementsByTimestamp(pollingResult.Timestamp(), func(statement *entities.NodeStatement) bool {
 		statements = append(statements, *statement)
 		return true
@@ -145,7 +145,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult *entities
 	return nil
 }
 
-func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan entities.Alert {
+func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotification) <-chan entities.Alert {
 	out := make(chan entities.Alert)
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)
@@ -161,20 +161,15 @@ func (a *Analyzer) Start(notifications <-chan entities.Notification) <-chan enti
 	return out
 }
 
-func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.Notification) error {
-	switch notificationType := n.(type) {
-	case *entities.OnPollingComplete:
-		a.zap.Sugar().Infof("On polling complete of %d nodes", len(notificationType.Nodes()))
-		cnt, err := a.es.StatementsCount()
-		if err != nil {
-			return errors.Wrap(err, "failed to get statements count")
-		}
-		a.zap.Sugar().Infof("Total statemetns count: %d", cnt)
-		if err := a.analyze(alerts, notificationType); err != nil {
-			return errors.Wrap(err, "failed to analyze nodes statements")
-		}
-		return nil
-	default:
-		return errors.Errorf("unknown alanyzer notification (%T)", notificationType)
+func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.NodesGatheringNotification) error {
+	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", n.NodesCount())
+	cnt, err := a.es.StatementsCount()
+	if err != nil {
+		return errors.Wrap(err, "failed to get statements count")
 	}
+	a.zap.Sugar().Infof("Total statements count: %d", cnt)
+	if err := a.analyze(alerts, n); err != nil {
+		return errors.Wrap(err, "failed to analyze nodes statements")
+	}
+	return nil
 }

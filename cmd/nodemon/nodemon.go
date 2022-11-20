@@ -16,6 +16,7 @@ import (
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
+	"nodemon/pkg/storing/private_nodes"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
@@ -148,9 +149,13 @@ func run() error {
 		zap.Error("failed to initialize scraper", zapLogger.Error(err))
 		return err
 	}
-	notifications, specificNodesTs := scraper.Start(ctx)
 
-	a, err := api.NewAPI(bindAddress, ns, es, specificNodesTs, apiReadTimeout, zap)
+	notifications := scraper.Start(ctx)
+
+	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
+	notifications = privateNodesHandler.Run(notifications)
+
+	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter())
 	if err != nil {
 		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err

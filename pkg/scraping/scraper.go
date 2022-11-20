@@ -5,7 +5,6 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -24,10 +23,9 @@ func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Du
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 
-func (s *Scraper) Start(ctx context.Context) (<-chan entities.Notification, *atomic.Int64) {
-	specificNodesTs := new(atomic.Int64)
-	out := make(chan entities.Notification)
-	go func(notifications chan<- entities.Notification) {
+func (s *Scraper) Start(ctx context.Context) <-chan entities.NodesGatheringNotification {
+	out := make(chan entities.NodesGatheringNotification)
+	go func(notifications chan<- entities.NodesGatheringNotification) {
 		ticker := time.NewTicker(s.interval)
 		defer func() {
 			ticker.Stop()
@@ -35,7 +33,6 @@ func (s *Scraper) Start(ctx context.Context) (<-chan entities.Notification, *ato
 		}()
 		for {
 			now := time.Now().Unix()
-			specificNodesTs.Store(now)
 			s.poll(ctx, notifications, now)
 			select {
 			case <-ticker.C:
@@ -45,10 +42,10 @@ func (s *Scraper) Start(ctx context.Context) (<-chan entities.Notification, *ato
 			}
 		}
 	}(out)
-	return out, specificNodesTs
+	return out
 }
 
-func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notification, now int64) {
+func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesGatheringNotification, now int64) {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
@@ -72,7 +69,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.Notifi
 	for i := range enabledNodes {
 		urls[i] = enabledNodes[i].URL
 	}
-	notifications <- entities.NewOnPollingComplete(urls, now)
+	notifications <- entities.NewNodesGatheringComplete(urls, now)
 }
 
 func (s *Scraper) queryNodes(ctx context.Context, nodes []entities.Node, now int64) <-chan entities.Event {

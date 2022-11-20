@@ -15,27 +15,23 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/atomic"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/private_nodes"
 )
 
 type API struct {
-	srv                   *http.Server
-	nodesStorage          *nodes.Storage
-	eventsStorage         *events.Storage
-	specificNodesSettings specificNodesSettings
-	zap                   *zap.Logger
+	srv                *http.Server
+	nodesStorage       *nodes.Storage
+	eventsStorage      *events.Storage
+	zap                *zap.Logger
+	privateNodesEvents private_nodes.PrivateNodesEventsWriter
 }
 
-type specificNodesSettings struct {
-	currentTimestamp *atomic.Int64
-}
-
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, specificNodesTs *atomic.Int64, apiReadTimeout time.Duration, logger *zap.Logger) (*API, error) {
-	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, specificNodesSettings: specificNodesSettings{currentTimestamp: specificNodesTs}, zap: logger}
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter) (*API, error) {
+	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -129,39 +125,36 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	statement.Node = updatedUrl
 
-	if a.specificNodesSettings.currentTimestamp == nil {
-		a.zap.Error("current timestamp of analyzed nodes is nil yet")
+	var mockTs int64 = 0
+
+	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
+	if err != nil {
+		a.zap.Error("Failed to fetch specific nodes from storage", zap.Error(err))
+		http.Error(w, fmt.Sprintf("Failed to fetch specific nodes from storage: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	foundInStorage := false
+	for _, enabled := range enabledSpecificNodes {
+		if enabled.URL == statement.Node {
+			foundInStorage = true
+		}
+	}
+
+	if !foundInStorage {
+		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon", zap.String("node", statement.Node))
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	currentTs := a.specificNodesSettings.currentTimestamp.Load()
-
-	var events []entities.Event
 
 	if statement.Height < 2 {
-		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
-		err := a.eventsStorage.PutEvent(invalidHeightEvent)
-		if err != nil {
-			a.zap.Error("Failed to put invalid height event", zap.Error(err))
-		}
+		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, mockTs, statement.Version, statement.Height)
+		a.privateNodesEvents.Write(invalidHeightEvent, statement.Node)
 		return
 	}
 
-	versionEvent := entities.NewVersionEvent(statement.Node, currentTs, statement.Version)
-	events = append(events, versionEvent)
-
-	heightEvent := entities.NewHeightEvent(statement.Node, currentTs, statement.Version, statement.Height)
-	events = append(events, heightEvent)
-
-	stateHashEvent := entities.NewStateHashEvent(statement.Node, currentTs, statement.Version, statement.Height, statehash, 0) // TODO: these nodes don't send base target value at the moment
-	events = append(events, stateHashEvent)
-
-	for _, event := range events {
-		err := a.eventsStorage.PutEvent(event)
-		if err != nil {
-			a.zap.Error("Failed to put event", zap.Error(err))
-		}
-	}
+	stateHashEvent := entities.NewStateHashEvent(statement.Node, mockTs, statement.Version, statement.Height, statehash, 0) // TODO: these nodes don't send base target value at the moment
+	a.privateNodesEvents.Write(stateHashEvent, statement.Node)
 
 	err = json.NewEncoder(w).Encode(statement)
 	if err != nil {
@@ -173,7 +166,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sumhash := strings.Replace(statehash.SumHash.Hex(), "\n", "", -1)
 	sumhash = strings.Replace(sumhash, "\r", "", -1)
-	a.zap.Sugar().Infof("Statement for node %s has been put into the storage, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash)
+	a.zap.Sugar().Infof("Statement for node %s has been received, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash)
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
