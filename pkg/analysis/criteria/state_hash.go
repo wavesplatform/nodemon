@@ -46,7 +46,7 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 				statementAtBucketHeight = statement
 			} else {
 				var err error
-				statementAtBucketHeight, err = c.es.GetStatementAtHeight(statement.Node, bucketHeight)
+				statementAtBucketHeight, err = c.es.GetFullStatementAtHeight(statement.Node, bucketHeight)
 				if err != nil {
 					if errors.Is(err, events.NoFullStatementError) {
 						c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q at height %d",
