@@ -49,8 +49,8 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 				statementAtBucketHeight, err = c.es.GetFullStatementAtHeight(statement.Node, bucketHeight)
 				if err != nil {
 					if errors.Is(err, events.NoFullStatementError) {
-						c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q at height %d",
-							statement.Node, statement.Height,
+						c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q at height %d: %v",
+							statement.Node, statement.Height, err,
 						)
 						continue
 					}
@@ -103,8 +103,11 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			lastCommonStateHashExist := true
 			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
 			if err != nil {
-				if errors.Is(err, finders.ErrNoCommonBlocks) {
-					lastCommonStateHashExist = false
+				lastCommonStateHashExist = false
+				if errors.Is(err, finders.ErrNoFullStatement) || errors.Is(err, finders.ErrNoCommonBlocks) {
+					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
+						first.Node, second.Node, err,
+					)
 				} else {
 					return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
 						first.Node, second.Node,
