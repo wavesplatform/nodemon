@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	ErrNoCommonBlocks = errors.New("no common blocks")
+	ErrNoCommonBlocks  = errors.New("no common blocks")
+	ErrNoFullStatement = events.NoFullStatementError
 )
 
 type ForkFinder struct {
@@ -90,6 +91,7 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 		middle := (start + stop) / 2
 		different, err := f.differentStateHashesAt(nodeA, nodeB, middle)
 		if err != nil {
+			err := errors.Wrapf(err, "binsearch failed for nodes '%s' and '%s' at height %d", nodeA, nodeB, middle)
 			return 0, proto.StateHash{}, err
 		}
 		if different {
@@ -116,11 +118,11 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 
 func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
 	shA, err := f.storage.StateHashAtHeight(a, h)
-	if err != nil {
+	if err != nil { // err can be events.NoFullStatementError
 		return false, err
 	}
 	shB, err := f.storage.StateHashAtHeight(b, h)
-	if err != nil {
+	if err != nil { // err can be events.NoFullStatementError
 		return false, err
 	}
 	return shA.BlockID != shB.BlockID, nil
@@ -128,11 +130,11 @@ func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
 
 func (f *ForkFinder) differentStateHashesAt(a, b string, h int) (bool, error) {
 	shA, err := f.storage.StateHashAtHeight(a, h)
-	if err != nil {
+	if err != nil { // err can be events.NoFullStatementError
 		return false, err
 	}
 	shB, err := f.storage.StateHashAtHeight(b, h)
-	if err != nil {
+	if err != nil { // err can be events.NoFullStatementError
 		return false, err
 	}
 	return shA.SumHash != shB.SumHash, nil

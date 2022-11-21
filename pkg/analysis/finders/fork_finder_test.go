@@ -192,3 +192,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		}
 	}
 }
+
+func TestErrNoStateHashError(t *testing.T) {
+	require.Equal(t, events.NoFullStatementError, ErrNoFullStatement)
+}
