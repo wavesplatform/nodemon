@@ -103,19 +103,27 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			lastCommonStateHashExist := true
 			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
 			if err != nil {
-				lastCommonStateHashExist = false
-				if errors.Is(err, finders.ErrNoFullStatement) || errors.Is(err, finders.ErrNoCommonBlocks) {
+				switch {
+				case errors.Is(err, finders.ErrNoFullStatement):
 					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
 						first.Node, second.Node, err,
 					)
-				} else {
+					skip[skipKey] = struct{}{}
+					// TODO: add fallback to linear search from bucketHeight to (bucketHeight - maxDepth)
+					continue
+				case errors.Is(err, finders.ErrNoCommonBlocks):
+					lastCommonStateHashExist = false
+					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
+						first.Node, second.Node, err,
+					)
+				default:
 					return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
 						first.Node, second.Node,
 					)
 				}
 			}
 			forkDepth := bucketHeight - lastCommonStateHashHeight
-			if forkDepth > c.opts.MaxForkDepth {
+			if forkDepth > c.opts.MaxForkDepth || forkDepth >= c.opts.HeightBucketSize {
 				skip[skipKey] = struct{}{}
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,
