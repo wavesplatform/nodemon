@@ -2,7 +2,6 @@ package events
 
 import (
 	"errors"
-	"fmt"
 	"log"
 	"sort"
 	"testing"
@@ -457,7 +456,7 @@ func putEvents(t *testing.T, st *Storage, events []entities.Event) {
 func TestStatusSameHeightInStorage(t *testing.T) {
 	zap, err := zapLogger.NewDevelopment()
 	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+		log.Fatalf("failed to initialize zap logger: %v", err)
 	}
 	defer func(zap *zapLogger.Logger) {
 		err := zap.Sync()
@@ -492,7 +491,6 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		statements, err := storage.FindAllStateHashesOnCommonHeight([]string{"1", "2", "3"})
-		fmt.Println(statements)
 		if test.expectedError {
 			assert.Error(t, err)
 		} else {
