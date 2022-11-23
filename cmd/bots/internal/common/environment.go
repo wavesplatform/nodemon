@@ -642,6 +642,33 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expe
 	return msg, statusCondition, nil
 }
 
+func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension expectedExtension) (string, error) {
+	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpsScheme+"://", "")
+	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpScheme+"://", "")
+
+	if nodeStatementResp.ErrMessage != "" {
+		return nodeStatementResp.ErrMessage, nil
+	}
+
+	nodeStatement := struct {
+		Node      string
+		Height    int
+		Timestamp int64
+		StateHash string
+	}{Node: nodeStatementResp.NodeStatement.Node,
+		Height:    nodeStatementResp.NodeStatement.Height,
+		Timestamp: nodeStatementResp.NodeStatement.Timestamp,
+		StateHash: nodeStatementResp.NodeStatement.StateHash.SumHash.Hex(),
+	}
+
+	msg, err := executeTemplate("templates/node_statement", nodeStatement, extension)
+	if err != nil {
+		return "", err
+	}
+
+	return msg, nil
+}
+
 func constructMessage(alertType entities.AlertType, alertJson []byte, extension expectedExtension) (string, error) {
 	alert := generalMessaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)

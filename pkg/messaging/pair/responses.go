@@ -16,9 +16,16 @@ type NodesStatusResponse struct {
 	ErrMessage  string          `json:"err_message"`
 }
 
+type NodeStatementResponse struct {
+	NodeStatement entities.NodeStatement `json:"node_statement"`
+	ErrMessage    string                 `json:"err_message"`
+}
+
 func (nl *NodesListResponse) responseMarker() {}
 
 func (nl *NodesStatusResponse) responseMarker() {}
+
+func (nl *NodeStatementResponse) responseMarker() {}
 
 type NodeStatement struct {
 	Url       string              `json:"url"`

@@ -13,6 +13,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/buttons"
 	"nodemon/cmd/bots/internal/telegram/messages"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 )
 
@@ -194,6 +195,55 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			)
 		}
 		return UnsubscribeHandler(c, environment, args[0])
+	})
+
+	environment.Bot.Handle("/statement", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 2 || len(args) < 1 {
+			return c.Send(
+				messages.StatementWrongFormat,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		url := args[0]
+		updatedUrl, err := entities.CheckAndUpdateURL(url)
+		if err != nil {
+			return c.Send(
+				messages.InvalidURL,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		height, err := strconv.Atoi(args[1])
+		if err != nil {
+			return c.Send(
+				fmt.Sprintf("failed to parse height: %s", err.Error()),
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		statement, err := messaging.RequestNodeStatement(requestType, responsePairType, updatedUrl, height)
+		if err != nil {
+			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
+			return err
+		}
+
+		msg, err := common.HandleNodeStatement(statement, common.Html)
+		if err != nil {
+			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
+			return err
+		}
+
+		return c.Send(
+			msg,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
 	})
 
 	environment.Bot.Handle(tele.OnText, func(c tele.Context) error {

@@ -420,7 +420,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		loadEvents(t, storage, test.events)
-		sh, err := storage.LastStateHashAtHeight(test.node, test.height)
+		sh, err := storage.StateHashAtHeight(test.node, test.height)
 		if test.error {
 			assert.Error(t, err)
 		} else {

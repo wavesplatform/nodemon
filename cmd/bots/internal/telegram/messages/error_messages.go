@@ -9,4 +9,6 @@ const (
 	SubscribedToLessThanOne     = "You should subscribe to a node"
 	UnsubscribedFromMoreThanOne = "You can unsubscribe from only one node at a time"
 	UnsubscribedFromLessThanOne = "You should unsubscribe from a node"
+	StatementWrongFormat        = "Statement should be in format: /statement <node> <height>"
+	InvalidURL                  = "Invalid URL"
 )

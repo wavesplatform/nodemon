@@ -303,7 +303,7 @@ func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.N
 	return statementsOnHeight, nil
 }
 
-func (s *Storage) LastStateHashAtHeight(node string, height int) (proto.StateHash, error) {
+func (s *Storage) StateHashAtHeight(node string, height int) (proto.StateHash, error) {
 	st, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
 		return proto.StateHash{}, errors.Wrapf(err, "failed to get state hash for node '%s' at height %d", node, height)

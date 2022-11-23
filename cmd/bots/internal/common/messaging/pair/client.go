@@ -10,6 +10,7 @@ import (
 	"go.nanomsg.org/mangos/v3/protocol"
 	pairProtocol "go.nanomsg.org/mangos/v3/protocol/pair"
 	"go.uber.org/zap"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 )
 
@@ -103,7 +104,30 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 						logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
 					}
 					responsePair <- &nodesStatusResp
+				case *pair.NodeStatementRequest:
+					message.WriteByte(byte(pair.RequestNodeStatement))
 
+					req, err := json.Marshal(entities.NodeHeight{URL: r.Url, Height: r.Height})
+					if err != nil {
+						logger.Error("failed to marshal message to pair socket", zap.Error(err))
+					}
+
+					message.Write(req)
+					err = pairSocket.Send(message.Bytes())
+					if err != nil {
+						logger.Error("failed to send a request to pair socket", zap.Error(err))
+					}
+
+					response, err := pairSocket.Recv()
+					if err != nil {
+						logger.Error("failed to receive message from pair socket", zap.Error(err))
+					}
+					nodeStatementResp := pair.NodeStatementResponse{}
+					err = json.Unmarshal(response, &nodeStatementResp)
+					if err != nil {
+						logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
+					}
+					responsePair <- &nodeStatementResp
 				default:
 					logger.Error("unknown request type to pair socket")
 				}
