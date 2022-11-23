@@ -485,7 +485,7 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 		{"testcase 1", events(fshe("1", 1000, 100, sh1), fshe("2", 1000, 100, sh1), fshe("3", 1000, 100, sh1), fshe("3", 1001, 101, sh2)), false, 1000, sh1},
 
 		// node 1 - 999,1000,1001; node 2 - 999, 1001; node 3 - 999, 1000. Expected height 999
-		{"testcase 1", events(fshe("1", 999, 99, sh1), fshe("1", 1000, 100, sh2), fshe("1", 1001, 101, sh3), fshe("2", 999, 99, sh1), fshe("2", 1001, 101, sh3), fshe("3", 999, 99, sh1), fshe("3", 1000, 100, sh2)), false, 999, sh1},
+		{"testcase 2", events(fshe("1", 999, 99, sh1), fshe("1", 1000, 100, sh2), fshe("1", 1001, 101, sh3), fshe("2", 999, 99, sh1), fshe("2", 1001, 101, sh3), fshe("3", 999, 99, sh1), fshe("3", 1000, 100, sh2)), false, 999, sh1},
 	} {
 		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
