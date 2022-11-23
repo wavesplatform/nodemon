@@ -237,7 +237,7 @@ func (s *Storage) findMinCommonSpecificHeight(nodesList map[string]bool, minHeig
 	return nodesHeights, nil
 }
 
-func (s *Storage) FindAllStatehashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
+func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
 
 	minHeight, maxHeight := math.MaxInt, 0
 

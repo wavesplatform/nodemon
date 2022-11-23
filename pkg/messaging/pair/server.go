@@ -97,7 +97,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				nodes := strings.Split(string(listOfNodes), ",")
 				var nodesStatusResp NodesStatusResponse
 
-				statements, err := es.FindAllStatehashesOnCommonHeight(nodes)
+				statements, err := es.FindAllStateHashesOnCommonHeight(nodes)
 				switch {
 				case errors.Is(err, events.BigHeightDifference):
 					nodesStatusResp.ErrMessage = events.BigHeightDifference.Error()
