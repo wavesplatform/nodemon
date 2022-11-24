@@ -16,6 +16,7 @@ type AnalyzerOptions struct {
 	AlertBackoff            int
 	AlertVacuumQuota        int
 	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
+	IncompleteCriteriaOpts  *criteria.IncompleteCriterionOptions
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
 	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
 	BaseTargetCriterionOpts *criteria.BaseTargetCriterionOptions
@@ -59,10 +60,8 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
-			for _, statement := range statusSplit[entities.Incomplete] {
-				in <- &entities.IncompleteAlert{NodeStatement: statement}
-			}
-			return nil
+			criterion := criteria.NewIncompleteCriterion(a.es, a.opts.IncompleteCriteriaOpts)
+			return criterion.Analyze(alerts, statusSplit[entities.Incomplete])
 		},
 		func(in chan<- entities.Alert) error {
 			for _, statement := range statusSplit[entities.InvalidHeight] {
