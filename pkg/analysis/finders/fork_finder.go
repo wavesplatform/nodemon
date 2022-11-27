@@ -73,7 +73,7 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 	}
 	startB, err := f.storage.EarliestHeight(nodeB)
 	if err != nil {
-		return 0, proto.StateHash{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
+		return 0, proto.StateHash{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeB)
 	}
 	start := max(startA, startB)
 	stopA, err := f.storage.LatestHeight(nodeA)
