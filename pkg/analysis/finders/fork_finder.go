@@ -57,7 +57,8 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 	initialStart := max(startA, startB)
 	initialStop := min(stopA, stopB)
 	if r < initialStart {
-		return 0, proto.BlockID{}, errors.Errorf("no common blocks in range [%d, %d]", initialStart, initialStop)
+		return 0, proto.BlockID{}, errors.Wrapf(ErrNoCommonBlocks,
+			"no common blocks in range [%d, %d]", initialStart, initialStop)
 	}
 	sh, err := f.storage.StateHashAtHeight(nodeA, r)
 	if err != nil {
