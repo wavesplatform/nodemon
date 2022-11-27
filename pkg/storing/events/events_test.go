@@ -104,6 +104,10 @@ func (d *dummyEvent) Timestamp() int64 {
 	return d.NodeStatement.Timestamp
 }
 
+func (d *dummyEvent) Height() int {
+	return d.NodeStatement.Height
+}
+
 func (d *dummyEvent) Statement() entities.NodeStatement {
 	return d.NodeStatement
 }

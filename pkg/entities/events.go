@@ -4,6 +4,10 @@ import (
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
+const (
+	UndefinedHeight = 0
+)
+
 type EventWithTimestampProducer interface {
 	WithTimestamp(ts int64) Event
 }
@@ -11,6 +15,7 @@ type EventWithTimestampProducer interface {
 type Event interface {
 	Node() string
 	Timestamp() int64
+	Height() int
 	Statement() NodeStatement
 }
 
@@ -31,11 +36,16 @@ func (e *UnreachableEvent) Timestamp() int64 {
 	return e.ts
 }
 
+func (e *UnreachableEvent) Height() int {
+	return UndefinedHeight
+}
+
 func (e *UnreachableEvent) Statement() NodeStatement {
 	return NodeStatement{
 		Node:      e.Node(),
 		Timestamp: e.Timestamp(),
 		Status:    Unreachable,
+		Height:    e.Height(),
 	}
 }
 
@@ -67,12 +77,17 @@ func (e *VersionEvent) Version() string {
 	return e.v
 }
 
+func (e *VersionEvent) Height() int {
+	return UndefinedHeight
+}
+
 func (e *VersionEvent) Statement() NodeStatement {
 	return NodeStatement{
 		Node:      e.Node(),
 		Timestamp: e.Timestamp(),
 		Status:    Incomplete,
 		Version:   e.Version(),
+		Height:    e.Height(),
 	}
 }
 
