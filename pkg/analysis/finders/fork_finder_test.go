@@ -146,11 +146,12 @@ func TestFindLastCommonStateHash(t *testing.T) {
 	forkA := generateStateHashes(0, 5)
 	forkB := generateStateHashes(50, 5)
 	for i, test := range []struct {
-		eventsA           []entities.Event
-		eventsB           []entities.Event
-		error             bool
-		expectedHeight    int
-		expectedStateHash proto.StateHash
+		eventsA            []entities.Event
+		eventsB            []entities.Event
+		error              bool
+		expectedHeight     int
+		expectedStateHash  proto.StateHash
+		linearSearchParams *linearSearchParams
 	}{
 		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkB...),
 			error: true},
@@ -176,12 +177,18 @@ func TestFindLastCommonStateHash(t *testing.T) {
 			error: false, expectedHeight: 3, expectedStateHash: forkA[2].sh},
 		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
 			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
+		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh,
+			linearSearchParams: &linearSearchParams{currentHeight: 16, searchDepth: 4}},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
 			require.NoError(t, err)
 			loadEvents(t, storage, test.eventsA, test.eventsB)
 			ff := NewForkFinder(storage)
+			if lsp := test.linearSearchParams; lsp != nil {
+				ff = ff.WithLinearSearchParams(lsp.currentHeight, lsp.searchDepth)
+			}
 			h, sh, err := ff.FindLastCommonStateHash("A", "B")
 			if test.error {
 				assert.Error(t, err)
