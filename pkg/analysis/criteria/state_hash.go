@@ -88,7 +88,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	}
 	samples.SortByNodeAsc() // sort for predictable alert result
 
-	ff := finders.NewForkFinder(c.es)
+	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(bucketHeight, c.opts.MaxForkDepth+1)
 
 	skip := make(map[string]struct{})
 	for _, first := range samples {
@@ -109,7 +109,6 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 						first.Node, second.Node, err,
 					)
 					skip[skipKey] = struct{}{}
-					// TODO: add fallback to linear search from bucketHeight to (bucketHeight - maxDepth)
 					continue
 				case errors.Is(err, finders.ErrNoCommonBlocks):
 					lastCommonStateHashExist = false
