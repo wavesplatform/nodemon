@@ -1,8 +1,6 @@
 package criteria
 
 import (
-	"strings"
-
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"nodemon/pkg/analysis/finders"
@@ -90,16 +88,8 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 
 	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(c.opts.MaxForkDepth + 1)
 
-	skip := make(map[string]struct{})
-	for _, first := range samples {
-		for _, second := range samples {
-			if first.Node == second.Node {
-				continue
-			}
-			skipKey := strings.Join(entities.Nodes{first.Node, second.Node}.Sort(), "")
-			if _, in := skip[skipKey]; in {
-				continue
-			}
+	for i, first := range samples {
+		for _, second := range samples[i+1:] {
 			lastCommonStateHashExist := true
 			lastCommonStateHashHeight, lastCommonStateHash, err := ff.FindLastCommonStateHash(first.Node, second.Node)
 			if err != nil {
@@ -108,7 +98,6 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
 						first.Node, second.Node, err,
 					)
-					skip[skipKey] = struct{}{}
 					continue
 				case errors.Is(err, finders.ErrNoCommonBlocks):
 					lastCommonStateHashExist = false
@@ -123,7 +112,6 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			}
 			forkDepth := bucketHeight - lastCommonStateHashHeight
 			if forkDepth > c.opts.MaxForkDepth || forkDepth >= c.opts.HeightBucketSize {
-				skip[skipKey] = struct{}{}
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,
 					CurrentGroupsBucketHeight: bucketHeight,
