@@ -179,7 +179,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
 		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
 			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh,
-			linearSearchParams: &linearSearchParams{currentHeight: 16, searchDepth: 4}},
+			linearSearchParams: &linearSearchParams{searchDepth: 4}},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
@@ -187,7 +187,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 			loadEvents(t, storage, test.eventsA, test.eventsB)
 			ff := NewForkFinder(storage)
 			if lsp := test.linearSearchParams; lsp != nil {
-				ff = ff.WithLinearSearchParams(lsp.currentHeight, lsp.searchDepth)
+				ff = ff.WithLinearSearchParams(lsp.searchDepth)
 			}
 			h, sh, err := ff.FindLastCommonStateHash("A", "B")
 			if test.error {

@@ -88,7 +88,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	}
 	samples.SortByNodeAsc() // sort for predictable alert result
 
-	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(bucketHeight, c.opts.MaxForkDepth+1)
+	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(c.opts.MaxForkDepth + 1)
 
 	skip := make(map[string]struct{})
 	for _, first := range samples {
