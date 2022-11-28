@@ -12,6 +12,7 @@ const (
 		"/pool -  to see the list of nodes and edit it\n" +
 		"/subscriptions - to see the list of subscriptions and edit it\n" +
 		"/status - to see the status of all nodes\n" +
+		"/statement <b>node</b> <b>height</b> - to see a node statement at a specific height.\n" +
 		"/add <b>node</b> - to add a node to the list\n" +
 		"/remove <b>node</b> - to remove a node from the list\n" +
 		"/subscribe <b>alert name</b> - to subscribe to a specific alert\n" +
