@@ -111,7 +111,7 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		s.zap.Sugar().Warnf("Node %s has invalid height %d", url, h)
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}
-	h = h - 1 // Go to previous height to request state hash
+	h = h - 1 // Go to previous height to request base target and state hash
 
 	bs, err := node.baseTarget(ctx, h)
 	if err != nil {
