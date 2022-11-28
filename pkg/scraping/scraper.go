@@ -111,15 +111,14 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		s.zap.Sugar().Warnf("Node %s has invalid height %d", url, h)
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}
+	h = h - 1 // Go to previous height to request state hash
 
-	// TODO: request base target for h-1 block
 	bs, err := node.baseTarget(ctx, h)
 	if err != nil {
 		s.zap.Sugar().Warnf("Failed to get base target for node %s: %v", url, err)
 		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
 	}
 
-	h = h - 1 // Go to previous height to request state hash
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
 		s.zap.Sugar().Warnf("Failed to get state hash for node %s: %v", url, err)
