@@ -37,25 +37,31 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
 	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
-		statementsAtBucketHeight := make(entities.NodeStatements, 0, len(nodeStatements))
-		for _, statement := range nodeStatements {
-			var statementAtBucketHeight entities.NodeStatement
-			if statement.Height == bucketHeight {
-				statementAtBucketHeight = statement
-			} else {
-				var err error
-				statementAtBucketHeight, err = c.es.GetFullStatementAtHeight(statement.Node, bucketHeight)
-				if err != nil {
-					if errors.Is(err, events.NoFullStatementError) {
-						c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q with height %d at bucketHeight %d: %v",
-							statement.Node, statement.Height, bucketHeight, err,
-						)
-						continue
+		var statementsAtBucketHeight entities.NodeStatements
+		if min, max := nodeStatements.SplitByNodeHeight().MinMaxHeight(); min == max { // all nodes are on the same height
+			bucketHeight = min
+			statementsAtBucketHeight = nodeStatements
+		} else {
+			statementsAtBucketHeight = make(entities.NodeStatements, 0, len(nodeStatements))
+			for _, statement := range nodeStatements {
+				var statementAtBucketHeight entities.NodeStatement
+				if statement.Height == bucketHeight {
+					statementAtBucketHeight = statement
+				} else {
+					var err error
+					statementAtBucketHeight, err = c.es.GetFullStatementAtHeight(statement.Node, bucketHeight)
+					if err != nil {
+						if errors.Is(err, events.NoFullStatementError) {
+							c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q with height %d at bucketHeight %d: %v",
+								statement.Node, statement.Height, bucketHeight, err,
+							)
+							continue
+						}
+						return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
 					}
-					return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
 				}
+				statementsAtBucketHeight = append(statementsAtBucketHeight, statementAtBucketHeight)
 			}
-			statementsAtBucketHeight = append(statementsAtBucketHeight, statementAtBucketHeight)
 		}
 		if err := c.analyzeNodesOnSameHeight(alerts, bucketHeight, timestamp, statementsAtBucketHeight); err != nil {
 			return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
