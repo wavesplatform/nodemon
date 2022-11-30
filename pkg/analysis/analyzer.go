@@ -40,6 +40,9 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 	if opts.AlertVacuumQuota == 0 {
 		opts.AlertVacuumQuota = defaultAlertVacuumQuota
 	}
+	if opts.AlertConfirmations == nil {
+		opts.AlertConfirmations = defaultAlertConfirmations()
+	}
 
 	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, opts.AlertConfirmations)
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}

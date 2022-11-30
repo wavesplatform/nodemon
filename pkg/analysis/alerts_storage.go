@@ -50,6 +50,12 @@ type alertsStorage struct {
 
 type alertConfirmations map[entities.AlertType]int
 
+func defaultAlertConfirmations() alertConfirmations {
+	return alertConfirmations{
+		entities.HeightAlertType: 2,
+	}
+}
+
 func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:          alertBackoff,
