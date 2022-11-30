@@ -30,12 +30,16 @@ type API struct {
 	privateNodesEvents private_nodes.PrivateNodesEventsWriter
 }
 
+type mwLog struct{ *zap.Logger }
+
+func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
+
 func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter) (*API, error) {
 	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.Logger)
+	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: mwLog{logger}}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Mount("/", a.routes())
