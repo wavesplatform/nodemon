@@ -655,10 +655,12 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 		Height    int
 		Timestamp int64
 		StateHash string
+		Version   string
 	}{Node: nodeStatementResp.NodeStatement.Node,
 		Height:    nodeStatementResp.NodeStatement.Height,
 		Timestamp: nodeStatementResp.NodeStatement.Timestamp,
 		StateHash: nodeStatementResp.NodeStatement.StateHash.SumHash.Hex(),
+		Version:   nodeStatementResp.NodeStatement.Version,
 	}
 
 	msg, err := executeTemplate("templates/node_statement", nodeStatement, extension)
