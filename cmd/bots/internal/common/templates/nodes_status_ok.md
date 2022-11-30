@@ -3,4 +3,4 @@ Nodes:
 {{range .}}{{.URL}}
 
 {{end}}
-have the same hashes on height
+have the same hashes at height

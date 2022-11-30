@@ -36,3 +36,8 @@ func CheckAndUpdateURL(s string) (string, error) {
 	}
 	return u.String(), nil
 }
+
+type NodeHeight struct {
+	URL    string `json:"url"`
+	Height int    `json:"height"`
+}

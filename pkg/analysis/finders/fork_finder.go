@@ -58,7 +58,7 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 	if r < initialStart {
 		return 0, proto.BlockID{}, errors.Errorf("no common blocks in range [%d, %d]", initialStart, initialStop)
 	}
-	sh, err := f.storage.LastStateHashAtHeight(nodeA, r)
+	sh, err := f.storage.StateHashAtHeight(nodeA, r)
 	if err != nil {
 		return 0, proto.BlockID{}, errors.Wrapf(err, "no block ID at height %d", r)
 	}
@@ -107,7 +107,7 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 			"no common blocks in range [%d, %d]", initialStart, initialStop,
 		)
 	}
-	sh, err := f.storage.LastStateHashAtHeight(nodeA, r)
+	sh, err := f.storage.StateHashAtHeight(nodeA, r)
 	if err != nil {
 		return 0, proto.StateHash{}, errors.Wrapf(err, "no block ID at height %d", r)
 	}
@@ -115,11 +115,11 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 }
 
 func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
-	shA, err := f.storage.LastStateHashAtHeight(a, h)
+	shA, err := f.storage.StateHashAtHeight(a, h)
 	if err != nil {
 		return false, err
 	}
-	shB, err := f.storage.LastStateHashAtHeight(b, h)
+	shB, err := f.storage.StateHashAtHeight(b, h)
 	if err != nil {
 		return false, err
 	}
@@ -127,11 +127,11 @@ func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
 }
 
 func (f *ForkFinder) differentStateHashesAt(a, b string, h int) (bool, error) {
-	shA, err := f.storage.LastStateHashAtHeight(a, h)
+	shA, err := f.storage.StateHashAtHeight(a, h)
 	if err != nil {
 		return false, err
 	}
-	shB, err := f.storage.LastStateHashAtHeight(b, h)
+	shB, err := f.storage.StateHashAtHeight(b, h)
 	if err != nil {
 		return false, err
 	}

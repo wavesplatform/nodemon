@@ -119,9 +119,29 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 				}
 				err = socketPair.Send(response)
 				if err != nil {
-					logger.Error("Failed to receive a response from pair socket", zap.Error(err))
+					logger.Error("Failed to send a response from pair socket", zap.Error(err))
 				}
+			case RequestNodeStatement:
+				nodeHeight := entities.NodeHeight{}
+				err := json.Unmarshal(msg[1:], &nodeHeight)
+				if err != nil {
+					logger.Error("Failed to unmarshal node height from json", zap.Error(err))
+				}
+				var nodeStatementResp NodeStatementResponse
 
+				statement, err := es.GetFullStatementAtHeight(nodeHeight.URL, nodeHeight.Height)
+				if err != nil {
+					nodeStatementResp.ErrMessage = err.Error()
+				}
+				nodeStatementResp.NodeStatement = statement
+				response, err := json.Marshal(nodeStatementResp)
+				if err != nil {
+					logger.Error("Failed to marshal node status to json", zap.Error(err))
+				}
+				err = socketPair.Send(response)
+				if err != nil {
+					logger.Error("Failed to send a response from pair socket", zap.Error(err))
+				}
 			default:
 				logger.Error("Unknown request type", zap.String("request", string(request)))
 			}
