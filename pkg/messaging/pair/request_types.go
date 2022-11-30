@@ -9,4 +9,5 @@ const (
 	RequestInsertSpecificNewNodeT
 	RequestDeleteNodeT
 	RequestNodesStatus
+	RequestNodeStatement
 )

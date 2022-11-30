@@ -89,3 +89,14 @@ func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-ch
 	sort.Strings(urls)
 	return urls, nil
 }
+
+func RequestNodeStatement(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, node string, height int) (*pair.NodeStatementResponse, error) {
+	requestType <- &pair.NodeStatementRequest{Url: node, Height: height}
+	responsePair := <-responsePairType
+	nodeStatementResp, ok := responsePair.(*pair.NodeStatementResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the node list type")
+	}
+
+	return nodeStatementResp, nil
+}
