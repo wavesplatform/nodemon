@@ -334,7 +334,7 @@ func TestEarliestHeight(t *testing.T) {
 	} {
 		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
-		loadEvents(t, storage, test.events)
+		putEvents(t, storage, test.events)
 		h, err := storage.EarliestHeight(test.node)
 		if test.error {
 			assert.Error(t, err)
@@ -371,7 +371,7 @@ func TestLatestHeight(t *testing.T) {
 	} {
 		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
-		loadEvents(t, storage, test.events)
+		putEvents(t, storage, test.events)
 		h, err := storage.LatestHeight(test.node)
 		if test.error {
 			assert.Error(t, err)
@@ -419,7 +419,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 	} {
 		storage, err := NewStorage(time.Minute, zap)
 		require.NoError(t, err)
-		loadEvents(t, storage, test.events)
+		putEvents(t, storage, test.events)
 		sh, err := storage.StateHashAtHeight(test.node, test.height)
 		if test.error {
 			assert.Error(t, err)
@@ -446,9 +446,59 @@ func he(n string, h int, ts int64) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, nil, 1)
 }
 
-func loadEvents(t *testing.T, st *Storage, events []entities.Event) {
+func putEvents(t *testing.T, st *Storage, events []entities.Event) {
 	for _, ev := range events {
 		err := st.PutEvent(ev)
 		require.NoError(t, err)
+	}
+}
+
+func TestStatusSameHeightInStorage(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("failed to initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
+	d1 := crypto.Digest([32]byte{0x01})
+	d2 := crypto.Digest([32]byte{0x02})
+	d3 := crypto.Digest([32]byte{0x02})
+	b1 := proto.NewBlockIDFromDigest(d1)
+	b2 := proto.NewBlockIDFromDigest(d2)
+	b3 := proto.NewBlockIDFromDigest(d3)
+	sh1 := &proto.StateHash{BlockID: b1, SumHash: d1}
+	sh2 := &proto.StateHash{BlockID: b2, SumHash: d2}
+	sh3 := &proto.StateHash{BlockID: b3, SumHash: d3}
+	for _, test := range []struct {
+		testcase       string
+		events         []entities.Event
+		expectedError  bool
+		expectedHeight int
+		expectedSH     *proto.StateHash
+	}{
+		// node 1 - 1000; node 2 - 1000; node 3 - 1000, 1001. Expected height 1000
+		{"testcase 1", events(fshe("1", 1000, 100, sh1), fshe("2", 1000, 100, sh1), fshe("3", 1000, 100, sh1), fshe("3", 1001, 101, sh2)), false, 1000, sh1},
+
+		// node 1 - 999,1000,1001; node 2 - 999, 1001; node 3 - 999, 1000. Expected height 999
+		{"testcase 2", events(fshe("1", 999, 99, sh1), fshe("1", 1000, 100, sh2), fshe("1", 1001, 101, sh3), fshe("2", 999, 99, sh1), fshe("2", 1001, 101, sh3), fshe("3", 999, 99, sh1), fshe("3", 1000, 100, sh2)), false, 999, sh1},
+	} {
+		storage, err := NewStorage(time.Minute, zap)
+		require.NoError(t, err)
+		putEvents(t, storage, test.events)
+		statements, err := storage.FindAllStateHashesOnCommonHeight([]string{"1", "2", "3"})
+		if test.expectedError {
+			assert.Error(t, err)
+		} else {
+			require.NoError(t, err)
+			for _, st := range statements {
+				require.Equal(t, test.expectedHeight, st.Height)
+				require.Equal(t, test.expectedSH, st.StateHash)
+			}
+		}
 	}
 }
