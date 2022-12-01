@@ -12,7 +12,7 @@ require (
 	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.3-0.20221109093114-2739e7dab10f
 	go.nanomsg.org/mangos/v3 v3.4.2
-	go.uber.org/zap v1.23.0
+	go.uber.org/zap v1.24.0
 	gopkg.in/telebot.v3 v3.1.2
 )
 
