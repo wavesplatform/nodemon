@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
@@ -79,7 +79,15 @@ func run() error {
 	flag.StringVar(&logLevel, "log-level", "INFO", "Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	flag.Parse()
 
-	zap, _ := gow.SetupLogger(logLevel)
+	atom := zapLogger.NewAtomicLevel()
+	encoderCfg := zapLogger.NewDevelopmentEncoderConfig()
+	zap := zapLogger.New(zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapcore.Lock(os.Stdout), atom))
+	level, err := zapcore.ParseLevel(logLevel)
+	if err != nil {
+		log.Printf("invalid log level: %v", err)
+		return errorInvalidParameters
+	}
+	atom.SetLevel(level)
 	defer func(zap *zapLogger.Logger) {
 		if err := zap.Sync(); err != nil {
 			log.Println(err)
@@ -155,7 +163,7 @@ func run() error {
 	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
 	notifications = privateNodesHandler.Run(notifications)
 
-	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter())
+	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter(), &atom)
 	if err != nil {
 		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err

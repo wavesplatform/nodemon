@@ -28,14 +28,15 @@ type API struct {
 	eventsStorage      *events.Storage
 	zap                *zap.Logger
 	privateNodesEvents private_nodes.PrivateNodesEventsWriter
+	atom               *zap.AtomicLevel
 }
 
 type mwLog struct{ *zap.Logger }
 
 func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter) (*API, error) {
-	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents}
+func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter, atom *zap.AtomicLevel) (*API, error) {
+	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents, atom: atom}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -75,6 +76,7 @@ func (a *API) routes() chi.Router {
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
+	r.Post("/log/level", a.changeZapLogLevel)
 	return r
 }
 
@@ -89,6 +91,23 @@ func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
 		return err
 	}
 	return nil
+}
+
+func (a *API) changeZapLogLevel(w http.ResponseWriter, r *http.Request) {
+	var b struct {
+		Level string `json:"level"`
+	}
+	err := DecodeValueFromBody(r.Body, &b)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to decode body: %v", err), http.StatusBadRequest)
+		return
+	}
+	err = a.atom.UnmarshalText([]byte(b.Level))
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to set log level: %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
@@ -147,7 +166,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !foundInStorage {
 		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon", zap.String("node", statement.Node))
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 
