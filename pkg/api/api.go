@@ -76,7 +76,7 @@ func (a *API) routes() chi.Router {
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
-	r.Post("/log/level", a.changeZapLogLevel)
+	r.Post("/log/level", a.atom.ServeHTTP)
 	return r
 }
 
@@ -91,23 +91,6 @@ func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
 		return err
 	}
 	return nil
-}
-
-func (a *API) changeZapLogLevel(w http.ResponseWriter, r *http.Request) {
-	var b struct {
-		Level string `json:"level"`
-	}
-	err := DecodeValueFromBody(r.Body, &b)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to decode body: %v", err), http.StatusBadRequest)
-		return
-	}
-	err = a.atom.UnmarshalText([]byte(b.Level))
-	if err != nil {
-		http.Error(w, fmt.Sprintf("Failed to set log level: %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.WriteHeader(http.StatusOK)
 }
 
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
