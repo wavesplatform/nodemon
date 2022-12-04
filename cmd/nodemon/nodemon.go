@@ -11,12 +11,12 @@ import (
 	"strings"
 	"time"
 
-	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 	"nodemon/pkg/storing/private_nodes"
+	"nodemon/pkg/tools"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/api"
@@ -79,7 +79,11 @@ func run() error {
 	flag.StringVar(&logLevel, "log-level", "INFO", "Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	flag.Parse()
 
-	zap, _ := gow.SetupLogger(logLevel)
+	zap, atom, err := tools.SetupZapLogger(logLevel)
+	if err != nil {
+		log.Printf("Failed to setup zap logger: %v", err)
+		return errorInvalidParameters
+	}
 	defer func(zap *zapLogger.Logger) {
 		if err := zap.Sync(); err != nil {
 			log.Println(err)
@@ -155,7 +159,7 @@ func run() error {
 	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
 	notifications = privateNodesHandler.Run(notifications)
 
-	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter())
+	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter(), atom)
 	if err != nil {
 		zap.Error("failed to initialize API", zapLogger.Error(err))
 		return err
