@@ -82,6 +82,7 @@ func run() error {
 	zap, atom, err := tools.SetupZapLogger(logLevel)
 	if err != nil {
 		log.Printf("invalid log level: %v", err)
+		return errorInvalidParameters
 	}
 	defer func(zap *zapLogger.Logger) {
 		if err := zap.Sync(); err != nil {
