@@ -76,7 +76,7 @@ func (a *API) routes() chi.Router {
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
-	r.Post("/log/level", a.atom.ServeHTTP)
+	r.Handle("/log/level", a.atom)
 	return r
 }
 
