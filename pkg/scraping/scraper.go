@@ -85,7 +85,7 @@ func (s *Scraper) queryNodes(ctx context.Context, nodes []entities.Node, now int
 			go func() {
 				defer wg.Done()
 				event := s.queryNode(ctx, nodeURL, now)
-				s.zap.Sugar().Infof("Collected event (%T) for node %s", event, nodeURL)
+				s.zap.Sugar().Infof("Collected event (%T) at height %d for node %s", event, event.Height(), nodeURL)
 				ec <- event
 			}()
 		}
