@@ -14,7 +14,6 @@ func SetupZapLogger(logLevel string) (*zapLogger.Logger, *zapLogger.AtomicLevel,
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.Lock(os.Stdout), atom)
 	zap := zapLogger.New(core)
-	zapLogger.ReplaceGlobals(zap)
 
 	level, err := zapcore.ParseLevel(logLevel)
 	if err != nil {
@@ -22,6 +21,7 @@ func SetupZapLogger(logLevel string) (*zapLogger.Logger, *zapLogger.AtomicLevel,
 		return nil, nil, err
 	}
 	atom.SetLevel(level)
+	zapLogger.ReplaceGlobals(zap)
 
 	return zap, &atom, nil
 }
