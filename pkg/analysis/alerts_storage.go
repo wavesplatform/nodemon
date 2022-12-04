@@ -50,9 +50,13 @@ type alertsStorage struct {
 
 type alertConfirmations map[entities.AlertType]int
 
+const (
+	HeightAlertConfirmations = 2
+)
+
 func defaultAlertConfirmations() alertConfirmations {
 	return alertConfirmations{
-		entities.HeightAlertType: 2,
+		entities.HeightAlertType: HeightAlertConfirmations,
 	}
 }
 
