@@ -1,9 +1,9 @@
 package tools
 
 import (
-	"log"
 	"os"
 
+	"github.com/pkg/errors"
 	zapLogger "go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -17,8 +17,7 @@ func SetupZapLogger(logLevel string) (*zapLogger.Logger, *zapLogger.AtomicLevel,
 
 	level, err := zapcore.ParseLevel(logLevel)
 	if err != nil {
-		log.Printf("invalid log level: %v", err)
-		return nil, nil, err
+		return nil, nil, errors.Wrapf(err, "invalid log level '%s'", logLevel)
 	}
 	atom.SetLevel(level)
 	zapLogger.ReplaceGlobals(zap)
