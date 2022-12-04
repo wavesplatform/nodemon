@@ -78,10 +78,9 @@ func run() error {
 	flag.DurationVar(&apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout, "HTTP API read timeout. Default value is 30s.")
 	flag.StringVar(&logLevel, "log-level", "INFO", "Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	flag.Parse()
-
 	atom := zapLogger.NewAtomicLevel()
 	encoderCfg := zapLogger.NewDevelopmentEncoderConfig()
-	zap := zapLogger.New(zapcore.NewCore(zapcore.NewJSONEncoder(encoderCfg), zapcore.Lock(os.Stdout), atom))
+	zap := zapLogger.New(zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.Lock(os.Stdout), atom))
 	level, err := zapcore.ParseLevel(logLevel)
 	if err != nil {
 		log.Printf("invalid log level: %v", err)
