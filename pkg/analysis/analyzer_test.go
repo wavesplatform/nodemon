@@ -114,24 +114,24 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 			opts: &AnalyzerOptions{StateHashCriteriaOpts: &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3}, BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: 2}},
 			historyData: mergeEvents(
 				mkEvents("a", 1, mergeShInfo(commonStateHashes[:1], forkA[:3])...),
-				mkEvents("b", 1, mergeShInfo(commonStateHashes[:1], forkB[:4])...),
+				mkEvents("b", 1, mergeShInfo(commonStateHashes[:1], forkB[:3])...),
 			),
 			nodes:  entities.Nodes{"a", "b"},
 			height: 4,
 			expectedAlerts: []entities.StateHashAlert{
 				{
 					Timestamp:                 mkTimestamp(4),
-					CurrentGroupsBucketHeight: 3,
+					CurrentGroupsBucketHeight: 4,
 					LastCommonStateHashExist:  true,
 					LastCommonStateHashHeight: 1,
 					LastCommonStateHash:       commonStateHashes[0].sh,
 					FirstGroup: entities.StateHashGroup{
 						Nodes:     entities.Nodes{"a"},
-						StateHash: forkA[1].sh,
+						StateHash: forkA[2].sh,
 					},
 					SecondGroup: entities.StateHashGroup{
 						Nodes:     entities.Nodes{"b"},
-						StateHash: forkB[1].sh,
+						StateHash: forkB[2].sh,
 					},
 				},
 			},
