@@ -149,7 +149,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if !foundInStorage {
 		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon", zap.String("node", statement.Node))
-		w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusForbidden)
 		return
 	}
 
