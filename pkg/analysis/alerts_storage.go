@@ -13,6 +13,7 @@ type alertInfo struct {
 	vacuumQuota      int
 	repeats          int
 	backoffThreshold int
+	confirmed        bool
 	alert            entities.Alert
 }
 
@@ -41,47 +42,69 @@ func (s alertsInternalStorage) infos() []alertInfo {
 }
 
 type alertsStorage struct {
-	alertBackoff     int
-	alertVacuumQuota int
-	internalStorage  alertsInternalStorage
+	alertBackoff          int
+	alertVacuumQuota      int
+	requiredConfirmations alertConfirmations
+	internalStorage       alertsInternalStorage
 }
 
-func newAlertsStorage(alertBackoff, alertVacuumQuota int) *alertsStorage {
-	return &alertsStorage{
-		alertBackoff:     alertBackoff,
-		alertVacuumQuota: alertVacuumQuota,
-		internalStorage:  make(alertsInternalStorage),
+type alertConfirmations map[entities.AlertType]int
+
+const (
+	HeightAlertConfirmations = 2
+)
+
+func defaultAlertConfirmations() alertConfirmations {
+	return alertConfirmations{
+		entities.HeightAlertType: HeightAlertConfirmations,
 	}
 }
 
-func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
+func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations) *alertsStorage {
+	return &alertsStorage{
+		alertBackoff:          alertBackoff,
+		alertVacuumQuota:      alertVacuumQuota,
+		requiredConfirmations: requiredConfirmations,
+		internalStorage:       make(alertsInternalStorage),
+	}
+}
+
+func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 	if s.alertVacuumQuota <= 1 { // no need to save alerts which can't outlive even one vacuum stage
 		return true
 	}
-	alertID := alert.ID()
-	old, in := s.internalStorage[alertID]
-	if !in { // first time alert
+	var (
+		alertID = alert.ID()
+		old     = s.internalStorage[alertID]
+		repeats = old.repeats + 1
+	)
+	if !old.confirmed && repeats >= s.requiredConfirmations[alert.Type()] { // send confirmed alert
 		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,
-			repeats:          0,
+			repeats:          1, // now it's a confirmed alert, so reset repeats counter
 			backoffThreshold: s.alertBackoff,
+			confirmed:        true,
 			alert:            alert,
 		}
 		return true
 	}
-	old.repeats += 1
-	if old.repeats >= old.backoffThreshold { // backoff exceeded
+	if old.confirmed && repeats > old.backoffThreshold { // backoff exceeded, reset repeats and increase backoff
 		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,
-			repeats:          0,
+			repeats:          1,
 			backoffThreshold: s.alertBackoff * old.backoffThreshold,
+			confirmed:        true,
 			alert:            alert,
 		}
 		return true
 	}
-	// we have to update quota for vacuum stage due to alert repeat
-	old.vacuumQuota = s.alertVacuumQuota
-	s.internalStorage[alertID] = old
+	s.internalStorage[alertID] = alertInfo{
+		vacuumQuota:      s.alertVacuumQuota,
+		repeats:          repeats,
+		backoffThreshold: old.backoffThreshold,
+		confirmed:        old.confirmed,
+		alert:            alert,
+	}
 	return false
 }
 
@@ -91,7 +114,9 @@ func (s *alertsStorage) Vacuum() []entities.Alert {
 		info := s.internalStorage[id]
 		info.vacuumQuota -= 1
 		if info.vacuumQuota <= 0 {
-			alertsFixed = append(alertsFixed, info.alert)
+			if info.confirmed {
+				alertsFixed = append(alertsFixed, info.alert)
+			}
 			delete(s.internalStorage, id)
 		} else {
 			s.internalStorage[id] = info
