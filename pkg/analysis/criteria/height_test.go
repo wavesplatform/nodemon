@@ -2,10 +2,12 @@ package criteria
 
 import (
 	"fmt"
+	"log"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
@@ -26,6 +28,17 @@ func mkHeightStatements(heightInfos []heightInfo) entities.NodeStatements {
 }
 
 func TestHeightCriterion_Analyze(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	tests := []struct {
 		opts           *HeightCriterionOptions
 		data           entities.NodeStatements
@@ -81,7 +94,7 @@ func TestHeightCriterion_Analyze(t *testing.T) {
 			}()
 			go func() {
 				defer close(done)
-				criterion := NewHeightCriterion(test.opts)
+				criterion := NewHeightCriterion(test.opts, zap)
 				criterion.Analyze(alerts, 0, test.data)
 			}()
 			for j := range test.expectedAlerts {

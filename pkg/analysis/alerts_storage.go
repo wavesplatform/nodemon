@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
@@ -43,14 +44,16 @@ func (s alertsInternalStorage) infos() []alertInfo {
 type alertsStorage struct {
 	alertBackoff     int
 	alertVacuumQuota int
+	logger           *zap.Logger
 	internalStorage  alertsInternalStorage
 }
 
-func newAlertsStorage(alertBackoff, alertVacuumQuota int) *alertsStorage {
+func newAlertsStorage(alertBackoff, alertVacuumQuota int, logger *zap.Logger) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:     alertBackoff,
 		alertVacuumQuota: alertVacuumQuota,
 		internalStorage:  make(alertsInternalStorage),
+		logger:           logger,
 	}
 }
 
@@ -70,6 +73,7 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 		return true
 	}
 	old.repeats += 1
+	s.logger.Info("An alert was generated", zap.String("alert", old.alert.String()), zap.Int("repeats", old.repeats))
 	if old.repeats >= old.backoffThreshold { // backoff exceeded
 		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,

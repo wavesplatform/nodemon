@@ -1,13 +1,26 @@
 package analysis
 
 import (
+	"log"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
 func TestAlertsStorage(t *testing.T) {
+	zap, err := zapLogger.NewDevelopment()
+	if err != nil {
+		log.Fatalf("can't initialize zap logger: %v", err)
+	}
+	defer func(zap *zapLogger.Logger) {
+		err := zap.Sync()
+		if err != nil {
+			log.Println(err)
+		}
+	}(zap)
+
 	var (
 		alert1 = &entities.SimpleAlert{Description: "first simple alert"}
 		alert2 = &entities.SimpleAlert{Description: "second simple alert"}
@@ -97,7 +110,7 @@ func TestAlertsStorage(t *testing.T) {
 			"failed constraint in test case#%d", tcNum,
 		)
 
-		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota)
+		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, zap)
 		for _, alert := range test.initialAlerts {
 			storage.PutAlert(alert)
 		}

@@ -40,7 +40,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 		opts.AlertVacuumQuota = defaultAlertVacuumQuota
 	}
 
-	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota)
+	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, logger)
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 
@@ -74,7 +74,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts)
+			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts, a.zap)
 			criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.OK])
 			return nil
 		},
