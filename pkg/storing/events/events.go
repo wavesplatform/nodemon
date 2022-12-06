@@ -125,7 +125,7 @@ func (s *Storage) EarliestHeight(node string) (int, error) {
 		return 0, errors.Wrapf(err, "failed to get earliest height for node '%s'", node)
 	}
 	if h == 0 {
-		return 0, errors.Errorf("no full statements for node '%s'", node)
+		return 0, errors.Wrapf(NoFullStatementError, "no full statement at earliest height for node '%s'", node)
 	}
 	return h, nil
 }

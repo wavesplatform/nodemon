@@ -15,6 +15,7 @@ import (
 type AnalyzerOptions struct {
 	AlertBackoff            int
 	AlertVacuumQuota        int
+	AlertConfirmations      map[entities.AlertType]int
 	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
 	IncompleteCriteriaOpts  *criteria.IncompleteCriterionOptions
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
@@ -39,8 +40,11 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 	if opts.AlertVacuumQuota == 0 {
 		opts.AlertVacuumQuota = defaultAlertVacuumQuota
 	}
+	if opts.AlertConfirmations == nil {
+		opts.AlertConfirmations = defaultAlertConfirmations()
+	}
 
-	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, logger)
+	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, opts.AlertConfirmations, logger)
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 

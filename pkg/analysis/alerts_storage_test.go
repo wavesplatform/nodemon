@@ -32,6 +32,7 @@ func TestAlertsStorage(t *testing.T) {
 		vacuumResults       [][]entities.Alert
 		initialAlerts       []entities.Alert
 		alerts              []entities.Alert
+		alertConfirmations  alertConfirmations
 		sendAlertNowResults []bool
 		expectedAlertsInfo  []alertInfo
 	}{
@@ -41,24 +42,28 @@ func TestAlertsStorage(t *testing.T) {
 			vacuumResults:       [][]entities.Alert{{}, {}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2},
 			alerts:              []entities.Alert{alert3, alert1, alert1},
+			alertConfirmations:  nil,
 			sendAlertNowResults: []bool{true, false, true},
 			expectedAlertsInfo: []alertInfo{
 				{
 					vacuumQuota:      4,
-					repeats:          0,
+					repeats:          1,
 					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					confirmed:        true,
 					alert:            alert1,
 				},
 				{
 					vacuumQuota:      1,
-					repeats:          0,
+					repeats:          1,
 					backoffThreshold: defaultAlertBackoff,
+					confirmed:        true,
 					alert:            alert2,
 				},
 				{
 					vacuumQuota:      4,
-					repeats:          0,
+					repeats:          1,
 					backoffThreshold: defaultAlertBackoff,
+					confirmed:        true,
 					alert:            alert3,
 				},
 			},
@@ -69,18 +74,21 @@ func TestAlertsStorage(t *testing.T) {
 			vacuumResults:       [][]entities.Alert{{}, {alert1, alert2}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2},
 			alerts:              []entities.Alert{alert3, alert3, alert1, alert1, alert1},
+			alertConfirmations:  nil,
 			sendAlertNowResults: []bool{true, false, true, false, true},
 			expectedAlertsInfo: []alertInfo{
 				{
 					vacuumQuota:      2,
-					repeats:          0,
+					repeats:          1,
 					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					confirmed:        true,
 					alert:            alert1,
 				},
 				{
 					vacuumQuota:      2,
-					repeats:          1,
+					repeats:          2,
 					backoffThreshold: defaultAlertBackoff,
+					confirmed:        true,
 					alert:            alert3,
 				},
 			},
@@ -91,6 +99,7 @@ func TestAlertsStorage(t *testing.T) {
 			vacuumResults:       nil,
 			initialAlerts:       nil,
 			alerts:              []entities.Alert{alert1, alert1, alert1, alert2, alert3},
+			alertConfirmations:  nil,
 			sendAlertNowResults: []bool{true, true, true, true, true},
 			expectedAlertsInfo:  nil,
 		},
@@ -100,8 +109,43 @@ func TestAlertsStorage(t *testing.T) {
 			vacuumResults:       nil,
 			initialAlerts:       nil,
 			alerts:              []entities.Alert{alert1, alert1, alert1, alert2, alert3},
+			alertConfirmations:  nil,
 			sendAlertNowResults: []bool{true, true, true, true, true},
 			expectedAlertsInfo:  nil,
+		},
+		{
+			alertBackoff:        defaultAlertBackoff,
+			alertVacuumQuota:    2,
+			vacuumResults:       [][]entities.Alert{{}, {alert1}, {}},
+			initialAlerts:       []entities.Alert{alert1, alert2, alert1},
+			alerts:              []entities.Alert{alert3, alert3, alert2, alert1, alert1, alert1, alert1, alert1},
+			sendAlertNowResults: []bool{false, true, false, false, true, false, true, false},
+			alertConfirmations: alertConfirmations{
+				entities.SimpleAlertType: 2,
+			},
+			expectedAlertsInfo: []alertInfo{
+				{
+					vacuumQuota:      2,
+					repeats:          2,
+					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					confirmed:        true,
+					alert:            alert1,
+				},
+				{
+					vacuumQuota:      2,
+					repeats:          1,
+					backoffThreshold: 0,
+					confirmed:        false,
+					alert:            alert2,
+				},
+				{
+					vacuumQuota:      2,
+					repeats:          1,
+					backoffThreshold: defaultAlertBackoff,
+					confirmed:        true,
+					alert:            alert3,
+				},
+			},
 		},
 	}
 	for i, test := range tests {
@@ -110,7 +154,7 @@ func TestAlertsStorage(t *testing.T) {
 			"failed constraint in test case#%d", tcNum,
 		)
 
-		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, zap)
+		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, test.alertConfirmations, zap)
 		for _, alert := range test.initialAlerts {
 			storage.PutAlert(alert)
 		}
