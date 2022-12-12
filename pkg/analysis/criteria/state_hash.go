@@ -122,6 +122,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 
 			if forkDepth > 0 {
 				c.zap.Info("StateHashCriterion: fork detected",
+					zap.Int("Fork depth", forkDepth),
 					zap.String("First group", strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", ")),
 					zap.String("First group StateHash", first.StateHash.SumHash.Hex()),
 					zap.String("Second group", strings.Join(splitStateHash[second.StateHash.SumHash].Nodes().Sort(), ", ")),

@@ -64,7 +64,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 
 	routines := [...]func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewIncompleteCriterion(a.es, a.opts.IncompleteCriteriaOpts)
+			criterion := criteria.NewIncompleteCriterion(a.es, a.opts.IncompleteCriteriaOpts, a.zap)
 			return criterion.Analyze(alerts, statusSplit[entities.Incomplete])
 		},
 		func(in chan<- entities.Alert) error {
@@ -74,7 +74,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts)
+			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts, a.zap)
 			return criterion.Analyze(in, pollingResult.Timestamp(), statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {

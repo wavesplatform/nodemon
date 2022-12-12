@@ -2,6 +2,7 @@ package criteria
 
 import (
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 )
@@ -14,16 +15,17 @@ type UnreachableCriterionOptions struct {
 type UnreachableCriterion struct {
 	opts *UnreachableCriterionOptions
 	es   *events.Storage
+	zap  *zap.Logger
 }
 
-func NewUnreachableCriterion(es *events.Storage, opts *UnreachableCriterionOptions) *UnreachableCriterion {
+func NewUnreachableCriterion(es *events.Storage, opts *UnreachableCriterionOptions, logger *zap.Logger) *UnreachableCriterion {
 	if opts == nil { // by default
 		opts = &UnreachableCriterionOptions{
 			Streak: 3,
 			Depth:  5,
 		}
 	}
-	return &UnreachableCriterion{opts: opts, es: es}
+	return &UnreachableCriterion{opts: opts, es: es, zap: logger}
 }
 
 func (c *UnreachableCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
@@ -54,6 +56,9 @@ func (c *UnreachableCriterion) analyzeNode(alerts chan<- entities.Alert, timesta
 	})
 	if err != nil {
 		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", node)
+	}
+	if streak > 0 {
+		c.zap.Info("UnreachableCriterion: unreachable statement", zap.String("node", node), zap.Int("streak", streak))
 	}
 	if streak >= c.opts.Streak {
 		alerts <- &entities.UnreachableAlert{

@@ -125,7 +125,7 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewIncompleteCriterion(es, test.opts)
+				criterion := NewIncompleteCriterion(es, test.opts, zap)
 				err := criterion.Analyze(alerts, test.data)
 				require.NoError(t, err)
 			}()
