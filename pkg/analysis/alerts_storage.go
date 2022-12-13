@@ -82,9 +82,12 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 		repeats = old.repeats + 1
 	)
 
-	if old.alert != nil {
-		s.logger.Info("An alert was put into storage", zap.String("alert", old.alert.String()), zap.Int("repeats", repeats), zap.Bool("confirmed", old.confirmed))
-	}
+	s.logger.Info("An alert was put into storage",
+		zap.Stringer("alert", alert),
+		zap.Int("backoffThreshold", old.backoffThreshold),
+		zap.Int("repeats", repeats),
+		zap.Bool("confirmed", old.confirmed),
+	)
 
 	if !old.confirmed && repeats >= s.requiredConfirmations[alert.Type()] { // send confirmed alert
 		s.internalStorage[alertID] = alertInfo{
