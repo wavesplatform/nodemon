@@ -1,6 +1,8 @@
 package criteria
 
 import (
+	"strings"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"nodemon/pkg/analysis/finders"
@@ -117,6 +119,16 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 				}
 			}
 			forkDepth := bucketHeight - lastCommonStateHashHeight
+
+			if forkDepth > 0 {
+				c.zap.Info("StateHashCriterion: fork detected",
+					zap.Int("Fork depth", forkDepth),
+					zap.String("First group", strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", ")),
+					zap.String("First group StateHash", first.StateHash.SumHash.Hex()),
+					zap.String("Second group", strings.Join(splitStateHash[second.StateHash.SumHash].Nodes().Sort(), ", ")),
+					zap.String("Second group StateHash", second.StateHash.SumHash.Hex()))
+			}
+
 			if forkDepth > c.opts.MaxForkDepth || forkDepth >= c.opts.HeightBucketSize {
 				alerts <- &entities.StateHashAlert{
 					Timestamp:                 timestamp,

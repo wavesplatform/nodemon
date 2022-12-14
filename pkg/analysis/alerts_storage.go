@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
 
@@ -46,6 +47,7 @@ type alertsStorage struct {
 	alertVacuumQuota      int
 	requiredConfirmations alertConfirmations
 	internalStorage       alertsInternalStorage
+	logger                *zap.Logger
 }
 
 type alertConfirmations map[entities.AlertType]int
@@ -60,12 +62,13 @@ func defaultAlertConfirmations() alertConfirmations {
 	}
 }
 
-func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations) *alertsStorage {
+func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations, logger *zap.Logger) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:          alertBackoff,
 		alertVacuumQuota:      alertVacuumQuota,
 		requiredConfirmations: requiredConfirmations,
 		internalStorage:       make(alertsInternalStorage),
+		logger:                logger,
 	}
 }
 
@@ -78,6 +81,14 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 		old     = s.internalStorage[alertID]
 		repeats = old.repeats + 1
 	)
+
+	s.logger.Info("An alert was put into storage",
+		zap.Stringer("alert", alert),
+		zap.Int("backoffThreshold", old.backoffThreshold),
+		zap.Int("repeats", repeats),
+		zap.Bool("confirmed", old.confirmed),
+	)
+
 	if !old.confirmed && repeats >= s.requiredConfirmations[alert.Type()] { // send confirmed alert
 		s.internalStorage[alertID] = alertInfo{
 			vacuumQuota:      s.alertVacuumQuota,
@@ -98,6 +109,7 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 		}
 		return true
 	}
+
 	s.internalStorage[alertID] = alertInfo{
 		vacuumQuota:      s.alertVacuumQuota,
 		repeats:          repeats,
