@@ -43,6 +43,26 @@ func AddNewNodeHandler(
 	return fmt.Sprintf("New node '%s' was added", updatedUrl), nil
 }
 
+func UpdateAliasHandler(
+	chatID string,
+	bot Bot,
+	requestType chan<- pair.RequestPair,
+	url string,
+	alias string) (string, error) {
+
+	if !bot.IsEligibleForAction(chatID) {
+		return insufficientPermissionMsg, InsufficientPermissionsError
+	}
+
+	updatedUrl, err := entities.CheckAndUpdateURL(url)
+	if err != nil {
+		return incorrectUrlMsg, IncorrectUrlError
+	}
+	requestType <- &pair.UpdateNodeRequest{Url: updatedUrl, Alias: alias}
+
+	return fmt.Sprintf("Node '%s' was updated with alias %s", updatedUrl, alias), nil
+}
+
 func RemoveNodeHandler(
 	chatID string,
 	bot Bot,
@@ -85,9 +105,22 @@ func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-ch
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
-	urls := nodesList.Urls
+	urls := make([]string, len(nodesList.Nodes))
+	for i, n := range nodesList.Nodes {
+		urls[i] = n.URL
+	}
 	sort.Strings(urls)
 	return urls, nil
+}
+
+func RequestFullNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]entities.Node, error) {
+	requestType <- &pair.NodesListRequest{Specific: specific}
+	responsePair := <-responsePairType
+	nodesList, ok := responsePair.(*pair.NodesListResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the node list type")
+	}
+	return nodesList.Nodes, nil
 }
 
 func RequestNodeStatement(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, node string, height int) (*pair.NodeStatementResponse, error) {

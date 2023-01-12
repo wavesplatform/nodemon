@@ -89,6 +89,28 @@ func RemoveNodeHandler(
 	)
 }
 
+func UpdateAliasHandler(
+	c tele.Context,
+	environment *common.TelegramBotEnvironment,
+	requestType chan<- pair.RequestPair,
+	url string,
+	alias string) error {
+
+	response, err := messaging.UpdateAliasHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url, alias)
+	if err != nil {
+		if err == messaging.IncorrectUrlError || err == messaging.InsufficientPermissionsError {
+			return c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeDefault},
+			)
+		}
+		return errors.Wrap(err, "failed to update a node")
+	}
+	return c.Send(
+		response,
+		&tele.SendOptions{ParseMode: tele.ModeHTML})
+}
+
 func SubscribeHandler(
 	c tele.Context,
 	environment *common.TelegramBotEnvironment,

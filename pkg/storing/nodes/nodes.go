@@ -82,31 +82,56 @@ func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
 	return cs.queryNodes(func(n node) bool { return n.Enabled }, 0, true)
 }
 
-func (cs *Storage) InsertIfNew(url string) error {
+// Update handles both specific and non-specific nodes
+func (cs *Storage) Update(nodeToUpdate entities.Node) error {
+	specific := false
+	ids, err := cs.queryNodes(func(n node) bool { return n.URL == nodeToUpdate.URL }, 0, false)
+	if err != nil {
+		return err
+	}
+	if len(ids) == 0 {
+		// look for the url in the specific nodes table
+		ids, err = cs.queryNodes(func(n node) bool { return n.URL == nodeToUpdate.URL }, 0, true)
+		if err != nil {
+			return err
+		}
+		specific = true
+		if len(ids) == 0 {
+			return errors.Errorf("node %s was not found in the storage", nodeToUpdate.URL)
+		}
+	}
+	if len(ids) > 1 {
+		return errors.Errorf("failed to update a node in the storage, multiple nodes were found")
+	}
+	tableName := nodesTableName
+	if specific {
+		tableName = specificNodesTableName
+	}
+
+	pulledNode := ids[0]
+	err = cs.db.Update(tableName, &node{Node: entities.Node{
+		URL:     pulledNode.URL,
+		Enabled: pulledNode.Enabled,
+		Alias:   nodeToUpdate.Alias,
+	}})
+	if err != nil {
+		return err
+	}
+	cs.zap.Sugar().Infof("New node '%s' was updated with alias %s", pulledNode.URL, nodeToUpdate.Alias)
+	return nil
+}
+
+func (cs *Storage) InsertIfNew(url string, specific bool) error {
 	ids, err := cs.queryNodes(func(n node) bool { return n.URL == url }, 0, false)
 	if err != nil {
 		return err
 	}
-	if len(ids) == 0 {
-		id, err := cs.db.Insert(nodesTableName, &node{Node: entities.Node{
-			URL:     url,
-			Enabled: true,
-		}})
-		if err != nil {
-			return err
-		}
-		cs.zap.Sugar().Infof("New node #%d at '%s' was stored", id, url)
-	}
-	return nil
-}
-
-func (cs *Storage) InsertSpecificIfNew(url string) error {
-	ids, err := cs.queryNodes(func(n node) bool { return n.URL == url }, 0, true)
-	if err != nil {
-		return err
+	tableName := nodesTableName
+	if specific {
+		tableName = specificNodesTableName
 	}
 	if len(ids) == 0 {
-		id, err := cs.db.Insert(specificNodesTableName, &node{Node: entities.Node{
+		id, err := cs.db.Insert(tableName, &node{Node: entities.Node{
 			URL:     url,
 			Enabled: true,
 		}})
@@ -171,7 +196,7 @@ func (cs *Storage) populate(nodes string) error {
 		if err != nil {
 			return err
 		}
-		err = cs.InsertIfNew(url)
+		err = cs.InsertIfNew(url, false)
 		if err != nil {
 			return err
 		}

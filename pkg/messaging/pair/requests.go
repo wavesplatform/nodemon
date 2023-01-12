@@ -15,6 +15,11 @@ type InsertNewNodeRequest struct {
 	Specific bool
 }
 
+type UpdateNodeRequest struct {
+	Url   string
+	Alias string
+}
+
 type DeleteNodeRequest struct {
 	Url string
 }
@@ -27,6 +32,8 @@ type NodeStatementRequest struct {
 func (nl *NodesListRequest) requestMarker() {}
 
 func (nl *InsertNewNodeRequest) requestMarker() {}
+
+func (nl *UpdateNodeRequest) requestMarker() {}
 
 func (nl *DeleteNodeRequest) requestMarker() {}
 

@@ -154,6 +154,53 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			)
 		}
 		return RemoveNodeHandler(c, environment, requestType, responsePairType, args[0])
+
+	})
+
+	environment.Bot.Handle("/add_alias", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 2 {
+			return c.Send(
+				messages.RemovedMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.RemovedLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return UpdateAliasHandler(c, environment, requestType, args[0], args[1])
+	})
+
+	environment.Bot.Handle("/aliases", func(c tele.Context) error {
+		nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
+		if err != nil {
+			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
+			return err
+		}
+		additionalNodes, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
+		if err != nil {
+			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
+			return err
+		}
+		nodes = append(nodes, additionalNodes...)
+		var msg string
+		for _, n := range nodes {
+			msg += fmt.Sprintf("Node: %s\nAlias: %s\n\n", n.URL, n.Alias)
+		}
+
+		return c.Send(
+			msg,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
 	})
 
 	environment.Bot.Handle("/subscribe", func(c tele.Context) error {

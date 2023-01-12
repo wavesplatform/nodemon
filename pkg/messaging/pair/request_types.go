@@ -7,6 +7,7 @@ const (
 	RequestSpecificNodeListT
 	RequestInsertNewNodeT
 	RequestInsertSpecificNewNodeT
+	RequestUpdateNode
 	RequestDeleteNodeT
 	RequestNodesStatus
 	RequestNodeStatement

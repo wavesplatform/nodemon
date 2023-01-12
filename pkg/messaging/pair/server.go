@@ -60,11 +60,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 					}
 				}
 				var nodeList NodesListResponse
-
-				nodeList.Urls = make([]string, len(nodes))
-				for i, node := range nodes {
-					nodeList.Urls[i] = node.URL
-				}
+				nodeList.Nodes = nodes
 				response, err := json.Marshal(nodeList)
 				if err != nil {
 					logger.Error("Failed to marshal node list to json", zap.Error(err))
@@ -76,16 +72,27 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 
 			case RequestInsertNewNodeT:
 				url := msg[1:]
-				err := ns.InsertIfNew(string(url))
+				err := ns.InsertIfNew(string(url), false)
 				if err != nil {
 					logger.Error("Failed to insert a new node to storage", zap.Error(err))
 				}
 			case RequestInsertSpecificNewNodeT:
 				url := msg[1:]
-				err := ns.InsertSpecificIfNew(string(url))
+				err := ns.InsertIfNew(string(url), true)
 				if err != nil {
 					logger.Error("Failed to insert a new specific node to storage", zap.Error(err))
 				}
+			case RequestUpdateNode:
+				node := entities.Node{}
+				err := json.Unmarshal(msg[1:], &node)
+				if err != nil {
+					logger.Error("Failed to update a specific node", zap.Error(err))
+				}
+				err = ns.Update(node)
+				if err != nil {
+					logger.Error("Failed to insert a new specific node to storage", zap.Error(err))
+				}
+
 			case RequestDeleteNodeT:
 				url := msg[1:]
 				err := ns.Delete(string(url))
