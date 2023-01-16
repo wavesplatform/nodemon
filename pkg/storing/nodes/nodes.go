@@ -16,21 +16,21 @@ const (
 	specificNodesTableName = "specific_nodes"
 )
 
-type node struct {
+type nodeRecord struct {
 	ID int `json:"id"`
 	entities.Node
 }
 
-func (n *node) GetID() int {
+func (n *nodeRecord) GetID() int {
 	return n.ID
 }
 
-func (n *node) SetID(id int) {
+func (n *nodeRecord) SetID(id int) {
 	n.ID = id
 }
 
 // AfterFind required by Hare function. Don't ask why.
-func (n *node) AfterFind(_ *hare.Database) error {
+func (n *nodeRecord) AfterFind(_ *hare.Database) error {
 	return nil
 }
 
@@ -71,58 +71,70 @@ func (cs *Storage) Close() error {
 }
 
 func (cs *Storage) Nodes(specific bool) ([]entities.Node, error) {
-	return cs.queryNodes(func(_ node) bool { return true }, 0, specific)
+	nodesRecord, err := cs.queryNodes(func(_ nodeRecord) bool { return true }, 0, specific)
+	if err != nil {
+		return nil, err
+	}
+	return nodesFromRecords(nodesRecord), nil
 }
 
 func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
-	return cs.queryNodes(func(n node) bool { return n.Enabled }, 0, false)
+	nodesRecords, err := cs.queryNodes(func(n nodeRecord) bool { return n.Enabled }, 0, false)
+	if err != nil {
+		return nil, err
+	}
+	return nodesFromRecords(nodesRecords), nil
 }
 
 func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
-	return cs.queryNodes(func(n node) bool { return n.Enabled }, 0, true)
+	nodesRecords, err := cs.queryNodes(func(n nodeRecord) bool { return n.Enabled }, 0, true)
+	if err != nil {
+		return nil, err
+	}
+	return nodesFromRecords(nodesRecords), nil
 }
 
 // Update handles both specific and non-specific nodes
 func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 	specific := false
-	ids, err := cs.queryNodes(func(n node) bool { return n.URL == nodeToUpdate.URL }, 0, false)
+	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, false)
 	if err != nil {
 		return err
 	}
 	if len(ids) == 0 {
 		// look for the url in the specific nodes table
-		ids, err = cs.queryNodes(func(n node) bool { return n.URL == nodeToUpdate.URL }, 0, true)
+		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, true)
 		if err != nil {
 			return err
 		}
 		specific = true
 		if len(ids) == 0 {
-			return errors.Errorf("node %s was not found in the storage", nodeToUpdate.URL)
+			return errors.Errorf("nodeRecord %s was not found in the storage", nodeToUpdate.URL)
 		}
 	}
-	if len(ids) > 1 {
-		return errors.Errorf("failed to update a node in the storage, multiple nodes were found")
+	if len(ids) != 1 {
+		return errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
 	}
 	tableName := nodesTableName
 	if specific {
 		tableName = specificNodesTableName
 	}
 
-	pulledNode := ids[0]
-	err = cs.db.Update(tableName, &node{Node: entities.Node{
-		URL:     pulledNode.URL,
-		Enabled: pulledNode.Enabled,
+	pulledRecord := ids[0]
+	err = cs.db.Update(tableName, &nodeRecord{Node: entities.Node{
+		URL:     pulledRecord.URL,
+		Enabled: pulledRecord.Enabled,
 		Alias:   nodeToUpdate.Alias,
-	}})
+	}, ID: pulledRecord.ID})
 	if err != nil {
 		return err
 	}
-	cs.zap.Sugar().Infof("New node '%s' was updated with alias %s", pulledNode.URL, nodeToUpdate.Alias)
+	cs.zap.Sugar().Infof("New nodeRecord '%s' was updated with alias %s", pulledRecord.URL, nodeToUpdate.Alias)
 	return nil
 }
 
 func (cs *Storage) InsertIfNew(url string, specific bool) error {
-	ids, err := cs.queryNodes(func(n node) bool { return n.URL == url }, 0, false)
+	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == url }, 0, false)
 	if err != nil {
 		return err
 	}
@@ -131,14 +143,14 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 		tableName = specificNodesTableName
 	}
 	if len(ids) == 0 {
-		id, err := cs.db.Insert(tableName, &node{Node: entities.Node{
+		id, err := cs.db.Insert(tableName, &nodeRecord{Node: entities.Node{
 			URL:     url,
 			Enabled: true,
 		}})
 		if err != nil {
 			return err
 		}
-		cs.zap.Sugar().Infof("New node #%d at '%s' was stored", id, url)
+		cs.zap.Sugar().Infof("New nodeRecord #%d at '%s' was stored", id, url)
 	}
 	return nil
 }
@@ -149,7 +161,7 @@ func (cs *Storage) Delete(url string) error {
 		return err
 	}
 	for _, id := range ids {
-		var n node
+		var n nodeRecord
 		if err := cs.db.Find(nodesTableName, id, &n); err != nil {
 			return err
 		}
@@ -166,23 +178,46 @@ func (cs *Storage) Delete(url string) error {
 	return nil
 }
 
-func (cs *Storage) queryNodes(queryFn func(n node) bool, limit int, specific bool) ([]entities.Node, error) {
+func (cs *Storage) FindAlias(url string) (string, error) {
+	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == url }, 0, false)
+	if err != nil {
+		return "", err
+	}
+	if len(ids) == 0 {
+		// look for the url in the specific nodes table
+		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == url }, 0, true)
+		if err != nil {
+			return "", err
+		}
+		if len(ids) == 0 {
+			return "", errors.Errorf("nodeRecord %s was not found in the storage", url)
+		}
+	}
+	if len(ids) != 1 {
+		return "", errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
+	}
+
+	return ids[0].Alias, nil
+}
+
+func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
 	table := nodesTableName
 	if specific {
 		table = specificNodesTableName
 	}
-	var results []entities.Node
+	var results []nodeRecord
 	ids, err := cs.db.IDs(table)
 	if err != nil {
 		return nil, err
 	}
 	for _, id := range ids {
-		var n node
+		var n nodeRecord
 		if err := cs.db.Find(table, id, &n); err != nil {
 			return nil, err
 		}
 		if queryFn(n) {
-			results = append(results, n.Node)
+			n.ID = id
+			results = append(results, n)
 		}
 		if limit != 0 && limit == len(results) {
 			break
@@ -202,4 +237,12 @@ func (cs *Storage) populate(nodes string) error {
 		}
 	}
 	return nil
+}
+
+func nodesFromRecords(records []nodeRecord) []entities.Node {
+	var nodes []entities.Node
+	for _, r := range records {
+		nodes = append(nodes, r.Node)
+	}
+	return nodes
 }

@@ -55,6 +55,11 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 				msg = fmt.Sprintf("%d %s", statusCondition.NodesNumber, msg)
 			}
 
+			msg, err = common.ReplaceNodesWithAliases(requestType, responsePairType, msg)
+			if err != nil {
+				environment.Zap.Error("failed to replaces nodes with aliases", zap.Error(err))
+			}
+
 			msg = fmt.Sprintf("```yaml\n%s\n```", msg)
 			_, err = s.ChannelMessageSend(environment.ChatID, msg)
 			if err != nil {

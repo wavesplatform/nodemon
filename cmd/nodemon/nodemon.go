@@ -177,7 +177,7 @@ func run() error {
 	alerts := analyzer.Start(notifications)
 
 	go func() {
-		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts, zap)
+		err := pubsub.StartPubMessagingServer(ctx, nanomsgPubSubURL, alerts, zap, ns)
 		if err != nil {
 			zap.Fatal("failed to start pub messaging server", zapLogger.Error(err))
 		}

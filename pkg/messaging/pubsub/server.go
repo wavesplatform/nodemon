@@ -13,9 +13,10 @@ import (
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
+	"nodemon/pkg/storing/nodes"
 )
 
-func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
+func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger, ns *nodes.Storage) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
@@ -41,11 +42,18 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
+			details, err := replaceNodesWithAliases(ns, alert.Message())
+			if err != nil {
+				if err != nil {
+					logger.Error("Failed to replace nodes with aliases", zap.Error(err))
+				}
+			}
+
 			jsonAlert, err := json.Marshal(
 				messaging.Alert{
 					AlertDescription: alert.ShortDescription(),
 					Level:            alert.Level(),
-					Details:          alert.Message(),
+					Details:          details,
 				})
 			if err != nil {
 				logger.Error("Failed to marshal alert to json", zap.Error(err))
@@ -60,4 +68,25 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 			}
 		}
 	}
+}
+
+func replaceNodesWithAliases(ns *nodes.Storage, message string) (string, error) {
+	nodes, err := ns.Nodes(false)
+	if err != nil {
+		return "", err
+	}
+	specificNodes, err := ns.Nodes(true)
+	if err != nil {
+		return "", err
+	}
+	nodes = append(nodes, specificNodes...)
+
+	for _, n := range nodes {
+		if n.Alias != "" {
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpsScheme+"://", "")
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpScheme+"://", "")
+			message = strings.ReplaceAll(message, n.URL, n.Alias)
+		}
+	}
+	return message, nil
 }

@@ -457,6 +457,10 @@ func ScheduleNodesStatus(
 				zapLogger.Error("failed to schedule nodes status, unknown bot type")
 				return
 			}
+			msg, err = ReplaceNodesWithAliases(requestType, responsePairType, msg)
+			if err != nil {
+				zapLogger.Error("failed to replaces nodes with aliases", zap.Error(err))
+			}
 			bot.SendMessage(msg)
 			return
 		}
@@ -568,12 +572,38 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.ErrMessage, msg), statusCondition, nil
 	}
 	return nodesStatusResp.ErrMessage, statusCondition, nil
+
 }
 
-func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
+func ReplaceNodesWithAliases(requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair, msg string) (string, error) {
+
+	nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
+	if err != nil {
+		return "", err
+	}
+	specificNodes, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
+	if err != nil {
+		return "", err
+	}
+	nodes = append(nodes, specificNodes...)
+
+	for _, n := range nodes {
+		if n.Alias != "" {
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpsScheme+"://", "")
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpScheme+"://", "")
+			msg = strings.ReplaceAll(msg, n.URL, n.Alias)
+		}
+	}
+
+	return msg, nil
+}
+
+func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
+	extension expectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
-	// remove all https and http prefixes
+	// remove all https and http prefixes and
 	for i := range nodesStatusResp.NodesStatus {
 		nodesStatusResp.NodesStatus[i].Url = strings.ReplaceAll(nodesStatusResp.NodesStatus[i].Url, entities.HttpsScheme+"://", "")
 		nodesStatusResp.NodesStatus[i].Url = strings.ReplaceAll(nodesStatusResp.NodesStatus[i].Url, entities.HttpScheme+"://", "")

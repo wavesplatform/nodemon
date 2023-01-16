@@ -192,7 +192,12 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		nodes = append(nodes, additionalNodes...)
 		var msg string
 		for _, n := range nodes {
-			msg += fmt.Sprintf("Node: %s\nAlias: %s\n\n", n.URL, n.Alias)
+			if n.Alias != "" {
+				msg += fmt.Sprintf("Node: %s\nAlias: %s\n\n", n.URL, n.Alias)
+			}
+		}
+		if msg == "" {
+			msg = "No aliases have been found"
 		}
 
 		return c.Send(
@@ -349,6 +354,12 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 		if statusCondition.AllNodesAreOk {
 			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
+		}
+
+		msg, err = common.ReplaceNodesWithAliases(requestType, responsePairType, msg)
+		if err != nil {
+			environment.Zap.Error("failed to replaces nodes with aliases", zap.Error(err))
+			return err
 		}
 
 		return c.Send(
