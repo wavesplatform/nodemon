@@ -528,6 +528,171 @@ func executeTemplate(template string, data any, extension expectedExtension) (st
 
 }
 
+func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extension expectedExtension) (string, error) {
+	//alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
+	//alert.Details = strings.ReplaceAll(alert.Details, entities.HttpsScheme+"://", "")
+	var msg string
+	switch alertType {
+	case entities.UnreachableAlertType:
+		var unreachableAlert entities.UnreachableAlert
+		err := json.Unmarshal(alertJson, &unreachableAlert)
+		if err != nil {
+			return "", err
+		}
+
+		// TODO replace node name with an alias
+
+		msg, err = executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.IncompleteAlertType:
+		var incompleteAlert entities.IncompleteAlert
+		err := json.Unmarshal(alertJson, &incompleteAlert)
+		if err != nil {
+			return "", err
+		}
+		incompleteStatement := incompleteAlert.NodeStatement
+
+		// TODO replace node name with an alias
+
+		msg, err = executeTemplate("templates/alerts/incomplete_alert", incompleteStatement, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.InvalidHeightAlertType:
+		var invalidHeightAlert entities.InvalidHeightAlert
+		err := json.Unmarshal(alertJson, &invalidHeightAlert)
+		if err != nil {
+			return "", err
+		}
+		invalidHeightStatement := invalidHeightAlert.NodeStatement
+
+		// TODO replace node name with an alias
+
+		msg, err = executeTemplate("templates/alerts/invalid_height_alert", invalidHeightStatement, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.HeightAlertType:
+		var heightAlert entities.HeightAlert
+		err := json.Unmarshal(alertJson, &heightAlert)
+		if err != nil {
+			return "", err
+		}
+		type group struct {
+			Nodes  []string
+			Height int
+		}
+		heightStatement := struct {
+			HeightDifference int
+			FirstGroup       group
+			SecondGroup      group
+		}{
+			HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
+			FirstGroup: group{
+				Nodes:  heightAlert.MaxHeightGroup.Nodes,
+				Height: heightAlert.MaxHeightGroup.Height,
+			},
+			SecondGroup: group{
+				Nodes:  heightAlert.OtherHeightGroup.Nodes,
+				Height: heightAlert.OtherHeightGroup.Height,
+			},
+		}
+
+		msg, err = executeTemplate("templates/alerts/height_alert", heightStatement, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.StateHashAlertType:
+		var stateHashAlert entities.StateHashAlert
+		err := json.Unmarshal(alertJson, &stateHashAlert)
+		if err != nil {
+			return "", err
+		}
+		type stateHashGroup struct {
+			BlockID   string
+			Nodes     []string
+			StateHash string
+		}
+		stateHashStatement := struct {
+			SameHeight               int
+			LastCommonStateHashExist bool
+			ForkHeight               int
+			ForkBlockID              string
+			ForkStateHash            string
+
+			FirstGroup  stateHashGroup
+			SecondGroup stateHashGroup
+		}{
+			SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
+			LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
+			ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
+			ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
+			ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
+
+			FirstGroup: stateHashGroup{
+				BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
+				Nodes:     stateHashAlert.FirstGroup.Nodes,
+				StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
+			},
+			SecondGroup: stateHashGroup{
+				BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
+				Nodes:     stateHashAlert.SecondGroup.Nodes,
+				StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
+			},
+		}
+
+		msg, err = executeTemplate("templates/alerts/state_hash_alert", stateHashStatement, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.AlertFixedType:
+		var alertFixed entities.AlertFixed
+		err := json.Unmarshal(alertJson, &alertFixed)
+		if err != nil {
+			return "", err
+		}
+
+		fixedStatement := struct {
+			PreviousAlert string
+		}{
+			PreviousAlert: alertFixed.Fixed.Message(),
+		}
+
+		msg, err = executeTemplate("templates/alerts/alert_fixed", fixedStatement, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.BaseTargetAlertType:
+		var baseTargetAlert entities.BaseTargetAlert
+		err := json.Unmarshal(alertJson, &baseTargetAlert)
+		if err != nil {
+			return "", err
+		}
+
+		msg, err = executeTemplate("templates/alerts/base_target_alert", baseTargetAlert, extension)
+		if err != nil {
+			return "", err
+		}
+	case entities.InternalErrorAlertType:
+		var internalErrorAlert entities.InternalErrorAlert
+		err := json.Unmarshal(alertJson, &internalErrorAlert)
+		if err != nil {
+			return "", err
+		}
+		msg, err = executeTemplate("templates/alerts/internal_error_alert", internalErrorAlert, extension)
+		if err != nil {
+			return "", err
+		}
+	default:
+		return "", errors.New("unknown alert type")
+	}
+
+	return msg, nil
+
+}
+
 type StatusCondition struct {
 	AllNodesAreOk bool
 	NodesNumber   int
@@ -708,42 +873,12 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, extension 
 		return "", errors.Wrap(err, "failed to unmarshal json")
 	}
 
-	prettyAlert := makeMessagePretty(alertType, alert)
-
-	msg, err := executeTemplate("templates/alert", prettyAlert, extension)
+	//prettyAlert := makeMessagePretty(alertType, alert) // executeAlertTemplate
+	msg, err := executeAlertTemplate(alertType, alertJson, extension)
 	if err != nil {
-		return "", err
+		return "", errors.Errorf("failed to execute an alert template, %v", err)
 	}
 	return msg, nil
-}
-
-func makeMessagePretty(alertType entities.AlertType, alert generalMessaging.Alert) generalMessaging.Alert {
-	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpScheme+"://", "")
-	alert.Details = strings.ReplaceAll(alert.Details, entities.HttpsScheme+"://", "")
-	// simple alert is skipped because it needs to be deleted
-	switch alertType {
-	case entities.UnreachableAlertType, entities.InvalidHeightAlertType, entities.StateHashAlertType, entities.HeightAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
-	case entities.InternalErrorAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.WarnMsg)
-	case entities.IncompleteAlertType:
-		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.QuestionMsg)
-	case entities.AlertFixedType:
-		alert.AlertDescription += fmt.Sprintf(" %s", commonMessages.OkMsg)
-	default:
-
-	}
-	switch alert.Level {
-	case entities.InfoLevel:
-		alert.Level += fmt.Sprintf(" %s", commonMessages.InfoMsg)
-	case entities.WarnLevel:
-		alert.Level += fmt.Sprintf(" %s", commonMessages.WarnMsg)
-	case entities.ErrorLevel:
-		alert.Level += fmt.Sprintf(" %s", commonMessages.ErrorOrDeleteMsg)
-	default:
-	}
-
-	return alert
 }
 
 func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {

@@ -1,0 +1,21 @@
+<b>Alert type:</b> Height ❌
+
+<b>Level:</b> Error ❌
+
+<b>Details:</b> Some node(s) are {{ .HeightDifference}} blocks behind
+
+{{ with .FirstGroup }}
+First group wih height <code>{{ .Height}}</code>:
+
+{{range .Nodes}}
+Node: <code>{{.}}</code>
+{{end}}
+{{end}}
+
+{{ with .SecondGroup }}
+Second group wih height <code>{{ .Height}}</code>:
+
+{{range .Nodes}}
+Node: <code>{{.}}</code>
+{{end}}
+{{end}}

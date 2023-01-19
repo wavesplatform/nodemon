@@ -12,7 +12,6 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
 	"nodemon/pkg/storing/nodes"
 )
 
@@ -42,19 +41,15 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
-			details, err := replaceNodesWithAliases(ns, alert.Message())
-			if err != nil {
-				if err != nil {
-					logger.Error("Failed to replace nodes with aliases", zap.Error(err))
-				}
-			}
+			// TODO remove this
+			//details, err := replaceNodesWithAliases(ns, alert.Message())
+			//if err != nil {
+			//	if err != nil {
+			//		logger.Error("Failed to replace nodes with aliases", zap.Error(err))
+			//	}
+			//}
 
-			jsonAlert, err := json.Marshal(
-				messaging.Alert{
-					AlertDescription: alert.ShortDescription(),
-					Level:            alert.Level(),
-					Details:          details,
-				})
+			jsonAlert, err := AlertToJson(alert)
 			if err != nil {
 				logger.Error("Failed to marshal alert to json", zap.Error(err))
 			}
@@ -70,23 +65,52 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 	}
 }
 
-func replaceNodesWithAliases(ns *nodes.Storage, message string) (string, error) {
-	nodes, err := ns.Nodes(false)
-	if err != nil {
-		return "", err
-	}
-	specificNodes, err := ns.Nodes(true)
-	if err != nil {
-		return "", err
-	}
-	nodes = append(nodes, specificNodes...)
-
-	for _, n := range nodes {
-		if n.Alias != "" {
-			n.URL = strings.ReplaceAll(n.URL, entities.HttpsScheme+"://", "")
-			n.URL = strings.ReplaceAll(n.URL, entities.HttpScheme+"://", "")
-			message = strings.ReplaceAll(message, n.URL, n.Alias)
+func AlertToJson(alert entities.Alert) ([]byte, error) {
+	var jsonAlert []byte
+	var err error
+	switch a := alert.(type) {
+	case *entities.UnreachableAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
 		}
+	case *entities.IncompleteAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.InvalidHeightAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.HeightAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.StateHashAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.AlertFixed:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.BaseTargetAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	case *entities.InternalErrorAlert:
+		jsonAlert, err = json.Marshal(a)
+		if err != nil {
+			return nil, err
+		}
+	default:
+		return nil, errors.New("unknown alert type")
 	}
-	return message, nil
+	return jsonAlert, nil
 }
