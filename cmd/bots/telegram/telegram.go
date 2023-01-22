@@ -76,13 +76,14 @@ func runTelegramBot() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	tgBotEnv, err := initial.InitTgBot(behavior, webhookLocalAddress, publicURL, tgBotToken, tgChatID, zap)
+	pairRequest := make(chan pairResponses.RequestPair)
+	pairResponse := make(chan pairResponses.ResponsePair)
+
+	tgBotEnv, err := initial.InitTgBot(behavior, webhookLocalAddress, publicURL, tgBotToken, tgChatID, zap, pairRequest, pairResponse)
 	if err != nil {
 		zap.Fatal("failed to initialize telegram bot", zapLogger.Error(err))
 	}
 
-	pairRequest := make(chan pairResponses.RequestPair)
-	pairResponse := make(chan pairResponses.ResponsePair)
 	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
 
 	go func() {

@@ -328,17 +328,21 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+		nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
 		if err != nil {
 			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
 			return err
 		}
-		additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
+		additionalUrls, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
 		if err != nil {
 			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
 			return err
 		}
-		urls = append(urls, additionalUrls...)
+		nodes = append(nodes, additionalUrls...)
+		urls := make([]string, len(nodes))
+		for i, n := range nodes {
+			urls[i] = n.URL
+		}
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
@@ -346,7 +350,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			return err
 		}
 
-		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html)
+		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html, nodes)
 		if err != nil {
 			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
 			return err
@@ -354,12 +358,6 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 		if statusCondition.AllNodesAreOk {
 			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
-		}
-
-		msg, err = common.ReplaceNodesWithAliases(requestType, responsePairType, msg)
-		if err != nil {
-			environment.Zap.Error("failed to replaces nodes with aliases", zap.Error(err))
-			return err
 		}
 
 		return c.Send(

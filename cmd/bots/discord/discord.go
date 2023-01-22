@@ -68,13 +68,13 @@ func runDiscordBot() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	discordBotEnv, err := initial.InitDiscordBot(discordBotToken, discordChatID, zap)
+	pairRequest := make(chan pairResponses.RequestPair)
+	pairResponse := make(chan pairResponses.ResponsePair)
+
+	discordBotEnv, err := initial.InitDiscordBot(discordBotToken, discordChatID, zap, pairRequest, pairResponse)
 	if err != nil {
 		return errors.Wrap(err, "failed to init discord bot")
 	}
-
-	pairRequest := make(chan pairResponses.RequestPair)
-	pairResponse := make(chan pairResponses.ResponsePair)
 	handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
 
 	go func() {

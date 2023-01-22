@@ -41,14 +41,6 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
-			// TODO remove this
-			//details, err := replaceNodesWithAliases(ns, alert.Message())
-			//if err != nil {
-			//	if err != nil {
-			//		logger.Error("Failed to replace nodes with aliases", zap.Error(err))
-			//	}
-			//}
-
 			jsonAlert, err := AlertToJson(alert)
 			if err != nil {
 				logger.Error("Failed to marshal alert to json", zap.Error(err))

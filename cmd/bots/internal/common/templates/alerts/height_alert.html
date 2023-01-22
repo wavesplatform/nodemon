@@ -5,17 +5,19 @@
 <b>Details:</b> Some node(s) are {{ .HeightDifference}} blocks behind
 
 {{ with .FirstGroup }}
-First group wih height <code>{{ .Height}}</code>:
+First group with height <code>{{ .Height}}</code>:
 
 {{range .Nodes}}
-Node: <code>{{.}}</code>
+<code>{{.}}
+</code>
 {{end}}
 {{end}}
 
 {{ with .SecondGroup }}
-Second group wih height <code>{{ .Height}}</code>:
+Second group with height <code>{{ .Height}}</code>:
 
 {{range .Nodes}}
-Node: <code>{{.}}</code>
+<code>{{.}}
+</code>
 {{end}}
 {{end}}

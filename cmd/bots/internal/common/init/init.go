@@ -7,6 +7,7 @@ import (
 	tele "gopkg.in/telebot.v3"
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/telegram/config"
+	"nodemon/pkg/messaging/pair"
 )
 
 func InitTgBot(behavior string,
@@ -15,6 +16,8 @@ func InitTgBot(behavior string,
 	botToken string,
 	chatID int64,
 	logger *zap.Logger,
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair,
 ) (*common.TelegramBotEnvironment, error) {
 	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
@@ -27,7 +30,7 @@ func InitTgBot(behavior string,
 
 	logger.Sugar().Debugf("telegram chat id for sending alerts is %d", chatID)
 
-	tgBotEnv := common.NewTelegramBotEnvironment(bot, chatID, false, logger)
+	tgBotEnv := common.NewTelegramBotEnvironment(bot, chatID, false, logger, requestType, responsePairType)
 	return tgBotEnv, nil
 }
 
@@ -35,6 +38,8 @@ func InitDiscordBot(
 	botToken string,
 	chatID string,
 	logger *zap.Logger,
+	requestType chan<- pair.RequestPair,
+	responsePairType <-chan pair.ResponsePair,
 ) (*common.DiscordBotEnvironment, error) {
 	bot, err := discordgo.New("Bot " + botToken)
 	if err != nil {
@@ -43,6 +48,6 @@ func InitDiscordBot(
 	logger.Sugar().Debugf("discord chat id for sending alerts is %s", chatID)
 
 	bot.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
-	dscBotEnv := common.NewDiscordBotEnvironment(bot, chatID, logger)
+	dscBotEnv := common.NewDiscordBotEnvironment(bot, chatID, logger, requestType, responsePairType)
 	return dscBotEnv, nil
 }

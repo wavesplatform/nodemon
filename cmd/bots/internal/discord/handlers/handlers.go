@@ -33,31 +33,31 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 		}
 
 		if m.Content == "/status" {
-			urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+			nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
 			if err != nil {
 				environment.Zap.Error("failed to get a list of nodes", zap.Error(err))
 			}
-			additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
+			additionalUrls, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
 			if err != nil {
 				environment.Zap.Error("failed to get a list of nodes", zap.Error(err))
 			}
-			urls = append(urls, additionalUrls...)
+			nodes = append(nodes, additionalUrls...)
+
+			urls := make([]string, len(nodes))
+			for i, n := range nodes {
+				urls[i] = n.URL
+			}
 
 			nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 			if err != nil {
 				environment.Zap.Error("failed to request nodes status", zap.Error(err))
 			}
-			msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Markdown)
+			msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Markdown, nodes)
 			if err != nil {
 				environment.Zap.Error("failed to handle nodes status", zap.Error(err))
 			}
 			if statusCondition.AllNodesAreOk {
 				msg = fmt.Sprintf("%d %s", statusCondition.NodesNumber, msg)
-			}
-
-			msg, err = common.ReplaceNodesWithAliases(requestType, responsePairType, msg)
-			if err != nil {
-				environment.Zap.Error("failed to replaces nodes with aliases", zap.Error(err))
 			}
 
 			msg = fmt.Sprintf("```yaml\n%s\n```", msg)
