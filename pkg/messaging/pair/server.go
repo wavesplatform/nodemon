@@ -59,8 +59,7 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.
 						return err
 					}
 				}
-				var nodeList NodesListResponse
-				nodeList.Nodes = nodes
+				nodeList := NodesListResponse{Nodes: nodes}
 				response, err := json.Marshal(nodeList)
 				if err != nil {
 					logger.Error("Failed to marshal node list to json", zap.Error(err))

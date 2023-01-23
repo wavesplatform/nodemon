@@ -98,22 +98,19 @@ func RequestNodesStatus(
 
 }
 
-func RequestNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
+func RequestNodesUrls(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
 	requestType <- &pair.NodesListRequest{Specific: specific}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodesListResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
-	urls := make([]string, len(nodesList.Nodes))
-	for i, n := range nodesList.Nodes {
-		urls[i] = n.URL
-	}
+	urls := NodesToUrls(nodesList.Nodes)
 	sort.Strings(urls)
 	return urls, nil
 }
 
-func RequestFullNodesList(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]entities.Node, error) {
+func RequestNodes(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]entities.Node, error) {
 	requestType <- &pair.NodesListRequest{Specific: specific}
 	responsePair := <-responsePairType
 	nodesList, ok := responsePair.(*pair.NodesListResponse)
@@ -121,6 +118,29 @@ func RequestFullNodesList(requestType chan<- pair.RequestPair, responsePairType 
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
 	return nodesList.Nodes, nil
+}
+
+func RequestAllNodes(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]entities.Node, error) {
+	regularNodes, err := RequestNodes(requestType, responsePairType, false)
+	if err != nil {
+		return nil, err
+	}
+	specificNodes, err := RequestNodes(requestType, responsePairType, true)
+	if err != nil {
+		return nil, err
+	}
+	var nodes []entities.Node
+	nodes = append(nodes, regularNodes...)
+	nodes = append(nodes, specificNodes...)
+	return nodes, nil
+}
+
+func NodesToUrls(nodes []entities.Node) []string {
+	urls := make([]string, len(nodes))
+	for i, n := range nodes {
+		urls[i] = n.URL
+	}
+	return urls
 }
 
 func RequestNodeStatement(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, node string, height int) (*pair.NodeStatementResponse, error) {

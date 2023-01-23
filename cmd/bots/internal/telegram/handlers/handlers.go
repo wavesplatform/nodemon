@@ -119,7 +119,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		if err != nil {
 			return nil
 		}
-		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+		urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 		if err != nil {
 			return errors.Wrap(err, "failed to request nodes list buttons")
 		}
@@ -159,17 +159,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 	environment.Bot.Handle("/add_alias", func(c tele.Context) error {
 		args := c.Args()
-		if len(args) > 2 {
+		if len(args) != 2 {
 			return c.Send(
-				messages.RemovedMoreThanOne,
-				&tele.SendOptions{
-					ParseMode: tele.ModeDefault,
-				},
-			)
-		}
-		if len(args) < 1 {
-			return c.Send(
-				messages.RemovedLessThanOne,
+				messages.AliasWrongFormat,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -179,17 +171,10 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/aliases", func(c tele.Context) error {
-		nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
+		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
-			return err
+			environment.Zap.Error("failed to get nodes list", zap.Error(err))
 		}
-		additionalNodes, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
-		if err != nil {
-			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
-			return err
-		}
-		nodes = append(nodes, additionalNodes...)
 		var msg string
 		for _, n := range nodes {
 			if n.Alias != "" {
@@ -328,21 +313,11 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
+		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
-			return err
+			environment.Zap.Error("failed to get nodes list", zap.Error(err))
 		}
-		additionalUrls, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
-		if err != nil {
-			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
-			return err
-		}
-		nodes = append(nodes, additionalUrls...)
-		urls := make([]string, len(nodes))
-		for i, n := range nodes {
-			urls[i] = n.URL
-		}
+		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
@@ -376,7 +351,7 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

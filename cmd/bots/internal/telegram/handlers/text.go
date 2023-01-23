@@ -34,7 +34,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -73,7 +73,7 @@ func RemoveNodeHandler(
 		return err
 	}
 
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -98,7 +98,7 @@ func UpdateAliasHandler(
 
 	response, err := messaging.UpdateAliasHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url, alias)
 	if err != nil {
-		if err == messaging.IncorrectUrlError || err == messaging.InsufficientPermissionsError {
+		if errors.Is(err, messaging.IncorrectUrlError) || errors.Is(err, messaging.InsufficientPermissionsError) {
 			return c.Send(
 				response,
 				&tele.SendOptions{ParseMode: tele.ModeDefault},

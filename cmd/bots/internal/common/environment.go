@@ -83,21 +83,21 @@ type DiscordBotEnvironment struct {
 	Bot              *discordgo.Session
 	subSocket        protocol.Socket
 	Subscriptions    subscriptions
-	Zap              *zap.Logger
+	zap              *zap.Logger
 	requestType      chan<- pair.RequestPair
 	responsePairType <-chan pair.ResponsePair
 }
 
 func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger, requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
-	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, Zap: zap, requestType: requestType, responsePairType: responsePairType}
+	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
-	dscBot.Zap.Info("Discord bot started")
+	dscBot.zap.Info("Discord bot started")
 	err := dscBot.Bot.Open()
 	if err != nil {
-		dscBot.Zap.Error("failed to open discord bot", zap.Error(err))
+		dscBot.zap.Error("failed to open discord bot", zap.Error(err))
 		return err
 	}
 	return nil
@@ -110,47 +110,41 @@ func (dscBot *DiscordBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 	_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, msg)
 	if err != nil {
-		dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
+		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
 	}
 }
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	if len(msg) == 0 {
-		dscBot.Zap.Error("received empty alert message")
+		dscBot.zap.Error("received empty alert message")
 		return
 	}
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		dscBot.Zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
 
 		if err != nil {
-			dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
+			dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
 		}
 		return
 	}
 
-	nodes, err := messaging.RequestFullNodesList(dscBot.requestType, dscBot.responsePairType, false)
+	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
 	if err != nil {
-		dscBot.Zap.Error("failed to request list of nodes", zap.Error(err))
+		dscBot.zap.Error("failed to get nodes list", zap.Error(err))
 	}
-	specificNodes, err := messaging.RequestFullNodesList(dscBot.requestType, dscBot.responsePairType, true)
-	if err != nil {
-		dscBot.Zap.Error("failed to request list of specific nodes", zap.Error(err))
-	}
-
-	nodes = append(nodes, specificNodes...)
 
 	messageToBot, err := constructMessage(alertType, msg[1:], Markdown, nodes)
 	if err != nil {
-		dscBot.Zap.Error("failed to construct message", zap.Error(err))
+		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
 	_, err = dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
 
 	if err != nil {
-		dscBot.Zap.Error("failed to send a message to discord", zap.Error(err))
+		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
 	}
 }
 
@@ -165,7 +159,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		dscBot.Subscriptions.Add(alertType, alertName)
-		dscBot.Zap.Sugar().Infof("subscribed to %s", alertName)
+		dscBot.zap.Sugar().Infof("subscribed to %s", alertName)
 	}
 
 	return nil
@@ -234,16 +228,10 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	nodes, err := messaging.RequestFullNodesList(tgEnv.requestType, tgEnv.responsePairType, false)
+	nodes, err := messaging.RequestAllNodes(tgEnv.requestType, tgEnv.responsePairType)
 	if err != nil {
-		tgEnv.Zap.Error("failed to request list of nodes", zap.Error(err))
+		tgEnv.Zap.Error("failed to get nodes list", zap.Error(err))
 	}
-	specificNodes, err := messaging.RequestFullNodesList(tgEnv.requestType, tgEnv.responsePairType, true)
-	if err != nil {
-		tgEnv.Zap.Error("failed to request list of specific nodes", zap.Error(err))
-	}
-
-	nodes = append(nodes, specificNodes...)
 
 	messageToBot, err := constructMessage(alertType, msg[1:], Html, nodes)
 	if err != nil {
@@ -425,20 +413,11 @@ func ScheduleNodesStatus(
 	responsePairType <-chan pair.ResponsePair, bot messaging.Bot, zapLogger *zap.Logger) error {
 
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
-		nodes, err := messaging.RequestFullNodesList(requestType, responsePairType, false)
+		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
 			zapLogger.Error("failed to get nodes list", zap.Error(err))
 		}
-		additionalUrls, err := messaging.RequestFullNodesList(requestType, responsePairType, true)
-		if err != nil {
-			zapLogger.Error("failed to get additional nodes list", zap.Error(err))
-		}
-		nodes = append(nodes, additionalUrls...)
-
-		urls := make([]string, len(nodes))
-		for i := range nodes {
-			urls[i] = nodes[i].URL
-		}
+		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
@@ -914,7 +893,6 @@ func constructMessage(alertType entities.AlertType, alertJson []byte, extension 
 		return "", errors.Wrap(err, "failed to unmarshal json")
 	}
 
-	//prettyAlert := makeMessagePretty(alertType, alert) // executeAlertTemplate
 	msg, err := executeAlertTemplate(alertType, alertJson, extension, allNodes)
 	if err != nil {
 		return "", errors.Errorf("failed to execute an alert template, %v", err)

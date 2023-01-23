@@ -75,7 +75,7 @@ func runDiscordBot() error {
 	if err != nil {
 		return errors.Wrap(err, "failed to init discord bot")
 	}
-	handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse)
+	handlers.InitDscHandlers(discordBotEnv, pairRequest, pairResponse, zap)
 
 	go func() {
 		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, discordBotEnv, zap)
