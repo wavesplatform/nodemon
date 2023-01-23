@@ -6,18 +6,14 @@
 
 {{ with .FirstGroup }}
 First group with height <code>{{ .Height}}</code>:
-
 {{range .Nodes}}
-<code>{{.}}
-</code>
+<code>{{.}}</code>
 {{end}}
 {{end}}
 
 {{ with .SecondGroup }}
 Second group with height <code>{{ .Height}}</code>:
-
 {{range .Nodes}}
-<code>{{.}}
-</code>
+<code>{{.}}</code>
 {{end}}
 {{end}}
