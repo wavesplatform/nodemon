@@ -543,6 +543,37 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	return node
 }
 
+type heightStatementGroup struct {
+	Nodes  []string
+	Height int
+}
+
+type heightStatement struct {
+	HeightDifference int
+	FirstGroup       heightStatementGroup
+	SecondGroup      heightStatementGroup
+}
+
+type stateHashStatementGroup struct {
+	BlockID   string
+	Nodes     []string
+	StateHash string
+}
+
+type stateHashStatement struct {
+	SameHeight               int
+	LastCommonStateHashExist bool
+	ForkHeight               int
+	ForkBlockID              string
+	ForkStateHash            string
+	FirstGroup               stateHashStatementGroup
+	SecondGroup              stateHashStatementGroup
+}
+
+type fixedStatement struct {
+	PreviousAlert string
+}
+
 func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
 	nodesAliases := make(map[string]string)
 	for _, n := range allNodes {
@@ -606,21 +637,13 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 			heightAlert.OtherHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.OtherHeightGroup.Nodes[i], nodesAliases)
 		}
 
-		type group struct {
-			Nodes  []string
-			Height int
-		}
-		heightStatement := struct {
-			HeightDifference int
-			FirstGroup       group
-			SecondGroup      group
-		}{
+		heightStatement := heightStatement{
 			HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
-			FirstGroup: group{
+			FirstGroup: heightStatementGroup{
 				Nodes:  heightAlert.MaxHeightGroup.Nodes,
 				Height: heightAlert.MaxHeightGroup.Height,
 			},
-			SecondGroup: group{
+			SecondGroup: heightStatementGroup{
 				Nodes:  heightAlert.OtherHeightGroup.Nodes,
 				Height: heightAlert.OtherHeightGroup.Height,
 			},
@@ -643,33 +666,20 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 		for i := range stateHashAlert.SecondGroup.Nodes {
 			stateHashAlert.SecondGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.SecondGroup.Nodes[i], nodesAliases)
 		}
-		type stateHashGroup struct {
-			BlockID   string
-			Nodes     []string
-			StateHash string
-		}
-		stateHashStatement := struct {
-			SameHeight               int
-			LastCommonStateHashExist bool
-			ForkHeight               int
-			ForkBlockID              string
-			ForkStateHash            string
 
-			FirstGroup  stateHashGroup
-			SecondGroup stateHashGroup
-		}{
+		stateHashStatement := stateHashStatement{
 			SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
 			LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
 			ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
 			ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
 			ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
 
-			FirstGroup: stateHashGroup{
+			FirstGroup: stateHashStatementGroup{
 				BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
 				Nodes:     stateHashAlert.FirstGroup.Nodes,
 				StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
 			},
-			SecondGroup: stateHashGroup{
+			SecondGroup: stateHashStatementGroup{
 				BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
 				Nodes:     stateHashAlert.SecondGroup.Nodes,
 				StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
@@ -689,9 +699,7 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 
 		// TODO there is no alias here right now, but AlertFixed needs to be changed. Make previous alert to look like a number
 
-		fixedStatement := struct {
-			PreviousAlert string
-		}{
+		fixedStatement := fixedStatement{
 			PreviousAlert: alertFixed.Fixed.Message(),
 		}
 
