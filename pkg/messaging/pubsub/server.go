@@ -43,7 +43,7 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 
 			jsonAlert, err := json.Marshal(alert)
 			if err != nil {
-				return err
+				logger.Error("Failed to marshal an alert to json", zap.Error(err))
 			}
 
 			message := &bytes.Buffer{}
