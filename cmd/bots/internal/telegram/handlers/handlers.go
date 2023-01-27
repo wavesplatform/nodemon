@@ -173,7 +173,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle("/aliases", func(c tele.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to get nodes list", zap.Error(err))
+			return errors.Wrap(err, "failed to get nodes list")
 		}
 		var msg string
 		for _, n := range nodes {
