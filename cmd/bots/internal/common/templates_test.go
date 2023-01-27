@@ -74,9 +74,7 @@ func TestAlertFixed(t *testing.T) {
 		Fixed:     unreachable,
 	}
 
-	fixedStatement := struct {
-		PreviousAlert string
-	}{
+	fixedStatement := fixedStatement{
 		PreviousAlert: data.Fixed.Message(),
 	}
 	for _, f := range formats {
@@ -100,22 +98,13 @@ func TestHeightTemplate(t *testing.T) {
 		},
 	}
 
-	type group struct {
-		Nodes  []string
-		Height int
-	}
-
-	heightStatement := struct {
-		HeightDifference int
-		FirstGroup       group
-		SecondGroup      group
-	}{
+	heightStatement := heightStatement{
 		HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
-		FirstGroup: group{
+		FirstGroup: heightStatementGroup{
 			Nodes:  heightAlert.MaxHeightGroup.Nodes,
 			Height: heightAlert.MaxHeightGroup.Height,
 		},
-		SecondGroup: group{
+		SecondGroup: heightStatementGroup{
 			Nodes:  heightAlert.OtherHeightGroup.Nodes,
 			Height: heightAlert.OtherHeightGroup.Height,
 		},
@@ -178,33 +167,19 @@ func TestStateHashTemplate(t *testing.T) {
 		},
 	}
 
-	type stateHashGroup struct {
-		BlockID   string
-		Nodes     []string
-		StateHash string
-	}
-	stateHashStatement := struct {
-		SameHeight               int
-		LastCommonStateHashExist bool
-		ForkHeight               int
-		ForkBlockID              string
-		ForkStateHash            string
-
-		FirstGroup  stateHashGroup
-		SecondGroup stateHashGroup
-	}{
+	stateHashStatement := stateHashStatement{
 		SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
 		LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
 		ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
 		ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
 		ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
 
-		FirstGroup: stateHashGroup{
+		FirstGroup: stateHashStatementGroup{
 			BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
 			Nodes:     stateHashAlert.FirstGroup.Nodes,
 			StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
 		},
-		SecondGroup: stateHashGroup{
+		SecondGroup: stateHashStatementGroup{
 			BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
 			Nodes:     stateHashAlert.SecondGroup.Nodes,
 			StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
