@@ -1,0 +1,25 @@
+```yaml
+Alert type: Height ❌
+
+Level: Error ❌
+
+Details: Some node(s) are 1 blocks behind
+
+
+First group with height 2:
+
+node 3
+
+node 4
+
+
+
+
+Second group with height 1:
+
+node 1
+
+node 2
+
+
+```

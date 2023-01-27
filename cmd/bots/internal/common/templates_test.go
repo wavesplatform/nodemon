@@ -2,8 +2,13 @@ package common
 
 import (
 	"encoding/binary"
+	"flag"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/entities"
@@ -11,42 +16,48 @@ import (
 
 var formats = []ExpectedExtension{Html, Markdown}
 
+var (
+	update = flag.Bool("update", false, "update the golden files of this test")
+)
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}
+
+func goldenValue(t *testing.T, goldenFile string, expectedExtension ExpectedExtension, actual string) string {
+	t.Helper()
+	goldenPath := filepath.Join("testdata", goldenFile+string(expectedExtension)+".golden")
+
+	if *update {
+		dir := filepath.Dir(goldenPath)
+		err := os.MkdirAll(dir, 0755)
+		require.NoError(t, err, "Error creating directories tree %s", dir)
+		err = os.WriteFile(goldenPath, []byte(actual), 0644)
+		require.NoError(t, err, "Error writing to file %s", goldenPath)
+		return actual
+	}
+
+	content, err := os.ReadFile(goldenPath)
+	require.NoError(t, err, "Error opening file %s", goldenPath)
+	return string(content)
+}
+
 func TestBaseTargetTemplate(t *testing.T) {
 	data := &entities.BaseTargetAlert{
 		Timestamp: 100,
 		BaseTargetValues: []entities.BaseTargetValue{
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
+			{Node: "test1", BaseTarget: 150},
+			{Node: "test2", BaseTarget: 510},
 		},
 		Threshold: 101,
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/base_target_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/base_target_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -56,10 +67,11 @@ func TestUnreachableTemplate(t *testing.T) {
 		Node:      "node",
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/unreachable_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/unreachable_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -78,10 +90,11 @@ func TestAlertFixed(t *testing.T) {
 		PreviousAlert: data.Fixed.Message(),
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/alert_fixed", fixedStatement, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/alert_fixed"
+		actual, err := executeTemplate(template, fixedStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -110,11 +123,11 @@ func TestHeightTemplate(t *testing.T) {
 		},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/height_alert", heightStatement, f)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/height_alert"
+		actual, err := executeTemplate(template, heightStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -186,10 +199,11 @@ func TestStateHashTemplate(t *testing.T) {
 		},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/state_hash_alert", stateHashStatement, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/state_hash_alert"
+		actual, err := executeTemplate(template, stateHashStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -198,10 +212,11 @@ func TestIncompleteTemplate(t *testing.T) {
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/incomplete_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/incomplete_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -210,10 +225,11 @@ func TestInternalErrorTemplate(t *testing.T) {
 		Error: "error",
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/internal_error_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/internal_error_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -222,9 +238,10 @@ func TestInvalidHeightTemplate(t *testing.T) {
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/invalid_height_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/invalid_height_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
