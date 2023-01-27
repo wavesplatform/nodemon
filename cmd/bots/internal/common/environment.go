@@ -865,6 +865,14 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
 	return msg, statusCondition, nil
 }
 
+type nodeStatement struct {
+	Node      string
+	Height    int
+	Timestamp int64
+	StateHash string
+	Version   string
+}
+
 func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpsScheme+"://", "")
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpScheme+"://", "")
@@ -873,13 +881,8 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 		return nodeStatementResp.ErrMessage, nil
 	}
 
-	nodeStatement := struct {
-		Node      string
-		Height    int
-		Timestamp int64
-		StateHash string
-		Version   string
-	}{Node: nodeStatementResp.NodeStatement.Node,
+	nodeStatement := nodeStatement{
+		Node:      nodeStatementResp.NodeStatement.Node,
 		Height:    nodeStatementResp.NodeStatement.Height,
 		Timestamp: nodeStatementResp.NodeStatement.Timestamp,
 		StateHash: nodeStatementResp.NodeStatement.StateHash.SumHash.Hex(),
