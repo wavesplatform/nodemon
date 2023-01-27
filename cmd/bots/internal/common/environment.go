@@ -38,11 +38,11 @@ var (
 	templateFiles embed.FS
 )
 
-type expectedExtension string
+type ExpectedExtension string
 
 const (
-	Html     expectedExtension = ".html"
-	Markdown expectedExtension = ".md"
+	Html     ExpectedExtension = ".html"
+	Markdown ExpectedExtension = ".md"
 )
 
 var errUnknownAlertType = errors.New("received unknown alert type")
@@ -505,7 +505,7 @@ func sortNodesStatuses(statuses []NodeStatus) {
 	})
 }
 
-func executeTemplate(template string, data any, extension expectedExtension) (string, error) {
+func executeTemplate(template string, data any, extension ExpectedExtension) (string, error) {
 	switch extension {
 	case Html:
 		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+string(extension))
@@ -543,7 +543,7 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	return node
 }
 
-func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extension expectedExtension, allNodes []entities.Node) (string, error) {
+func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
 	nodesAliases := make(map[string]string)
 	for _, n := range allNodes {
 		if n.Alias != "" {
@@ -739,7 +739,7 @@ type StatusCondition struct {
 	Height        string
 }
 
-func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension expectedExtension) (string, StatusCondition, error) {
+func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension ExpectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	var differentHeightsNodes []NodeStatus
@@ -781,7 +781,7 @@ func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension
 }
 
 func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
-	extension expectedExtension, allNodes []entities.Node) (string, StatusCondition, error) {
+	extension ExpectedExtension, allNodes []entities.Node) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	nodesAliases := make(map[string]string)
@@ -857,7 +857,7 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
 	return msg, statusCondition, nil
 }
 
-func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension expectedExtension) (string, error) {
+func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpsScheme+"://", "")
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpScheme+"://", "")
 
@@ -886,7 +886,7 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 	return msg, nil
 }
 
-func constructMessage(alertType entities.AlertType, alertJson []byte, extension expectedExtension, allNodes []entities.Node) (string, error) {
+func constructMessage(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
 	alert := generalMessaging.Alert{}
 	err := json.Unmarshal(alertJson, &alert)
 	if err != nil {

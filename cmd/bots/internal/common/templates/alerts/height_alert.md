@@ -13,7 +13,6 @@ First group with height {{ .Height}}:
 {{end}}
 {{end}}
 
-
 {{ with .SecondGroup }}
 Second group with height {{ .Height}}:
 {{range .Nodes}}
