@@ -12,10 +12,9 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/nodes"
 )
 
-func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger, ns *nodes.Storage) error {
+func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
