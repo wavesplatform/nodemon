@@ -356,12 +356,17 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	return nil
 }
 
-type Subscribed struct {
+type subscribed struct {
 	AlertName string
 }
 
-type Unsubscribed struct {
+type unsubscribed struct {
 	AlertName string
+}
+
+type subscriptionsList struct {
+	SubscribedTo     []subscribed
+	UnsubscribedFrom []unsubscribed
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
@@ -371,26 +376,23 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 		tgEnv.Zap.Error("failed to parse subscriptions template", zap.Error(err))
 		return "", err
 	}
-	var subscribedTo []Subscribed
+	var subscribedTo []subscribed
 	tgEnv.subscriptions.MapR(func() {
 		for _, alertName := range tgEnv.subscriptions.subs {
-			s := Subscribed{AlertName: alertName + "\n\n"}
+			s := subscribed{AlertName: alertName + "\n\n"}
 			subscribedTo = append(subscribedTo, s)
 		}
 	})
 
-	var unsubscribedFrom []Unsubscribed
+	var unsubscribedFrom []unsubscribed
 	for alertType, alertName := range entities.AlertTypes {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
 		if !ok { // find those alerts that are not in the subscriptions list
-			u := Unsubscribed{AlertName: alertName + "\n\n"}
+			u := unsubscribed{AlertName: alertName + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
 	}
-	type subscriptionsList struct {
-		SubscribedTo     []Subscribed
-		UnsubscribedFrom []Unsubscribed
-	}
+
 	subscriptions := subscriptionsList{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
 
 	w := &bytes.Buffer{}
