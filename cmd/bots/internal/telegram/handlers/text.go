@@ -34,7 +34,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -73,7 +73,7 @@ func RemoveNodeHandler(
 		return err
 	}
 
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -87,6 +87,28 @@ func RemoveNodeHandler(
 			ParseMode: tele.ModeHTML,
 		},
 	)
+}
+
+func UpdateAliasHandler(
+	c tele.Context,
+	environment *common.TelegramBotEnvironment,
+	requestType chan<- pair.RequestPair,
+	url string,
+	alias string) error {
+
+	response, err := messaging.UpdateAliasHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url, alias)
+	if err != nil {
+		if errors.Is(err, messaging.IncorrectUrlError) || errors.Is(err, messaging.InsufficientPermissionsError) {
+			return c.Send(
+				response,
+				&tele.SendOptions{ParseMode: tele.ModeDefault},
+			)
+		}
+		return errors.Wrap(err, "failed to update a node")
+	}
+	return c.Send(
+		response,
+		&tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
 func SubscribeHandler(

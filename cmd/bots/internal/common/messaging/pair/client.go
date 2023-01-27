@@ -77,6 +77,22 @@ func StartPairMessagingClient(ctx context.Context, nanomsgURL string, requestPai
 						logger.Error("failed to send message", zap.Error(err))
 					}
 
+				case *pair.UpdateNodeRequest:
+					message.WriteByte(byte(pair.RequestUpdateNode))
+					node := entities.Node{
+						URL:     r.Url,
+						Enabled: true,
+						Alias:   r.Alias,
+					}
+					nodeInfo, err := json.Marshal(node)
+					if err != nil {
+						logger.Error("failed to marshal node's info")
+					}
+					message.Write(nodeInfo)
+					err = pairSocket.Send(message.Bytes())
+					if err != nil {
+						logger.Error("failed to send message", zap.Error(err))
+					}
 				case *pair.DeleteNodeRequest:
 					message.WriteByte(byte(pair.RequestDeleteNodeT))
 

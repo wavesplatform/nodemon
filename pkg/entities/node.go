@@ -15,6 +15,7 @@ const (
 type Node struct {
 	URL     string `json:"url"`
 	Enabled bool   `json:"enabled"`
+	Alias   string `json:"alias"`
 }
 
 func CheckAndUpdateURL(s string) (string, error) {

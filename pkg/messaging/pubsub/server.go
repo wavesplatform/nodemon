@@ -12,7 +12,6 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
 )
 
 func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
@@ -41,14 +40,9 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
-			jsonAlert, err := json.Marshal(
-				messaging.Alert{
-					AlertDescription: alert.ShortDescription(),
-					Level:            alert.Level(),
-					Details:          alert.Message(),
-				})
+			jsonAlert, err := json.Marshal(alert)
 			if err != nil {
-				logger.Error("Failed to marshal alert to json", zap.Error(err))
+				logger.Error("Failed to marshal an alert to json", zap.Error(err))
 			}
 
 			message := &bytes.Buffer{}

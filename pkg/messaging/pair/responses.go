@@ -8,7 +8,7 @@ import (
 type ResponsePair interface{ responseMarker() }
 
 type NodesListResponse struct {
-	Urls []string `json:"urls"`
+	Nodes []entities.Node `json:"nodes"`
 }
 
 type NodesStatusResponse struct {

@@ -119,7 +119,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		if err != nil {
 			return nil
 		}
-		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+		urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 		if err != nil {
 			return errors.Wrap(err, "failed to request nodes list buttons")
 		}
@@ -154,6 +154,44 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			)
 		}
 		return RemoveNodeHandler(c, environment, requestType, responsePairType, args[0])
+
+	})
+
+	environment.Bot.Handle("/add_alias", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) != 2 {
+			return c.Send(
+				messages.AliasWrongFormat,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		return UpdateAliasHandler(c, environment, requestType, args[0], args[1])
+	})
+
+	environment.Bot.Handle("/aliases", func(c tele.Context) error {
+		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
+		if err != nil {
+			environment.Zap.Error("failed to request nodes list", zap.Error(err))
+			return errors.Wrap(err, "failed to get nodes list")
+		}
+		var msg string
+		for _, n := range nodes {
+			if n.Alias != "" {
+				msg += fmt.Sprintf("Node: %s\nAlias: %s\n\n", n.URL, n.Alias)
+			}
+		}
+		if msg == "" {
+			msg = "No aliases have been found"
+		}
+
+		return c.Send(
+			msg,
+			&tele.SendOptions{
+				ParseMode: tele.ModeHTML,
+			},
+		)
 	})
 
 	environment.Bot.Handle("/subscribe", func(c tele.Context) error {
@@ -276,17 +314,11 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 
 	environment.Bot.Handle("/status", func(c tele.Context) error {
-		urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
-			return err
+			environment.Zap.Error("failed to get nodes list", zap.Error(err))
 		}
-		additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
-		if err != nil {
-			environment.Zap.Error("failed to request list of specific nodes", zap.Error(err))
-			return err
-		}
-		urls = append(urls, additionalUrls...)
+		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
@@ -294,7 +326,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 			return err
 		}
 
-		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html)
+		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html, nodes)
 		if err != nil {
 			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
 			return err
@@ -320,7 +352,7 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

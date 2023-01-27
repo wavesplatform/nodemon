@@ -13,7 +13,7 @@ import (
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
+func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, logger *zap.Logger) {
 	environment.Bot.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		if m.Author.ID == s.State.User.ID {
 			return
@@ -21,35 +21,31 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 		if m.Content == "/ping" {
 			_, err := s.ChannelMessageSend(environment.ChatID, "Pong!")
 			if err != nil {
-				environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+				logger.Error("failed to send a message to discord", zap.Error(err))
 			}
 		}
 
 		if m.Content == "/help" {
 			_, err := s.ChannelMessageSend(environment.ChatID, messages.HelpInfoText)
 			if err != nil {
-				environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+				logger.Error("failed to send a message to discord", zap.Error(err))
 			}
 		}
 
 		if m.Content == "/status" {
-			urls, err := messaging.RequestNodesList(requestType, responsePairType, false)
+			nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 			if err != nil {
-				environment.Zap.Error("failed to get a list of nodes", zap.Error(err))
+				logger.Error("failed to get nodes list", zap.Error(err))
 			}
-			additionalUrls, err := messaging.RequestNodesList(requestType, responsePairType, true)
-			if err != nil {
-				environment.Zap.Error("failed to get a list of nodes", zap.Error(err))
-			}
-			urls = append(urls, additionalUrls...)
+			urls := messaging.NodesToUrls(nodes)
 
 			nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 			if err != nil {
-				environment.Zap.Error("failed to request nodes status", zap.Error(err))
+				logger.Error("failed to request nodes status", zap.Error(err))
 			}
-			msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Markdown)
+			msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Markdown, nodes)
 			if err != nil {
-				environment.Zap.Error("failed to handle nodes status", zap.Error(err))
+				logger.Error("failed to handle nodes status", zap.Error(err))
 			}
 			if statusCondition.AllNodesAreOk {
 				msg = fmt.Sprintf("%d %s", statusCondition.NodesNumber, msg)
@@ -58,7 +54,7 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 			msg = fmt.Sprintf("```yaml\n%s\n```", msg)
 			_, err = s.ChannelMessageSend(environment.ChatID, msg)
 			if err != nil {
-				environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+				logger.Error("failed to send a message to discord", zap.Error(err))
 			}
 		}
 
@@ -67,7 +63,7 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 			if url == "" {
 				_, err := s.ChannelMessageSend(environment.ChatID, "Please provide a URL to add")
 				if err != nil {
-					environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+					logger.Error("failed to send a message to discord", zap.Error(err))
 				}
 				return
 			}
@@ -75,7 +71,7 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 			if err != nil {
 				_, err := s.ChannelMessageSend(environment.ChatID, "Failed to add a node, "+err.Error())
 				if err != nil {
-					environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+					logger.Error("failed to send a message to discord", zap.Error(err))
 				}
 			}
 		}
@@ -85,7 +81,7 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 			if url == "" {
 				_, err := s.ChannelMessageSend(environment.ChatID, "Please provide a URL to remove")
 				if err != nil {
-					environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+					logger.Error("failed to send a message to discord", zap.Error(err))
 				}
 				return
 			}
@@ -93,7 +89,7 @@ func InitDscHandlers(environment *common.DiscordBotEnvironment, requestType chan
 			if err != nil {
 				_, err := s.ChannelMessageSend(environment.ChatID, "Failed to remove a node, "+err.Error())
 				if err != nil {
-					environment.Zap.Error("failed to send a message to discord", zap.Error(err))
+					logger.Error("failed to send a message to discord", zap.Error(err))
 				}
 			}
 		}
