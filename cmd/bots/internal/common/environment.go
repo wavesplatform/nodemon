@@ -409,6 +409,12 @@ func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.Aler
 	return ok
 }
 
+type shortOkNodes struct {
+	TimeEmoji   string
+	NodesNumber int
+	Height      string
+}
+
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.RequestPair,
@@ -446,11 +452,7 @@ func ScheduleNodesStatus(
 
 		if statusCondition.AllNodesAreOk {
 			var msg string
-			shortOkNodes := struct {
-				TimeEmoji   string
-				NodesNumber int
-				Height      string
-			}{
+			shortOkNodes := shortOkNodes{
 				TimeEmoji:   commonMessages.TimerMsg,
 				NodesNumber: statusCondition.NodesNumber,
 				Height:      statusCondition.Height,
