@@ -41,9 +41,9 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
-			jsonAlert, err := AlertToJson(alert)
+			jsonAlert, err := json.Marshal(alert)
 			if err != nil {
-				logger.Error("Failed to marshal alert to json", zap.Error(err))
+				return err
 			}
 
 			message := &bytes.Buffer{}
@@ -55,54 +55,4 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 			}
 		}
 	}
-}
-
-func AlertToJson(alert entities.Alert) ([]byte, error) {
-	var jsonAlert []byte
-	var err error
-	switch a := alert.(type) {
-	case *entities.UnreachableAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.IncompleteAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.InvalidHeightAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.HeightAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.StateHashAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.AlertFixed:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.BaseTargetAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	case *entities.InternalErrorAlert:
-		jsonAlert, err = json.Marshal(a)
-		if err != nil {
-			return nil, err
-		}
-	default:
-		return nil, errors.New("unknown alert type")
-	}
-	return jsonAlert, nil
 }
