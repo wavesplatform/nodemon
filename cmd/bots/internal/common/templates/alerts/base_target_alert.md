@@ -9,5 +9,5 @@ Details: Base target is greater than the threshold value. The threshold value is
 {{range .}}
 Node: <code>{{ .Node}}</code>
 Base Target: <code>{{ .BaseTarget}}</code>
-  {{end}}
+{{end}}
 ```
