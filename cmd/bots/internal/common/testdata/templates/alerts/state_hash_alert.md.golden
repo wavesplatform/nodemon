@@ -5,24 +5,17 @@ Level: Error ❌
 
 Details: Nodes have different state hashes at the same height 100
 
-
 BlockID (First group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
 State Hash (First group): <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 
-
 a
-
-
 
 
 
 BlockID (Second group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
 State Hash (Second group): 0000000000000066000000000000000000000000000000000000000000000000
 
-
 b
-
-
 
 
 

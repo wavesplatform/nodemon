@@ -4,7 +4,6 @@
 
 <b>Details:</b> Nodes have different state hashes at the same height 100
 
-
 <u>First group</u>:
 <i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
@@ -14,14 +13,12 @@
 
 
 
-
 <u>Second group</u>:
 <i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 <i>Nodes:</i>
 
 <code>b</code>
-
 
 
 
