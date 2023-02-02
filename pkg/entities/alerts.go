@@ -336,8 +336,8 @@ func (a *StateHashAlert) Level() string {
 }
 
 type AlertFixed struct {
-	Timestamp int64 `json:"timestamp"`
-	Fixed     Alert `json:"fixed"`
+	Timestamp int64  `json:"timestamp"`
+	Fixed     string `json:"fixed"`
 }
 
 func (a *AlertFixed) ShortDescription() string {
@@ -345,12 +345,12 @@ func (a *AlertFixed) ShortDescription() string {
 }
 
 func (a *AlertFixed) ID() string {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed.ID()))
+	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed))
 	return digest.String()
 }
 
 func (a *AlertFixed) Message() string {
-	return fmt.Sprintf("Alert has been fixed: %s", a.Fixed.Message())
+	return fmt.Sprintf("Alert has been fixed: %s", a.Fixed)
 }
 
 func (a *AlertFixed) Time() time.Time {

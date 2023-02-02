@@ -93,7 +93,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 			for _, alert := range vacuumedAlerts {
 				alertsIn <- &entities.AlertFixed{
 					Timestamp: ts,
-					Fixed:     alert,
+					Fixed:     alert.Message(),
 				}
 			}
 		}()
