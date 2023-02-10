@@ -41,11 +41,15 @@ type PrivateNodesHandler struct {
 	privateEvents *privateNodesEvents
 }
 
-func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger) *PrivateNodesHandler {
+func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, initial ...entities.EventProducerWithTimestamp) *PrivateNodesHandler {
+	pe := newPrivateNodesEvents()
+	for _, producer := range initial {
+		pe.unsafeWrite(producer)
+	}
 	return &PrivateNodesHandler{
 		es:            es,
 		zap:           zap,
-		privateEvents: newPrivateNodesEvents(),
+		privateEvents: pe,
 	}
 }
 
