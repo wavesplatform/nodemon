@@ -10,28 +10,28 @@ import (
 )
 
 type PrivateNodesEventsWriter interface {
-	Write(event entities.EventWithTimestampProducer)
+	Write(event entities.EventProducerWithTimestamp)
 }
 
 type privateNodesEvents struct {
 	mu   *sync.RWMutex
-	data map[string]entities.EventWithTimestampProducer // map[node]NodeStatement
+	data map[string]entities.EventProducerWithTimestamp // map[node]NodeStatement
 }
 
 func newPrivateNodesEvents() *privateNodesEvents {
 	return &privateNodesEvents{
 		mu:   new(sync.RWMutex),
-		data: make(map[string]entities.EventWithTimestampProducer),
+		data: make(map[string]entities.EventProducerWithTimestamp),
 	}
 }
 
-func (p *privateNodesEvents) Write(producer entities.EventWithTimestampProducer) {
+func (p *privateNodesEvents) Write(producer entities.EventProducerWithTimestamp) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	p.unsafeWrite(producer)
 }
 
-func (p *privateNodesEvents) unsafeWrite(producer entities.EventWithTimestampProducer) {
+func (p *privateNodesEvents) unsafeWrite(producer entities.EventProducerWithTimestamp) {
 	p.data[producer.Node()] = producer
 }
 
