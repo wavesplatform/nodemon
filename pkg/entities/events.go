@@ -9,6 +9,7 @@ const (
 )
 
 type EventWithTimestampProducer interface {
+	Node() string
 	WithTimestamp(ts int64) Event
 }
 

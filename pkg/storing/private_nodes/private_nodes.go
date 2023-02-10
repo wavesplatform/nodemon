@@ -10,12 +10,12 @@ import (
 )
 
 type PrivateNodesEventsWriter interface {
-	Write(event entities.EventWithTimestampProducer, url string)
+	Write(event entities.EventWithTimestampProducer)
 }
 
 type privateNodesEvents struct {
 	mu   *sync.RWMutex
-	data map[string]entities.EventWithTimestampProducer // map[url]NodeStatement
+	data map[string]entities.EventWithTimestampProducer // map[node]NodeStatement
 }
 
 func newPrivateNodesEvents() *privateNodesEvents {
@@ -25,10 +25,14 @@ func newPrivateNodesEvents() *privateNodesEvents {
 	}
 }
 
-func (p *privateNodesEvents) Write(producer entities.EventWithTimestampProducer, url string) {
+func (p *privateNodesEvents) Write(producer entities.EventWithTimestampProducer) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.data[url] = producer
+	p.unsafeWrite(producer)
+}
+
+func (p *privateNodesEvents) unsafeWrite(producer entities.EventWithTimestampProducer) {
+	p.data[producer.Node()] = producer
 }
 
 type PrivateNodesHandler struct {
