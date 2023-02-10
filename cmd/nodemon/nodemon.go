@@ -13,6 +13,7 @@ import (
 
 	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 	"nodemon/pkg/storing/private_nodes"
@@ -154,10 +155,20 @@ func run() error {
 		return err
 	}
 
-	notifications := scraper.Start(ctx)
+	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
+	if err != nil {
+		zap.Error("failed to get specific nodes", zapLogger.Error(err))
+		return err
+	}
+	initialTS := time.Now().Unix()
+	initialPrivateNodesEvents := make([]entities.EventProducerWithTimestamp, len(privateNodes))
+	for i, node := range privateNodes {
+		initialPrivateNodesEvents[i] = entities.NewUnreachableEvent(node.URL, initialTS)
+	}
+	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap, initialPrivateNodesEvents...)
 
-	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
-	notifications = privateNodesHandler.Run(notifications)
+	notifications := scraper.Start(ctx)
+	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
 
 	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter(), atom)
 	if err != nil {
