@@ -16,8 +16,8 @@ const (
 		"/add <b>node</b> - to add a node to the list\n" +
 		"/remove <b>node</b> - to remove a node from the list\n" +
 		"/subscribe <b>alert name</b> - to subscribe to a specific alert\n" +
-		"/unsubscribe <b>alert name</b> - to unsubscribe from a specific alert" +
-		"/add_alias <b>node</b> <b>alias</b>" +
+		"/unsubscribe <b>alert name</b> - to unsubscribe from a specific alert\n" +
+		"/add_alias <b>node</b> <b>alias</b>\n" +
 		"/aliases - to see the matching list with aliases"
 
 	MuteText  = "Say no more..." + messages.SleepingMsg
