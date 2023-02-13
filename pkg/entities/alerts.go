@@ -2,6 +2,8 @@ package entities
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -336,8 +338,66 @@ func (a *StateHashAlert) Level() string {
 }
 
 type AlertFixed struct {
-	Timestamp int64  `json:"timestamp"`
-	Fixed     string `json:"fixed"`
+	Timestamp      int64     `json:"timestamp"`
+	Fixed          Alert     `json:"fixed"`
+	FixedAlertType AlertType `json:"fixed_alert_type"`
+}
+
+func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
+	var tmpFixedAlert struct {
+		FixedAlertType AlertType `json:"fixed_alert_type"`
+		Timestamp      int64     `json:"timestamp"`
+	}
+	err := json.Unmarshal(msg, &tmpFixedAlert)
+	if err != nil {
+		return err
+	}
+
+	a.FixedAlertType = tmpFixedAlert.FixedAlertType
+	a.Timestamp = tmpFixedAlert.Timestamp
+
+	switch tmpFixedAlert.FixedAlertType {
+	case UnreachableAlertType:
+		var tmpData struct {
+			Alert UnreachableAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+		a.Fixed = &tmpData.Alert
+	case IncompleteAlertType:
+		var tmpData struct {
+			Alert IncompleteAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+		a.Fixed = &tmpData.Alert
+	case InvalidHeightAlertType:
+		var tmpData struct {
+			Alert InvalidHeightAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+	case HeightAlertType:
+		var tmpData struct {
+			Alert HeightAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+	case StateHashAlertType:
+		var tmpData struct {
+			Alert StateHashAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+	case BaseTargetAlertType:
+		var tmpData struct {
+			Alert BaseTargetAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+	case InternalErrorAlertType:
+		var tmpData struct {
+			Alert InternalErrorAlert `json:"fixed"`
+		}
+		err = json.Unmarshal(msg, &tmpData)
+	default:
+		return errors.New("failed to unmarshal alert fixed, unknown internal alert")
+	}
+	return nil
 }
 
 func (a *AlertFixed) ShortDescription() string {
@@ -345,12 +405,12 @@ func (a *AlertFixed) ShortDescription() string {
 }
 
 func (a *AlertFixed) ID() string {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed))
+	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed.ID()))
 	return digest.String()
 }
 
 func (a *AlertFixed) Message() string {
-	return fmt.Sprintf("Alert has been fixed: %s", a.Fixed)
+	return fmt.Sprintf("Alert has been fixed: %s", a.Fixed.Message())
 }
 
 func (a *AlertFixed) Time() time.Time {

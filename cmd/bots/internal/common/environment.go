@@ -696,6 +696,7 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 		}
 	case entities.AlertFixedType:
 		var alertFixed entities.AlertFixed
+
 		err := json.Unmarshal(alertJson, &alertFixed)
 		if err != nil {
 			return "", err
@@ -704,7 +705,7 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 		// TODO there is no alias here right now, but AlertFixed needs to be changed. Make previous alert to look like a number
 
 		fixedStatement := fixedStatement{
-			PreviousAlert: alertFixed.Fixed,
+			PreviousAlert: alertFixed.Fixed.Message(),
 		}
 
 		msg, err = executeTemplate("templates/alerts/alert_fixed", fixedStatement, extension)
