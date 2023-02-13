@@ -81,13 +81,15 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 		old     = s.internalStorage[alertID]
 		repeats = old.repeats + 1
 	)
-
-	s.logger.Info("An alert was put into storage",
-		zap.Stringer("alert", alert),
-		zap.Int("backoffThreshold", old.backoffThreshold),
-		zap.Int("repeats", repeats),
-		zap.Bool("confirmed", old.confirmed),
-	)
+	defer func() {
+		info := s.internalStorage[alertID]
+		s.logger.Info("An alert was put into storage",
+			zap.Stringer("alert", info.alert),
+			zap.Int("backoffThreshold", info.backoffThreshold),
+			zap.Int("repeats", info.repeats),
+			zap.Bool("confirmed", info.confirmed),
+		)
+	}()
 
 	if !old.confirmed && repeats >= s.requiredConfirmations[alert.Type()] { // send confirmed alert
 		s.internalStorage[alertID] = alertInfo{
