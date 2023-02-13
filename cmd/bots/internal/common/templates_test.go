@@ -84,11 +84,11 @@ func TestAlertFixed(t *testing.T) {
 
 	data := &entities.AlertFixed{
 		Timestamp: 100,
-		Fixed:     unreachable.Message(),
+		Fixed:     unreachable,
 	}
 
 	fixedStatement := fixedStatement{
-		PreviousAlert: data.Fixed,
+		PreviousAlert: data.Fixed.Message(),
 	}
 	for _, f := range formats {
 		const template = "templates/alerts/alert_fixed"

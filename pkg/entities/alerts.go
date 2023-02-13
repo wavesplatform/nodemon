@@ -362,38 +362,64 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 			Alert UnreachableAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
 		a.Fixed = &tmpData.Alert
 	case IncompleteAlertType:
 		var tmpData struct {
 			Alert IncompleteAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
 		a.Fixed = &tmpData.Alert
 	case InvalidHeightAlertType:
 		var tmpData struct {
 			Alert InvalidHeightAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
+		a.Fixed = &tmpData.Alert
 	case HeightAlertType:
 		var tmpData struct {
 			Alert HeightAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
+		a.Fixed = &tmpData.Alert
 	case StateHashAlertType:
 		var tmpData struct {
 			Alert StateHashAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
+		a.Fixed = &tmpData.Alert
 	case BaseTargetAlertType:
 		var tmpData struct {
 			Alert BaseTargetAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
+		a.Fixed = &tmpData.Alert
 	case InternalErrorAlertType:
 		var tmpData struct {
 			Alert InternalErrorAlert `json:"fixed"`
 		}
 		err = json.Unmarshal(msg, &tmpData)
+		if err != nil {
+			return err
+		}
+		a.Fixed = &tmpData.Alert
 	default:
 		return errors.New("failed to unmarshal alert fixed, unknown internal alert")
 	}
