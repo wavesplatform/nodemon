@@ -2,11 +2,13 @@ package private_nodes
 
 import (
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+	"nodemon/pkg/storing/nodes"
 )
 
 type PrivateNodesEventsWriter interface {
@@ -39,6 +41,19 @@ type PrivateNodesHandler struct {
 	es            *events.Storage
 	zap           *zap.Logger
 	privateEvents *privateNodesEvents
+}
+
+func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns *nodes.Storage, zap *zap.Logger) (*PrivateNodesHandler, error) {
+	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get specific nodes")
+	}
+	initialTS := time.Now().Unix()
+	initialPrivateNodesEvents := make([]entities.EventProducerWithTimestamp, len(privateNodes))
+	for i, node := range privateNodes {
+		initialPrivateNodesEvents[i] = entities.NewUnreachableEvent(node.URL, initialTS)
+	}
+	return NewPrivateNodesHandler(es, zap, initialPrivateNodesEvents...), nil
 }
 
 func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, initial ...entities.EventProducerWithTimestamp) *PrivateNodesHandler {
