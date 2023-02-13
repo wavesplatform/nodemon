@@ -146,6 +146,7 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 		id, err := cs.db.Insert(tableName, &nodeRecord{Node: entities.Node{
 			URL:     url,
 			Enabled: true,
+			Alias:   "",
 		}})
 		if err != nil {
 			return err
