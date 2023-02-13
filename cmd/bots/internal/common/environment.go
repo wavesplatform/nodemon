@@ -356,12 +356,17 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	return nil
 }
 
-type Subscribed struct {
+type subscribed struct {
 	AlertName string
 }
 
-type Unsubscribed struct {
+type unsubscribed struct {
 	AlertName string
+}
+
+type subscriptionsList struct {
+	SubscribedTo     []subscribed
+	UnsubscribedFrom []unsubscribed
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
@@ -371,26 +376,23 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 		tgEnv.Zap.Error("failed to parse subscriptions template", zap.Error(err))
 		return "", err
 	}
-	var subscribedTo []Subscribed
+	var subscribedTo []subscribed
 	tgEnv.subscriptions.MapR(func() {
 		for _, alertName := range tgEnv.subscriptions.subs {
-			s := Subscribed{AlertName: alertName + "\n\n"}
+			s := subscribed{AlertName: alertName + "\n\n"}
 			subscribedTo = append(subscribedTo, s)
 		}
 	})
 
-	var unsubscribedFrom []Unsubscribed
+	var unsubscribedFrom []unsubscribed
 	for alertType, alertName := range entities.AlertTypes {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
 		if !ok { // find those alerts that are not in the subscriptions list
-			u := Unsubscribed{AlertName: alertName + "\n\n"}
+			u := unsubscribed{AlertName: alertName + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
 	}
-	type subscriptionsList struct {
-		SubscribedTo     []Subscribed
-		UnsubscribedFrom []Unsubscribed
-	}
+
 	subscriptions := subscriptionsList{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
 
 	w := &bytes.Buffer{}
@@ -405,6 +407,12 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 func (tgEnv *TelegramBotEnvironment) IsAlreadySubscribed(alertType entities.AlertType) bool {
 	_, ok := tgEnv.subscriptions.Read(alertType)
 	return ok
+}
+
+type shortOkNodes struct {
+	TimeEmoji   string
+	NodesNumber int
+	Height      string
 }
 
 func ScheduleNodesStatus(
@@ -444,11 +452,7 @@ func ScheduleNodesStatus(
 
 		if statusCondition.AllNodesAreOk {
 			var msg string
-			shortOkNodes := struct {
-				TimeEmoji   string
-				NodesNumber int
-				Height      string
-			}{
+			shortOkNodes := shortOkNodes{
 				TimeEmoji:   commonMessages.TimerMsg,
 				NodesNumber: statusCondition.NodesNumber,
 				Height:      statusCondition.Height,
@@ -865,6 +869,14 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
 	return msg, statusCondition, nil
 }
 
+type nodeStatement struct {
+	Node      string
+	Height    int
+	Timestamp int64
+	StateHash string
+	Version   string
+}
+
 func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpsScheme+"://", "")
 	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpScheme+"://", "")
@@ -873,13 +885,8 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 		return nodeStatementResp.ErrMessage, nil
 	}
 
-	nodeStatement := struct {
-		Node      string
-		Height    int
-		Timestamp int64
-		StateHash string
-		Version   string
-	}{Node: nodeStatementResp.NodeStatement.Node,
+	nodeStatement := nodeStatement{
+		Node:      nodeStatementResp.NodeStatement.Node,
 		Height:    nodeStatementResp.NodeStatement.Height,
 		Timestamp: nodeStatementResp.NodeStatement.Timestamp,
 		StateHash: nodeStatementResp.NodeStatement.StateHash.SumHash.Hex(),
