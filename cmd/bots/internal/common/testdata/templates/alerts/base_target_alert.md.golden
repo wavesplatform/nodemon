@@ -1,0 +1,16 @@
+```yaml
+Alert type: Base Target
+
+Level: Error ❌
+
+Details: Base target is greater than the threshold value. The threshold value is 101
+
+
+Node: <code>test1</code>
+Base Target: <code>150</code>
+
+Node: <code>test2</code>
+Base Target: <code>510</code>
+
+
+```
