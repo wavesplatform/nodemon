@@ -2,51 +2,63 @@ package common
 
 import (
 	"encoding/binary"
+	"flag"
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
+	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/pkg/entities"
 )
 
 var formats = []ExpectedExtension{Html, Markdown}
 
+var (
+	update = flag.Bool("update", false, "update the golden files of this test")
+)
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	os.Exit(m.Run())
+}
+
+func goldenValue(t *testing.T, goldenFile string, expectedExtension ExpectedExtension, actual string) string {
+	t.Helper()
+	goldenPath := filepath.Join("testdata", goldenFile+string(expectedExtension)+".golden")
+
+	if *update {
+		dir := filepath.Dir(goldenPath)
+		err := os.MkdirAll(dir, 0755)
+		require.NoError(t, err, "Error creating directories tree %s", dir)
+		err = os.WriteFile(goldenPath, []byte(actual), 0644)
+		require.NoError(t, err, "Error writing to file %s", goldenPath)
+		return actual
+	}
+
+	content, err := os.ReadFile(goldenPath)
+	require.NoError(t, err, "Error opening file %s", goldenPath)
+	return string(content)
+}
+
 func TestBaseTargetTemplate(t *testing.T) {
 	data := &entities.BaseTargetAlert{
 		Timestamp: 100,
 		BaseTargetValues: []entities.BaseTargetValue{
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
-			{
-				Node:       "test1",
-				BaseTarget: 150,
-			},
-			{
-				Node:       "test2",
-				BaseTarget: 510,
-			},
+			{Node: "test1", BaseTarget: 150},
+			{Node: "test2", BaseTarget: 510},
 		},
 		Threshold: 101,
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/base_target_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/base_target_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -56,10 +68,11 @@ func TestUnreachableTemplate(t *testing.T) {
 		Node:      "node",
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/unreachable_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/unreachable_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -78,10 +91,11 @@ func TestAlertFixed(t *testing.T) {
 		PreviousAlert: data.Fixed.Message(),
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/alert_fixed", fixedStatement, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/alert_fixed"
+		actual, err := executeTemplate(template, fixedStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -110,11 +124,11 @@ func TestHeightTemplate(t *testing.T) {
 		},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/height_alert", heightStatement, f)
-
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/height_alert"
+		actual, err := executeTemplate(template, heightStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -186,10 +200,11 @@ func TestStateHashTemplate(t *testing.T) {
 		},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/state_hash_alert", stateHashStatement, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/state_hash_alert"
+		actual, err := executeTemplate(template, stateHashStatement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -198,10 +213,11 @@ func TestIncompleteTemplate(t *testing.T) {
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/incomplete_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/incomplete_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -210,10 +226,11 @@ func TestInternalErrorTemplate(t *testing.T) {
 		Error: "error",
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/internal_error_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/internal_error_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }
 
@@ -222,9 +239,207 @@ func TestInvalidHeightTemplate(t *testing.T) {
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
 	for _, f := range formats {
-		_, err := executeTemplate("templates/alerts/invalid_height_alert", data, f)
-		if err != nil {
-			t.Fatal(err)
-		}
+		const template = "templates/alerts/invalid_height_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesListTemplateHTML(t *testing.T) {
+	data := []entities.Node{
+		{URL: "blah", Enabled: false, Alias: "al"},
+		{URL: "lala", Enabled: true, Alias: "la"},
+		{URL: "b", Enabled: true, Alias: "a"},
+		{URL: "m", Enabled: true, Alias: "c"},
+	}
+	const (
+		template = "templates/nodes_list"
+		ext      = Html
+	)
+	actual, err := executeTemplate(template, data, ext)
+	require.NoError(t, err)
+	expected := goldenValue(t, template, ext, actual)
+	assert.Equal(t, expected, actual)
+}
+
+func TestNodeStatementTemplateHTML(t *testing.T) {
+	data := nodeStatement{
+		Node:      "blah-blah",
+		Height:    999,
+		Timestamp: 1000500,
+		StateHash: "sample-state-hash",
+		Version:   "v1.0.1",
+	}
+	const (
+		template = "templates/node_statement"
+		ext      = Html
+	)
+	actual, err := executeTemplate(template, data, ext)
+	require.NoError(t, err)
+	expected := goldenValue(t, template, ext, actual)
+	assert.Equal(t, expected, actual)
+}
+
+func TestSubscriptionsTemplateHTML(t *testing.T) {
+	data := subscriptionsList{
+		SubscribedTo:     []subscribed{{AlertName: "SubscribedToFirst"}, {AlertName: "SubscribedToSecond"}},
+		UnsubscribedFrom: []unsubscribed{{AlertName: "UnsubscribedFromFirst"}, {AlertName: "UnsubscribedFromSecond"}},
+	}
+	const (
+		template = "templates/subscriptions"
+		ext      = Html
+	)
+	actual, err := executeTemplate(template, data, ext)
+	require.NoError(t, err)
+	expected := goldenValue(t, template, ext, actual)
+	assert.Equal(t, expected, actual)
+}
+
+func TestNodesStatusDifferentHashesTemplate(t *testing.T) {
+	data := []NodeStatus{
+		{
+			URL:     "some-url",
+			Sumhash: "some-sum-hash",
+			Status:  "some-status",
+			Height:  "1234",
+			BlockID: "some-block-id",
+		},
+		{
+			URL:     "another-url",
+			Sumhash: "another-sum-hash",
+			Status:  "some-status",
+			Height:  "4321",
+			BlockID: "another-block-id",
+		},
+		{
+			URL:     "one-more-url",
+			Sumhash: "one-more-sum-hash",
+			Status:  "one-more-status",
+			Height:  "9876543245",
+			BlockID: "one-more-block-id",
+		},
+	}
+	for _, f := range formats {
+		const template = "templates/nodes_status_different_hashes"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesStatusDifferentHeightsTemplate(t *testing.T) {
+	data := []NodeStatus{
+		{
+			URL:     "some-url",
+			Sumhash: "some-sum-hash",
+			Status:  "some-status",
+			Height:  "1234",
+			BlockID: "some-block-id",
+		},
+		{
+			URL:     "another-url",
+			Sumhash: "another-sum-hash",
+			Status:  "some-status",
+			Height:  "4321",
+			BlockID: "another-block-id",
+		},
+		{
+			URL:     "one-more-url",
+			Sumhash: "one-more-sum-hash",
+			Status:  "one-more-status",
+			Height:  "9876543245",
+			BlockID: "one-more-block-id",
+		},
+	}
+	for _, f := range formats {
+		const template = "templates/nodes_status_different_heights"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesStatusOkTemplate(t *testing.T) {
+	data := []NodeStatus{
+		{
+			URL:     "some-url",
+			Sumhash: "some-sum-hash",
+			Status:  "some-status",
+			Height:  "1234",
+			BlockID: "some-block-id",
+		},
+		{
+			URL:     "another-url",
+			Sumhash: "another-sum-hash",
+			Status:  "some-status",
+			Height:  "4321",
+			BlockID: "another-block-id",
+		},
+		{
+			URL:     "one-more-url",
+			Sumhash: "one-more-sum-hash",
+			Status:  "one-more-status",
+			Height:  "9876543245",
+			BlockID: "one-more-block-id",
+		},
+	}
+	for _, f := range formats {
+		const template = "templates/nodes_status_ok"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesStatusOkShortTemplate(t *testing.T) {
+	data := shortOkNodes{
+		TimeEmoji:   commonMessages.TimerMsg,
+		NodesNumber: 101,
+		Height:      "31425 (this_should_be_a_string_probably)",
+	}
+	for _, f := range formats {
+		const template = "templates/nodes_status_ok_short"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesStatusUnavailableTemplate(t *testing.T) {
+	data := []NodeStatus{
+		{
+			URL:     "some-url",
+			Sumhash: "some-sum-hash",
+			Status:  "some-status",
+			Height:  "1234",
+			BlockID: "some-block-id",
+		},
+		{
+			URL:     "another-url",
+			Sumhash: "another-sum-hash",
+			Status:  "some-status",
+			Height:  "4321",
+			BlockID: "another-block-id",
+		},
+		{
+			URL:     "one-more-url",
+			Sumhash: "one-more-sum-hash",
+			Status:  "one-more-status",
+			Height:  "9876543245",
+			BlockID: "one-more-block-id",
+		},
+	}
+	for _, f := range formats {
+		const template = "templates/nodes_status_unavailable"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
 	}
 }

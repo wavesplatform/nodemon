@@ -3,7 +3,6 @@
 <b>Level:</b> Error ❌
 
 <b>Details:</b> Nodes have different state hashes at the same height {{ .SameHeight}}
-
 {{ with .FirstGroup }}
 <u>First group</u>:
 <i>BlockID:</i> <code>{{ .BlockID}}</code>
@@ -13,7 +12,6 @@
 <code>{{.}}</code>
 {{end}}
 {{end}}
-
 {{ with .SecondGroup }}
 <u>Second group</u>:
 <i>BlockID:</i> <code>{{ .BlockID}}</code>
@@ -23,7 +21,6 @@
 <code>{{.}}</code>
 {{end}}
 {{end}}
-
 {{ if .LastCommonStateHashExist }}
 <u>Fork</u> occurred after block <code>{{ .ForkHeight}}</code>
 <i>BlockID:</i> <code>{{ .ForkBlockID}}</code>
