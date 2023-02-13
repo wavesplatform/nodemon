@@ -2,33 +2,39 @@ package private_nodes
 
 import (
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+	"nodemon/pkg/storing/nodes"
 )
 
 type PrivateNodesEventsWriter interface {
-	Write(event entities.EventWithTimestampProducer, url string)
+	Write(event entities.EventProducerWithTimestamp)
 }
 
 type privateNodesEvents struct {
 	mu   *sync.RWMutex
-	data map[string]entities.EventWithTimestampProducer // map[url]NodeStatement
+	data map[string]entities.EventProducerWithTimestamp // map[node]NodeStatement
 }
 
 func newPrivateNodesEvents() *privateNodesEvents {
 	return &privateNodesEvents{
 		mu:   new(sync.RWMutex),
-		data: make(map[string]entities.EventWithTimestampProducer),
+		data: make(map[string]entities.EventProducerWithTimestamp),
 	}
 }
 
-func (p *privateNodesEvents) Write(producer entities.EventWithTimestampProducer, url string) {
+func (p *privateNodesEvents) Write(producer entities.EventProducerWithTimestamp) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.data[url] = producer
+	p.unsafeWrite(producer)
+}
+
+func (p *privateNodesEvents) unsafeWrite(producer entities.EventProducerWithTimestamp) {
+	p.data[producer.Node()] = producer
 }
 
 type PrivateNodesHandler struct {
@@ -37,11 +43,28 @@ type PrivateNodesHandler struct {
 	privateEvents *privateNodesEvents
 }
 
-func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger) *PrivateNodesHandler {
+func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns *nodes.Storage, zap *zap.Logger) (*PrivateNodesHandler, error) {
+	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get specific nodes")
+	}
+	initialTS := time.Now().Unix()
+	initialPrivateNodesEvents := make([]entities.EventProducerWithTimestamp, len(privateNodes))
+	for i, node := range privateNodes {
+		initialPrivateNodesEvents[i] = entities.NewUnreachableEvent(node.URL, initialTS)
+	}
+	return NewPrivateNodesHandler(es, zap, initialPrivateNodesEvents...), nil
+}
+
+func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, initial ...entities.EventProducerWithTimestamp) *PrivateNodesHandler {
+	pe := newPrivateNodesEvents()
+	for _, producer := range initial {
+		pe.unsafeWrite(producer)
+	}
 	return &PrivateNodesHandler{
 		es:            es,
 		zap:           zap,
-		privateEvents: newPrivateNodesEvents(),
+		privateEvents: pe,
 	}
 }
 

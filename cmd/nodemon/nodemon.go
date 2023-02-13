@@ -154,10 +154,14 @@ func run() error {
 		return err
 	}
 
-	notifications := scraper.Start(ctx)
+	privateNodesHandler, err := private_nodes.NewPrivateNodesHandlerWithUnreachableInitialState(es, ns, zap)
+	if err != nil {
+		zap.Error("failed to create private nodes handler with unreachable initial state", zapLogger.Error(err))
+		return err
+	}
 
-	privateNodesHandler := private_nodes.NewPrivateNodesHandler(es, zap)
-	notifications = privateNodesHandler.Run(notifications)
+	notifications := scraper.Start(ctx)
+	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
 
 	a, err := api.NewAPI(bindAddress, ns, es, apiReadTimeout, zap, privateNodesHandler.PrivateNodesEventsWriter(), atom)
 	if err != nil {
