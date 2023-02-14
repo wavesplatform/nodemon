@@ -696,7 +696,6 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 		}
 	case entities.AlertFixedType:
 		var alertFixed entities.AlertFixed
-
 		err := json.Unmarshal(alertJson, &alertFixed)
 		if err != nil {
 			return "", err
