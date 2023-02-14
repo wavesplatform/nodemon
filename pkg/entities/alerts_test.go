@@ -7,32 +7,35 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAlertFixed_ShadowedTypeDoesNotImplementUnmarshaler(t *testing.T) {
-	type shadowed AlertFixed
-	var v shadowed // see trick in AlertFixed.UnmarshalJSON
-	_, typeImplements := interface{}(v).(json.Unmarshaler)
-	require.False(t, typeImplements, "type must not implement Unmarshaler")
-	_, pointerImlements := interface{}(&v).(json.Unmarshaler)
-	require.False(t, pointerImlements, "pointer must not implement Unmarshaler")
-}
-
-func TestFixedAlertUnmarshal(t *testing.T) {
-	internalAlert := UnreachableAlert{
-		Timestamp: 2,
-		Node:      "node1",
-	}
-
-	expectedFixedAlert := AlertFixed{
-		Timestamp:      1,
-		FixedAlertType: UnreachableAlertType,
-		Fixed:          &internalAlert,
-	}
-
-	data, err := json.Marshal(expectedFixedAlert)
-	require.NoError(t, err)
-
-	var fixedAlert AlertFixed
-	err = json.Unmarshal(data, &fixedAlert)
-	require.NoError(t, err)
-	require.Equal(t, expectedFixedAlert, fixedAlert)
+func TestFixedAlertJSON(t *testing.T) {
+	t.Run("ShadowedTypeDoesNotImplementUnmarshaler", func(t *testing.T) {
+		type shadowed AlertFixed
+		var v shadowed // see trick in AlertFixed.UnmarshalJSON
+		_, typeImplements := interface{}(v).(json.Unmarshaler)
+		require.False(t, typeImplements, "type must not implement Unmarshaler")
+		_, pointerImplements := interface{}(&v).(json.Unmarshaler)
+		require.False(t, pointerImplements, "pointer must not implement Unmarshaler")
+	})
+	var (
+		expectedFixedAlert = AlertFixed{
+			Timestamp:      1,
+			FixedAlertType: UnreachableAlertType,
+			Fixed: &UnreachableAlert{
+				Timestamp: 2,
+				Node:      "node1",
+			},
+		}
+		expectedJSON = `{"timestamp":1,"fixed":{"timestamp":2,"node":"node1"},"fixed_alert_type":2}`
+	)
+	t.Run("Marshal", func(t *testing.T) {
+		data, err := json.Marshal(expectedFixedAlert)
+		require.NoError(t, err)
+		require.JSONEq(t, expectedJSON, string(data))
+	})
+	t.Run("Unmarshal", func(t *testing.T) {
+		var alert AlertFixed
+		err := json.Unmarshal([]byte(expectedJSON), &alert)
+		require.NoError(t, err)
+		require.Equal(t, expectedFixedAlert, alert)
+	})
 }
