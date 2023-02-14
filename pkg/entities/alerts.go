@@ -338,9 +338,8 @@ func (a *StateHashAlert) Level() string {
 }
 
 type AlertFixed struct {
-	Timestamp      int64     `json:"timestamp"`
-	Fixed          Alert     `json:"fixed"`
-	FixedAlertType AlertType `json:"fixed_alert_type"`
+	Timestamp int64 `json:"timestamp"`
+	Fixed     Alert `json:"fixed"`
 }
 
 func (a AlertFixed) MarshalJSON() ([]byte, error) {

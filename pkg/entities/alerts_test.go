@@ -26,8 +26,7 @@ func TestFixedAlertJSON(t *testing.T) {
 	})
 	var (
 		expectedFixedAlert = AlertFixed{
-			Timestamp:      1,
-			FixedAlertType: UnreachableAlertType,
+			Timestamp: 1,
 			Fixed: &UnreachableAlert{
 				Timestamp: 2,
 				Node:      "node1",
