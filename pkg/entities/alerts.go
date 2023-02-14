@@ -3,12 +3,12 @@ package entities
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
@@ -344,85 +344,38 @@ type AlertFixed struct {
 }
 
 func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
-	var tmpFixedAlert struct {
+	var descriptor struct {
 		FixedAlertType AlertType `json:"fixed_alert_type"`
-		Timestamp      int64     `json:"timestamp"`
 	}
-	err := json.Unmarshal(msg, &tmpFixedAlert)
-	if err != nil {
-		return err
+	if err := json.Unmarshal(msg, &descriptor); err != nil {
+		return errors.Wrapf(err, "failed to unrmarshal alert type descriptor")
 	}
-
-	a.FixedAlertType = tmpFixedAlert.FixedAlertType
-	a.Timestamp = tmpFixedAlert.Timestamp
-
-	switch tmpFixedAlert.FixedAlertType {
+	type shadowed AlertFixed
+	var out shadowed
+	switch t := descriptor.FixedAlertType; t {
+	case SimpleAlertType:
+		out.Fixed = &SimpleAlert{}
 	case UnreachableAlertType:
-		var tmpData struct {
-			Alert UnreachableAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &UnreachableAlert{}
 	case IncompleteAlertType:
-		var tmpData struct {
-			Alert IncompleteAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &IncompleteAlert{}
 	case InvalidHeightAlertType:
-		var tmpData struct {
-			Alert InvalidHeightAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &InvalidHeightAlert{}
 	case HeightAlertType:
-		var tmpData struct {
-			Alert HeightAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &HeightAlert{}
 	case StateHashAlertType:
-		var tmpData struct {
-			Alert StateHashAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &StateHashAlert{}
 	case BaseTargetAlertType:
-		var tmpData struct {
-			Alert BaseTargetAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &BaseTargetAlert{}
 	case InternalErrorAlertType:
-		var tmpData struct {
-			Alert InternalErrorAlert `json:"fixed"`
-		}
-		err = json.Unmarshal(msg, &tmpData)
-		if err != nil {
-			return err
-		}
-		a.Fixed = &tmpData.Alert
+		out.Fixed = &InternalErrorAlert{}
 	default:
-		return errors.New("failed to unmarshal alert fixed, unknown internal alert")
+		return errors.Errorf("failed to unmarshal alert fixed, unknown internal alert type (%d)", t)
 	}
+	if err := json.Unmarshal(msg, &out); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal")
+	}
+	*a = AlertFixed(out)
 	return nil
 }
 
