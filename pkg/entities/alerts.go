@@ -343,6 +343,15 @@ type AlertFixed struct {
 	FixedAlertType AlertType `json:"fixed_alert_type"`
 }
 
+func (a AlertFixed) MarshalJSON() ([]byte, error) {
+	type shadowed AlertFixed
+	alertFixedWithDescriptor := struct {
+		FixedAlertType AlertType `json:"fixed_alert_type"`
+		shadowed
+	}{a.Fixed.Type(), shadowed(a)}
+	return json.Marshal(alertFixedWithDescriptor)
+}
+
 func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 	var descriptor struct {
 		FixedAlertType AlertType `json:"fixed_alert_type"`
