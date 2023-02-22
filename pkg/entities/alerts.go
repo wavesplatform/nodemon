@@ -2,11 +2,13 @@ package entities
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
@@ -338,6 +340,51 @@ func (a *StateHashAlert) Level() string {
 type AlertFixed struct {
 	Timestamp int64 `json:"timestamp"`
 	Fixed     Alert `json:"fixed"`
+}
+
+func (a AlertFixed) MarshalJSON() ([]byte, error) {
+	type shadowed AlertFixed
+	alertFixedWithDescriptor := struct {
+		FixedAlertType AlertType `json:"fixed_alert_type"`
+		shadowed
+	}{a.Fixed.Type(), shadowed(a)}
+	return json.Marshal(alertFixedWithDescriptor)
+}
+
+func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
+	var descriptor struct {
+		FixedAlertType AlertType `json:"fixed_alert_type"`
+	}
+	if err := json.Unmarshal(msg, &descriptor); err != nil {
+		return errors.Wrapf(err, "failed to unrmarshal alert type descriptor")
+	}
+	type shadowed AlertFixed
+	var out shadowed
+	switch t := descriptor.FixedAlertType; t {
+	case SimpleAlertType:
+		out.Fixed = &SimpleAlert{}
+	case UnreachableAlertType:
+		out.Fixed = &UnreachableAlert{}
+	case IncompleteAlertType:
+		out.Fixed = &IncompleteAlert{}
+	case InvalidHeightAlertType:
+		out.Fixed = &InvalidHeightAlert{}
+	case HeightAlertType:
+		out.Fixed = &HeightAlert{}
+	case StateHashAlertType:
+		out.Fixed = &StateHashAlert{}
+	case BaseTargetAlertType:
+		out.Fixed = &BaseTargetAlert{}
+	case InternalErrorAlertType:
+		out.Fixed = &InternalErrorAlert{}
+	default:
+		return errors.Errorf("failed to unmarshal alert fixed, unknown internal alert type (%d)", t)
+	}
+	if err := json.Unmarshal(msg, &out); err != nil {
+		return errors.Wrapf(err, "failed to unmarshal")
+	}
+	*a = AlertFixed(out)
+	return nil
 }
 
 func (a *AlertFixed) ShortDescription() string {

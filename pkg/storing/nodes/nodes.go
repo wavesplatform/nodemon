@@ -2,6 +2,7 @@ package nodes
 
 import (
 	"strings"
+	"sync"
 
 	"github.com/jameycribbs/hare"
 	"github.com/jameycribbs/hare/datastores/disk"
@@ -35,6 +36,7 @@ func (n *nodeRecord) AfterFind(_ *hare.Database) error {
 }
 
 type Storage struct {
+	mu  *sync.RWMutex
 	db  *hare.Database
 	zap *zap.Logger
 }
@@ -58,7 +60,7 @@ func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error)
 			return nil, errors.Wrapf(err, "failed to initialize specific nodes storage at '%s'", path)
 		}
 	}
-	cs := &Storage{db: db, zap: logger}
+	cs := &Storage{mu: new(sync.RWMutex), db: db, zap: logger}
 	err = cs.populate(nodes)
 	if err != nil {
 		return nil, err
@@ -67,10 +69,16 @@ func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error)
 }
 
 func (cs *Storage) Close() error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
 	return cs.db.Close()
 }
 
 func (cs *Storage) Nodes(specific bool) ([]entities.Node, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
 	nodesRecord, err := cs.queryNodes(func(_ nodeRecord) bool { return true }, 0, specific)
 	if err != nil {
 		return nil, err
@@ -79,6 +87,9 @@ func (cs *Storage) Nodes(specific bool) ([]entities.Node, error) {
 }
 
 func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
 	nodesRecords, err := cs.queryNodes(func(n nodeRecord) bool { return n.Enabled }, 0, false)
 	if err != nil {
 		return nil, err
@@ -87,6 +98,9 @@ func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
 }
 
 func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
 	nodesRecords, err := cs.queryNodes(func(n nodeRecord) bool { return n.Enabled }, 0, true)
 	if err != nil {
 		return nil, err
@@ -96,6 +110,9 @@ func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
 
 // Update handles both specific and non-specific nodes
 func (cs *Storage) Update(nodeToUpdate entities.Node) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
 	specific := false
 	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, false)
 	if err != nil {
@@ -134,6 +151,9 @@ func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 }
 
 func (cs *Storage) InsertIfNew(url string, specific bool) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
 	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == url }, 0, false)
 	if err != nil {
 		return err
@@ -157,6 +177,9 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 }
 
 func (cs *Storage) Delete(url string) error {
+	cs.mu.Lock()
+	defer cs.mu.Unlock()
+
 	ids, err := cs.db.IDs(nodesTableName)
 	if err != nil {
 		return err
@@ -180,6 +203,9 @@ func (cs *Storage) Delete(url string) error {
 }
 
 func (cs *Storage) FindAlias(url string) (string, error) {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
 	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == url }, 0, false)
 	if err != nil {
 		return "", err
@@ -241,7 +267,7 @@ func (cs *Storage) populate(nodes string) error {
 }
 
 func nodesFromRecords(records []nodeRecord) []entities.Node {
-	var nodes []entities.Node
+	nodes := make([]entities.Node, 0, len(records))
 	for _, r := range records {
 		nodes = append(nodes, r.Node)
 	}

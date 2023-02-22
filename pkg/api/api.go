@@ -155,12 +155,12 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	if statement.Height < 2 {
 		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, mockTs, statement.Version, statement.Height)
-		a.privateNodesEvents.Write(invalidHeightEvent, statement.Node)
+		a.privateNodesEvents.Write(invalidHeightEvent)
 		return
 	}
 
 	stateHashEvent := entities.NewStateHashEvent(statement.Node, mockTs, statement.Version, statement.Height, statehash, 0) // TODO: these nodes don't send base target value at the moment
-	a.privateNodesEvents.Write(stateHashEvent, statement.Node)
+	a.privateNodesEvents.Write(stateHashEvent)
 
 	err = json.NewEncoder(w).Encode(statement)
 	if err != nil {
