@@ -8,7 +8,7 @@ require (
 	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/procyon-projects/chrono v1.1.2
-	github.com/stretchr/testify v1.8.1
+	github.com/stretchr/testify v1.8.2
 	github.com/tidwall/buntdb v1.2.10
 	github.com/wavesplatform/gowaves v0.10.3
 	go.nanomsg.org/mangos/v3 v3.4.2
