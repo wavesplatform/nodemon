@@ -272,25 +272,38 @@ func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == strconv.FormatInt(tgEnv.ChatID, 10)
 }
 
-func (tgEnv *TelegramBotEnvironment) NodesListMessage(urls []string) (string, error) {
-	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
+func NodesToUrls(nodes []entities.Node) ([]string, error) {
+	var urls []string
+	for _, n := range nodes {
+		var host string
+		if n.Alias != "" {
+			host = n.Alias
+		} else {
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpsScheme+"://", "")
+			n.URL = strings.ReplaceAll(n.URL, entities.HttpScheme+"://", "")
+			host = n.URL
+		}
+		urls = append(urls, host)
+	}
+	return urls, nil
+}
 
+func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (string, error) {
+	urls, err := NodesToUrls(nodes)
+	if err != nil {
+		tgEnv.Zap.Error("failed convert nodes to urls", zap.Error(err))
+		return "", err
+	}
+	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
 	if err != nil {
 		tgEnv.Zap.Error("failed to parse nodes list template", zap.Error(err))
 		return "", err
 	}
-	var nodes []entities.Node
-	for _, u := range urls {
-		host, err := RemoveSchemePrefix(u)
-		if err != nil {
-			return "", err
-		}
-		node := entities.Node{URL: host + "\n\n"}
-		nodes = append(nodes, node)
-	}
+
+	sort.Strings(urls)
 
 	w := &bytes.Buffer{}
-	err = tmpl.Execute(w, nodes)
+	err = tmpl.Execute(w, urls)
 	if err != nil {
 		tgEnv.Zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
@@ -545,6 +558,15 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	node = strings.ReplaceAll(node, entities.HttpsScheme+"://", "")
 	node = strings.ReplaceAll(node, entities.HttpScheme+"://", "")
 	return node
+}
+
+func ReplaceAliasWithNode(alias string, nodes []entities.Node) string {
+	for _, n := range nodes {
+		if n.Alias == alias {
+			return n.URL
+		}
+	}
+	return alias
 }
 
 type heightStatementGroup struct {

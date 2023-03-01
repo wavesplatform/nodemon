@@ -108,36 +108,46 @@ func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
 	return nodesFromRecords(nodesRecords), nil
 }
 
+func (cs *Storage) findNode(nodeToFind string) (nodeRecord, bool, error) {
+	specific := false
+	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToFind }, 0, false)
+	if err != nil {
+		return nodeRecord{}, false, err
+	}
+	if len(ids) == 0 {
+		// look for the url in the specific nodes table
+		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToFind }, 0, true)
+		if err != nil {
+			return nodeRecord{}, false, err
+		}
+		specific = true
+		if len(ids) == 0 {
+			return nodeRecord{}, false, errors.Errorf("nodeRecord %s was not found in the storage", nodeToFind)
+		}
+	}
+	if len(ids) != 1 {
+		return nodeRecord{}, false, errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
+	}
+
+	pulledRecord := ids[0]
+
+	return pulledRecord, specific, nil
+}
+
 // Update handles both specific and non-specific nodes
 func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	specific := false
-	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, false)
+	pulledRecord, specific, err := cs.findNode(nodeToUpdate.URL)
 	if err != nil {
 		return err
 	}
-	if len(ids) == 0 {
-		// look for the url in the specific nodes table
-		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, true)
-		if err != nil {
-			return err
-		}
-		specific = true
-		if len(ids) == 0 {
-			return errors.Errorf("nodeRecord %s was not found in the storage", nodeToUpdate.URL)
-		}
-	}
-	if len(ids) != 1 {
-		return errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
-	}
+
 	tableName := nodesTableName
 	if specific {
 		tableName = specificNodesTableName
 	}
-
-	pulledRecord := ids[0]
 	err = cs.db.Update(tableName, &nodeRecord{Node: entities.Node{
 		URL:     pulledRecord.URL,
 		Enabled: pulledRecord.Enabled,
@@ -180,25 +190,19 @@ func (cs *Storage) Delete(url string) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	ids, err := cs.db.IDs(nodesTableName)
+	pulledRecord, specific, err := cs.findNode(url)
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		var n nodeRecord
-		if err := cs.db.Find(nodesTableName, id, &n); err != nil {
-			return err
-		}
-		if n.URL == url {
-			err := cs.db.Delete(nodesTableName, id)
-			if err != nil {
-				return err
-			}
-			cs.zap.Sugar().Infof("Node #%d at '%s' was deleted", id, url)
-
-		}
+	tableName := nodesTableName
+	if specific {
+		tableName = specificNodesTableName
 	}
-
+	err = cs.db.Delete(tableName, pulledRecord.ID)
+	if err != nil {
+		return err
+	}
+	cs.zap.Sugar().Infof("Node #%d at '%s' was deleted", pulledRecord.ID, url)
 	return nil
 }
 

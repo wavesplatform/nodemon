@@ -251,14 +251,16 @@ func TestNodesListTemplateHTML(t *testing.T) {
 	data := []entities.Node{
 		{URL: "blah", Enabled: false, Alias: "al"},
 		{URL: "lala", Enabled: true, Alias: "la"},
-		{URL: "b", Enabled: true, Alias: "a"},
-		{URL: "m", Enabled: true, Alias: "c"},
+		{URL: "b", Enabled: true, Alias: ""},
+		{URL: "m", Enabled: true, Alias: ""},
 	}
 	const (
 		template = "templates/nodes_list"
 		ext      = Html
 	)
-	actual, err := executeTemplate(template, data, ext)
+	urls, err := NodesToUrls(data)
+	require.NoError(t, err)
+	actual, err := executeTemplate(template, urls, ext)
 	require.NoError(t, err)
 	expected := goldenValue(t, template, ext, actual)
 	assert.Equal(t, expected, actual)

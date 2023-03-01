@@ -119,7 +119,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		if err != nil {
 			return nil
 		}
-		urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
+		urls, err := messaging.RequestNodes(requestType, responsePairType, false)
 		if err != nil {
 			return errors.Wrap(err, "failed to request nodes list buttons")
 		}
@@ -135,6 +135,33 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		)
 
 	})
+
+	environment.Bot.Handle("/add_specific", func(c tele.Context) error {
+		args := c.Args()
+		if len(args) > 1 {
+			return c.Send(
+				messages.AddedMoreThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+		if len(args) < 1 {
+			return c.Send(
+				messages.AddedLessThanOne,
+				&tele.SendOptions{
+					ParseMode: tele.ModeDefault,
+				},
+			)
+		}
+
+		response := AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], true)
+		return c.Send(
+			response,
+			&tele.SendOptions{ParseMode: tele.ModeHTML})
+
+	})
+
 	environment.Bot.Handle("/remove", func(c tele.Context) error {
 		args := c.Args()
 		if len(args) > 1 {
@@ -352,11 +379,11 @@ func EditPool(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) error {
 
-	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
+	nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
-	message, err := environment.NodesListMessage(urls)
+	message, err := environment.NodesListMessage(nodes)
 	if err != nil {
 		return errors.Wrap(err, "failed to construct nodes list message")
 	}
