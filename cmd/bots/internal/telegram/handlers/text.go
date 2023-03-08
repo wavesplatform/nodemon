@@ -61,7 +61,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
-	url = common.ReplaceAliasWithNode(url, nodes)
+	url = common.GetNodeUrlByAlias(url, nodes)
 
 	response, err := messaging.RemoveNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url)
 	if err != nil {

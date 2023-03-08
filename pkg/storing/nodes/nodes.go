@@ -25,7 +25,6 @@ type nodeRecord struct {
 func (n *nodeRecord) GetID() int {
 	return n.ID
 }
-
 func (n *nodeRecord) SetID(id int) {
 	n.ID = id
 }
@@ -126,12 +125,20 @@ func (cs *Storage) findNode(nodeToFind string) (nodeRecord, bool, error) {
 		}
 	}
 	if len(ids) != 1 {
-		return nodeRecord{}, false, errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
+		return nodeRecord{}, false, errors.New("failed to update a nodeRecord in the storage, multiple nodes were found")
 	}
 
 	pulledRecord := ids[0]
 
 	return pulledRecord, specific, nil
+}
+
+func GetTableName(specific bool) string {
+	tableName := nodesTableName
+	if specific {
+		tableName = specificNodesTableName
+	}
+	return tableName
 }
 
 // Update handles both specific and non-specific nodes
@@ -144,10 +151,7 @@ func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 		return err
 	}
 
-	tableName := nodesTableName
-	if specific {
-		tableName = specificNodesTableName
-	}
+	tableName := GetTableName(specific)
 	err = cs.db.Update(tableName, &nodeRecord{Node: entities.Node{
 		URL:     pulledRecord.URL,
 		Enabled: pulledRecord.Enabled,
@@ -168,10 +172,7 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 	if err != nil {
 		return err
 	}
-	tableName := nodesTableName
-	if specific {
-		tableName = specificNodesTableName
-	}
+	tableName := GetTableName(specific)
 	if len(ids) == 0 {
 		id, err := cs.db.Insert(tableName, &nodeRecord{Node: entities.Node{
 			URL:     url,
@@ -194,10 +195,7 @@ func (cs *Storage) Delete(url string) error {
 	if err != nil {
 		return err
 	}
-	tableName := nodesTableName
-	if specific {
-		tableName = specificNodesTableName
-	}
+	tableName := GetTableName(specific)
 	err = cs.db.Delete(tableName, pulledRecord.ID)
 	if err != nil {
 		return err
@@ -232,18 +230,15 @@ func (cs *Storage) FindAlias(url string) (string, error) {
 }
 
 func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
-	table := nodesTableName
-	if specific {
-		table = specificNodesTableName
-	}
+	tableName := GetTableName(specific)
 	var results []nodeRecord
-	ids, err := cs.db.IDs(table)
+	ids, err := cs.db.IDs(tableName)
 	if err != nil {
 		return nil, err
 	}
 	for _, id := range ids {
 		var n nodeRecord
-		if err := cs.db.Find(table, id, &n); err != nil {
+		if err := cs.db.Find(tableName, id, &n); err != nil {
 			return nil, err
 		}
 		if queryFn(n) {

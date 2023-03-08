@@ -17,7 +17,7 @@ import (
 	"nodemon/pkg/messaging/pair"
 )
 
-func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
+func InitTgHandlers(environment *common.TelegramBotEnvironment, zapLogger *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) {
 
 	environment.Bot.Handle("/chat", func(c tele.Context) error {
 
@@ -96,22 +96,15 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 	environment.Bot.Handle("/add", func(c tele.Context) error {
 		args := c.Args()
-		if len(args) > 1 {
+		if len(args) != 1 {
 			return c.Send(
-				messages.AddedMoreThanOne,
+				messages.AddWrongNumberOfNodes,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
 			)
 		}
-		if len(args) < 1 {
-			return c.Send(
-				messages.AddedLessThanOne,
-				&tele.SendOptions{
-					ParseMode: tele.ModeDefault,
-				},
-			)
-		}
+
 		response := AddNewNodeHandler(c, environment, requestType, responsePairType, args[0], false)
 		err := c.Send(
 			response,
@@ -138,17 +131,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 	environment.Bot.Handle("/add_specific", func(c tele.Context) error {
 		args := c.Args()
-		if len(args) > 1 {
+		if len(args) != 1 {
 			return c.Send(
-				messages.AddedMoreThanOne,
-				&tele.SendOptions{
-					ParseMode: tele.ModeDefault,
-				},
-			)
-		}
-		if len(args) < 1 {
-			return c.Send(
-				messages.AddedLessThanOne,
+				messages.AddWrongNumberOfNodes,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -200,7 +185,7 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle("/aliases", func(c tele.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to request nodes list", zap.Error(err))
+			zapLogger.Error("failed to request nodes list", zap.Error(err))
 			return errors.Wrap(err, "failed to get nodes list")
 		}
 		var msg string
@@ -223,17 +208,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 
 	environment.Bot.Handle("/subscribe", func(c tele.Context) error {
 		args := c.Args()
-		if len(args) > 1 {
+		if len(args) != 1 {
 			return c.Send(
-				messages.SubscribedToMoreThanOne,
-				&tele.SendOptions{
-					ParseMode: tele.ModeDefault,
-				},
-			)
-		}
-		if len(args) < 1 {
-			return c.Send(
-				messages.SubscribedToLessThanOne,
+				messages.SubscribeWrongNumberOfNodes,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -243,17 +220,9 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	})
 	environment.Bot.Handle("/unsubscribe", func(c tele.Context) error {
 		args := c.Args()
-		if len(args) > 1 {
+		if len(args) != 1 {
 			return c.Send(
-				messages.UnsubscribedFromMoreThanOne,
-				&tele.SendOptions{
-					ParseMode: tele.ModeDefault,
-				},
-			)
-		}
-		if len(args) < 1 {
-			return c.Send(
-				messages.UnsubscribedFromLessThanOne,
+				messages.SubscribeWrongNumberOfNodes,
 				&tele.SendOptions{
 					ParseMode: tele.ModeDefault,
 				},
@@ -293,13 +262,13 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 		}
 		statement, err := messaging.RequestNodeStatement(requestType, responsePairType, updatedUrl, height)
 		if err != nil {
-			environment.Zap.Error("failed to request nodes list buttons", zap.Error(err))
+			zapLogger.Error("failed to request nodes list buttons", zap.Error(err))
 			return err
 		}
 
 		msg, err := common.HandleNodeStatement(statement, common.Html)
 		if err != nil {
-			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
+			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
 		}
 
@@ -343,19 +312,19 @@ func InitTgHandlers(environment *common.TelegramBotEnvironment, requestType chan
 	environment.Bot.Handle("/status", func(c tele.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			environment.Zap.Error("failed to get nodes list", zap.Error(err))
+			zapLogger.Error("failed to get nodes list", zap.Error(err))
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
 		if err != nil {
-			environment.Zap.Error("failed to request status of nodes", zap.Error(err))
+			zapLogger.Error("failed to request status of nodes", zap.Error(err))
 			return err
 		}
 
 		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, common.Html, nodes)
 		if err != nil {
-			environment.Zap.Error("failed to handle status of nodes", zap.Error(err))
+			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
 		}
 

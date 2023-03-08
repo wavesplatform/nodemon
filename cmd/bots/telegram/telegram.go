@@ -84,7 +84,7 @@ func runTelegramBot() error {
 		zap.Fatal("failed to initialize telegram bot", zapLogger.Error(err))
 	}
 
-	handlers.InitTgHandlers(tgBotEnv, pairRequest, pairResponse)
+	handlers.InitTgHandlers(tgBotEnv, zap, pairRequest, pairResponse)
 
 	go func() {
 		err := pubsub.StartSubMessagingClient(ctx, nanomsgPubSubURL, tgBotEnv, zap)

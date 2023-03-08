@@ -258,7 +258,7 @@ func TestNodesListTemplateHTML(t *testing.T) {
 		template = "templates/nodes_list"
 		ext      = Html
 	)
-	urls, err := NodesToUrls(data)
+	urls, err := nodesToUrls(data)
 	require.NoError(t, err)
 	actual, err := executeTemplate(template, urls, ext)
 	require.NoError(t, err)

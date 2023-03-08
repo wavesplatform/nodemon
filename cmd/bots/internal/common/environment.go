@@ -180,19 +180,19 @@ type TelegramBotEnvironment struct {
 	Mute             bool // If it used elsewhere, should be protected by mutex
 	subSocket        protocol.Socket
 	subscriptions    subscriptions
-	Zap              *zap.Logger
+	zap              *zap.Logger
 	requestType      chan<- pair.RequestPair
 	responsePairType <-chan pair.ResponsePair
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, Zap: zap, requestType: requestType, responsePairType: responsePairType}
+	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
-	tgEnv.Zap.Info("Telegram bot started")
+	tgEnv.zap.Info("Telegram bot started")
 	tgEnv.Bot.Start()
-	tgEnv.Zap.Info("Telegram bot finished")
+	tgEnv.zap.Info("Telegram bot finished")
 	return nil
 }
 
@@ -202,12 +202,12 @@ func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	if tgEnv.Mute {
-		tgEnv.Zap.Info("received an alert, but asleep now")
+		tgEnv.zap.Info("received an alert, but asleep now")
 		return
 	}
 
 	if len(msg) == 0 {
-		tgEnv.Zap.Info("received an empty message")
+		tgEnv.zap.Info("received an empty message")
 		return
 	}
 
@@ -216,26 +216,26 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	alertType := entities.AlertType(msg[0])
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
-		tgEnv.Zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
 			&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 		)
 		if err != nil {
-			tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
+			tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
 		}
 		return
 	}
 
 	nodes, err := messaging.RequestAllNodes(tgEnv.requestType, tgEnv.responsePairType)
 	if err != nil {
-		tgEnv.Zap.Error("failed to get nodes list", zap.Error(err))
+		tgEnv.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
 	messageToBot, err := constructMessage(alertType, msg[1:], Html, nodes)
 	if err != nil {
-		tgEnv.Zap.Error("failed to construct message", zap.Error(err))
+		tgEnv.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
 	_, err = tgEnv.Bot.Send(
@@ -245,13 +245,13 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 	)
 
 	if err != nil {
-		tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
+		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
 }
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	if tgEnv.Mute {
-		tgEnv.Zap.Info("received a message, but asleep now")
+		tgEnv.zap.Info("received a message, but asleep now")
 		return
 	}
 
@@ -264,7 +264,7 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	)
 
 	if err != nil {
-		tgEnv.Zap.Error("failed to send a message to telegram", zap.Error(err))
+		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
 }
 
@@ -272,8 +272,8 @@ func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == strconv.FormatInt(tgEnv.ChatID, 10)
 }
 
-func NodesToUrls(nodes []entities.Node) ([]string, error) {
-	var urls []string
+func nodesToUrls(nodes []entities.Node) ([]string, error) {
+	urls := make([]string, 0, len(nodes))
 	for _, n := range nodes {
 		var host string
 		if n.Alias != "" {
@@ -289,14 +289,14 @@ func NodesToUrls(nodes []entities.Node) ([]string, error) {
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (string, error) {
-	urls, err := NodesToUrls(nodes)
+	urls, err := nodesToUrls(nodes)
 	if err != nil {
-		tgEnv.Zap.Error("failed convert nodes to urls", zap.Error(err))
+		tgEnv.zap.Error("failed convert nodes to urls", zap.Error(err))
 		return "", err
 	}
 	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
 	if err != nil {
-		tgEnv.Zap.Error("failed to parse nodes list template", zap.Error(err))
+		tgEnv.zap.Error("failed to parse nodes list template", zap.Error(err))
 		return "", err
 	}
 
@@ -305,7 +305,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (st
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, urls)
 	if err != nil {
-		tgEnv.Zap.Error("failed to construct a message", zap.Error(err))
+		tgEnv.zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -321,7 +321,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 			return err
 		}
 		tgEnv.subscriptions.Add(alertType, alertName)
-		tgEnv.Zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
+		tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	}
 
 	return nil
@@ -342,7 +342,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
 	tgEnv.subscriptions.Add(alertType, alertName)
-	tgEnv.Zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
+	tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	return nil
 }
 
@@ -365,7 +365,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
 	}
 	tgEnv.subscriptions.Delete(alertType)
-	tgEnv.Zap.Sugar().Infof("Telegram bot unsubscribed from %s", alertName)
+	tgEnv.zap.Sugar().Infof("Telegram bot unsubscribed from %s", alertName)
 	return nil
 }
 
@@ -386,7 +386,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/subscriptions.html")
 
 	if err != nil {
-		tgEnv.Zap.Error("failed to parse subscriptions template", zap.Error(err))
+		tgEnv.zap.Error("failed to parse subscriptions template", zap.Error(err))
 		return "", err
 	}
 	var subscribedTo []subscribed
@@ -411,7 +411,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, subscriptions)
 	if err != nil {
-		tgEnv.Zap.Error("failed to construct a message", zap.Error(err))
+		tgEnv.zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -560,7 +560,7 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	return node
 }
 
-func ReplaceAliasWithNode(alias string, nodes []entities.Node) string {
+func GetNodeUrlByAlias(alias string, nodes []entities.Node) string {
 	for _, n := range nodes {
 		if n.Alias == alias {
 			return n.URL
