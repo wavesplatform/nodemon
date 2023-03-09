@@ -133,7 +133,7 @@ func (cs *Storage) findNode(nodeToFind string) (nodeRecord, bool, error) {
 	return pulledRecord, specific, nil
 }
 
-func GetTableName(specific bool) string {
+func getTableName(specific bool) string {
 	tableName := nodesTableName
 	if specific {
 		tableName = specificNodesTableName
@@ -151,7 +151,7 @@ func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 		return err
 	}
 
-	tableName := GetTableName(specific)
+	tableName := getTableName(specific)
 	err = cs.db.Update(tableName, &nodeRecord{Node: entities.Node{
 		URL:     pulledRecord.URL,
 		Enabled: pulledRecord.Enabled,
@@ -172,7 +172,7 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 	if err != nil {
 		return err
 	}
-	tableName := GetTableName(specific)
+	tableName := getTableName(specific)
 	if len(ids) == 0 {
 		id, err := cs.db.Insert(tableName, &nodeRecord{Node: entities.Node{
 			URL:     url,
@@ -195,7 +195,7 @@ func (cs *Storage) Delete(url string) error {
 	if err != nil {
 		return err
 	}
-	tableName := GetTableName(specific)
+	tableName := getTableName(specific)
 	err = cs.db.Delete(tableName, pulledRecord.ID)
 	if err != nil {
 		return err
@@ -230,7 +230,7 @@ func (cs *Storage) FindAlias(url string) (string, error) {
 }
 
 func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
-	tableName := GetTableName(specific)
+	tableName := getTableName(specific)
 	var results []nodeRecord
 	ids, err := cs.db.IDs(tableName)
 	if err != nil {
