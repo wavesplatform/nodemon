@@ -2,7 +2,6 @@ package messaging
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
@@ -96,18 +95,6 @@ func RequestNodesStatus(
 
 	return nodesStatus, nil
 
-}
-
-func RequestNodesUrls(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]string, error) {
-	requestType <- &pair.NodesListRequest{Specific: specific}
-	responsePair := <-responsePairType
-	nodesList, ok := responsePair.(*pair.NodesListResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the node list type")
-	}
-	urls := NodesToUrls(nodesList.Nodes)
-	sort.Strings(urls)
-	return urls, nil
 }
 
 func RequestNodes(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]entities.Node, error) {

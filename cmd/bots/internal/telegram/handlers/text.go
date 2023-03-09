@@ -34,7 +34,7 @@ func AddNewNodeHandler(
 	if err != nil {
 		return nil
 	}
-	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
+	urls, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
@@ -56,6 +56,13 @@ func RemoveNodeHandler(
 	requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair,
 	url string) error {
+
+	nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
+	if err != nil {
+		return errors.Wrap(err, "failed to request nodes list buttons")
+	}
+	url = common.GetNodeUrlByAlias(url, nodes)
+
 	response, err := messaging.RemoveNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url)
 	if err != nil {
 		if err == messaging.IncorrectUrlError || err == messaging.InsufficientPermissionsError {
@@ -73,7 +80,7 @@ func RemoveNodeHandler(
 		return err
 	}
 
-	urls, err := messaging.RequestNodesUrls(requestType, responsePairType, false)
+	urls, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}

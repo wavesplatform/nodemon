@@ -25,7 +25,6 @@ type nodeRecord struct {
 func (n *nodeRecord) GetID() int {
 	return n.ID
 }
-
 func (n *nodeRecord) SetID(id int) {
 	n.ID = id
 }
@@ -108,36 +107,51 @@ func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
 	return nodesFromRecords(nodesRecords), nil
 }
 
+func (cs *Storage) findNode(nodeToFind string) (nodeRecord, bool, error) {
+	specific := false
+	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToFind }, 0, false)
+	if err != nil {
+		return nodeRecord{}, false, err
+	}
+	if len(ids) == 0 {
+		// look for the url in the specific nodes table
+		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToFind }, 0, true)
+		if err != nil {
+			return nodeRecord{}, false, err
+		}
+		specific = true
+		if len(ids) == 0 {
+			return nodeRecord{}, false, errors.Errorf("nodeRecord %s was not found in the storage", nodeToFind)
+		}
+	}
+	if len(ids) != 1 {
+		return nodeRecord{}, false, errors.New("failed to update a nodeRecord in the storage, multiple nodes were found")
+	}
+
+	pulledRecord := ids[0]
+
+	return pulledRecord, specific, nil
+}
+
+func getTableName(specific bool) string {
+	tableName := nodesTableName
+	if specific {
+		tableName = specificNodesTableName
+	}
+	return tableName
+}
+
 // Update handles both specific and non-specific nodes
 func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	specific := false
-	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, false)
+	pulledRecord, specific, err := cs.findNode(nodeToUpdate.URL)
 	if err != nil {
 		return err
 	}
-	if len(ids) == 0 {
-		// look for the url in the specific nodes table
-		ids, err = cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToUpdate.URL }, 0, true)
-		if err != nil {
-			return err
-		}
-		specific = true
-		if len(ids) == 0 {
-			return errors.Errorf("nodeRecord %s was not found in the storage", nodeToUpdate.URL)
-		}
-	}
-	if len(ids) != 1 {
-		return errors.Errorf("failed to update a nodeRecord in the storage, multiple nodes were found")
-	}
-	tableName := nodesTableName
-	if specific {
-		tableName = specificNodesTableName
-	}
 
-	pulledRecord := ids[0]
+	tableName := getTableName(specific)
 	err = cs.db.Update(tableName, &nodeRecord{Node: entities.Node{
 		URL:     pulledRecord.URL,
 		Enabled: pulledRecord.Enabled,
@@ -158,10 +172,7 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 	if err != nil {
 		return err
 	}
-	tableName := nodesTableName
-	if specific {
-		tableName = specificNodesTableName
-	}
+	tableName := getTableName(specific)
 	if len(ids) == 0 {
 		id, err := cs.db.Insert(tableName, &nodeRecord{Node: entities.Node{
 			URL:     url,
@@ -180,25 +191,16 @@ func (cs *Storage) Delete(url string) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
-	ids, err := cs.db.IDs(nodesTableName)
+	pulledRecord, specific, err := cs.findNode(url)
 	if err != nil {
 		return err
 	}
-	for _, id := range ids {
-		var n nodeRecord
-		if err := cs.db.Find(nodesTableName, id, &n); err != nil {
-			return err
-		}
-		if n.URL == url {
-			err := cs.db.Delete(nodesTableName, id)
-			if err != nil {
-				return err
-			}
-			cs.zap.Sugar().Infof("Node #%d at '%s' was deleted", id, url)
-
-		}
+	tableName := getTableName(specific)
+	err = cs.db.Delete(tableName, pulledRecord.ID)
+	if err != nil {
+		return err
 	}
-
+	cs.zap.Sugar().Infof("Node #%d at '%s' was deleted", pulledRecord.ID, url)
 	return nil
 }
 
@@ -228,18 +230,15 @@ func (cs *Storage) FindAlias(url string) (string, error) {
 }
 
 func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
-	table := nodesTableName
-	if specific {
-		table = specificNodesTableName
-	}
+	tableName := getTableName(specific)
 	var results []nodeRecord
-	ids, err := cs.db.IDs(table)
+	ids, err := cs.db.IDs(tableName)
 	if err != nil {
 		return nil, err
 	}
 	for _, id := range ids {
 		var n nodeRecord
-		if err := cs.db.Find(table, id, &n); err != nil {
+		if err := cs.db.Find(tableName, id, &n); err != nil {
 			return nil, err
 		}
 		if queryFn(n) {
