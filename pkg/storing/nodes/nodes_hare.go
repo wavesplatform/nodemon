@@ -1,7 +1,6 @@
 package nodes
 
 import (
-	"strings"
 	"sync"
 
 	"github.com/jameycribbs/hare"
@@ -40,7 +39,7 @@ type HareStorage struct {
 	zap *zap.Logger
 }
 
-func NewHareStorage(path string, nodes string, logger *zap.Logger) (*HareStorage, error) {
+func NewHareStorage(path string, nodes []string, logger *zap.Logger) (*HareStorage, error) {
 	ds, err := disk.New(path, defaultStorageJSONExtension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
@@ -251,8 +250,8 @@ func (cs *HareStorage) queryNodes(queryFn func(n nodeRecord) bool, limit int, sp
 	}
 	return results, nil
 }
-func (cs *HareStorage) populate(nodes string) error {
-	for _, n := range strings.Fields(nodes) {
+func (cs *HareStorage) populate(nodes []string) error {
+	for _, n := range nodes {
 		url, err := entities.ValidateNodeURL(n)
 		if err != nil {
 			return err

@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -83,7 +82,7 @@ func (db dbStruct) SyncToFile(path string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal nodes db as json")
 	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := os.WriteFile(path, data, 0600); err != nil {
 		return errors.Wrapf(err, "failed to write nodes db data to file '%s'", path)
 	}
 	return nil
@@ -96,7 +95,7 @@ type JSONStorage struct {
 	zap    *zap.Logger
 }
 
-func NewJSONStorage(path string, nodes string, logger *zap.Logger) (*JSONStorage, error) {
+func NewJSONStorage(path string, nodes []string, logger *zap.Logger) (*JSONStorage, error) {
 	path = filepath.Clean(path)
 	if err := createDBFileIfNotExist(path); err != nil {
 		return nil, errors.Wrapf(err, "failed to create and init nodes db file '%s'", path)
@@ -127,7 +126,7 @@ func createDBFileIfNotExist(path string) error {
 		if err != nil {
 			return errors.Wrap(err, "failed to marshal empty db struct to json")
 		}
-		return os.WriteFile(path, data, 0644)
+		return os.WriteFile(path, data, 0600)
 	default:
 		return errors.Wrap(err, "failed to get stat for file")
 	}
@@ -232,13 +231,12 @@ func (s *JSONStorage) FindAlias(url string) (string, error) {
 	return n.Alias, nil
 }
 
-func (s *JSONStorage) populate(nodes string) error {
+func (s *JSONStorage) populate(nodes []string) error {
 	var (
 		needSync  bool
-		fields    = strings.Fields(nodes)
-		validated = make(map[string]struct{}, len(fields))
+		validated = make(map[string]struct{}, len(nodes))
 	)
-	for _, n := range fields {
+	for _, n := range nodes {
 		url, err := entities.ValidateNodeURL(n)
 		if err != nil {
 			return errors.Wrapf(err, "failed to validate node '%s'", n)
