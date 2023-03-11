@@ -125,7 +125,7 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodesStorage.NewHareStorage(storage, strings.Fields(nodes), zap)
+	ns, err := nodesStorage.NewJSONStorage(storage, strings.Fields(nodes), zap)
 	if err != nil {
 		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
 		return err
