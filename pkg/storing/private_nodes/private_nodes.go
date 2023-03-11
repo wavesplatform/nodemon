@@ -43,7 +43,7 @@ type PrivateNodesHandler struct {
 	privateEvents *privateNodesEvents
 }
 
-func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns *nodes.Storage, zap *zap.Logger) (*PrivateNodesHandler, error) {
+func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns nodes.Storage, zap *zap.Logger) (*PrivateNodesHandler, error) {
 	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get specific nodes")

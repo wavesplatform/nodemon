@@ -9,12 +9,12 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/common"
 )
 
 const (
-	nodesTableName         = "nodes"
-	specificNodesTableName = "specific_nodes"
+	defaultStorageJSONExtension = ".json"
+	nodesTableName              = "nodes"
+	specificNodesTableName      = "specific_nodes"
 )
 
 type nodeRecord struct {
@@ -34,14 +34,14 @@ func (n *nodeRecord) AfterFind(_ *hare.Database) error {
 	return nil
 }
 
-type Storage struct {
+type HareStorage struct {
 	mu  *sync.RWMutex
 	db  *hare.Database
 	zap *zap.Logger
 }
 
-func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error) {
-	ds, err := disk.New(path, common.DefaultStorageExtension)
+func NewHareStorage(path string, nodes string, logger *zap.Logger) (*HareStorage, error) {
+	ds, err := disk.New(path, defaultStorageJSONExtension)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open nodes storage at '%s'", path)
 	}
@@ -59,7 +59,7 @@ func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error)
 			return nil, errors.Wrapf(err, "failed to initialize specific nodes storage at '%s'", path)
 		}
 	}
-	cs := &Storage{mu: new(sync.RWMutex), db: db, zap: logger}
+	cs := &HareStorage{mu: new(sync.RWMutex), db: db, zap: logger}
 	err = cs.populate(nodes)
 	if err != nil {
 		return nil, err
@@ -67,14 +67,14 @@ func NewStorage(path string, nodes string, logger *zap.Logger) (*Storage, error)
 	return cs, nil
 }
 
-func (cs *Storage) Close() error {
+func (cs *HareStorage) Close() error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
 	return cs.db.Close()
 }
 
-func (cs *Storage) Nodes(specific bool) ([]entities.Node, error) {
+func (cs *HareStorage) Nodes(specific bool) ([]entities.Node, error) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
@@ -85,7 +85,7 @@ func (cs *Storage) Nodes(specific bool) ([]entities.Node, error) {
 	return nodesFromRecords(nodesRecord), nil
 }
 
-func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
+func (cs *HareStorage) EnabledNodes() ([]entities.Node, error) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
@@ -96,7 +96,7 @@ func (cs *Storage) EnabledNodes() ([]entities.Node, error) {
 	return nodesFromRecords(nodesRecords), nil
 }
 
-func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
+func (cs *HareStorage) EnabledSpecificNodes() ([]entities.Node, error) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
@@ -107,7 +107,7 @@ func (cs *Storage) EnabledSpecificNodes() ([]entities.Node, error) {
 	return nodesFromRecords(nodesRecords), nil
 }
 
-func (cs *Storage) findNode(nodeToFind string) (nodeRecord, bool, error) {
+func (cs *HareStorage) findNode(nodeToFind string) (nodeRecord, bool, error) {
 	specific := false
 	ids, err := cs.queryNodes(func(n nodeRecord) bool { return n.URL == nodeToFind }, 0, false)
 	if err != nil {
@@ -142,7 +142,7 @@ func getTableName(specific bool) string {
 }
 
 // Update handles both specific and non-specific nodes
-func (cs *Storage) Update(nodeToUpdate entities.Node) error {
+func (cs *HareStorage) Update(nodeToUpdate entities.Node) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -164,7 +164,7 @@ func (cs *Storage) Update(nodeToUpdate entities.Node) error {
 	return nil
 }
 
-func (cs *Storage) InsertIfNew(url string, specific bool) error {
+func (cs *HareStorage) InsertIfNew(url string, specific bool) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -187,7 +187,7 @@ func (cs *Storage) InsertIfNew(url string, specific bool) error {
 	return nil
 }
 
-func (cs *Storage) Delete(url string) error {
+func (cs *HareStorage) Delete(url string) error {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
 
@@ -204,7 +204,7 @@ func (cs *Storage) Delete(url string) error {
 	return nil
 }
 
-func (cs *Storage) FindAlias(url string) (string, error) {
+func (cs *HareStorage) FindAlias(url string) (string, error) {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
 
@@ -229,7 +229,7 @@ func (cs *Storage) FindAlias(url string) (string, error) {
 	return ids[0].Alias, nil
 }
 
-func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
+func (cs *HareStorage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specific bool) ([]nodeRecord, error) {
 	tableName := getTableName(specific)
 	var results []nodeRecord
 	ids, err := cs.db.IDs(tableName)
@@ -251,7 +251,7 @@ func (cs *Storage) queryNodes(queryFn func(n nodeRecord) bool, limit int, specif
 	}
 	return results, nil
 }
-func (cs *Storage) populate(nodes string) error {
+func (cs *HareStorage) populate(nodes string) error {
 	for _, n := range strings.Fields(nodes) {
 		url, err := entities.ValidateNodeURL(n)
 		if err != nil {
