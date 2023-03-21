@@ -65,7 +65,7 @@ func run() error {
 		baseTargetThreshold    int
 		logLevel               string
 	)
-	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
+	flag.StringVar(&storage, "storage", ".nodes.json", "Path to storage. Default value is \".nodes.json\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
