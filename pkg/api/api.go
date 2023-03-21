@@ -24,7 +24,7 @@ import (
 
 type API struct {
 	srv                *http.Server
-	nodesStorage       *nodes.Storage
+	nodesStorage       nodes.Storage
 	eventsStorage      *events.Storage
 	zap                *zap.Logger
 	privateNodesEvents private_nodes.PrivateNodesEventsWriter
@@ -35,7 +35,7 @@ type mwLog struct{ *zap.Logger }
 
 func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
 
-func NewAPI(bind string, nodesStorage *nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter, atom *zap.AtomicLevel) (*API, error) {
+func NewAPI(bind string, nodesStorage nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter, atom *zap.AtomicLevel) (*API, error) {
 	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents, atom: atom}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)

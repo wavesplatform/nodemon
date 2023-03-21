@@ -65,7 +65,7 @@ func run() error {
 		baseTargetThreshold    int
 		logLevel               string
 	)
-	flag.StringVar(&storage, "storage", ".nodemon", "Path to storage. Default value is \".nodemon\"")
+	flag.StringVar(&storage, "storage", ".nodes.json", "Path to storage. Default value is \".nodes.json\"")
 	flag.StringVar(&nodes, "nodes", "", "Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 	flag.StringVar(&bindAddress, "bind", ":8080", "Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	flag.DurationVar(&interval, "interval", defaultPollingInterval, "Polling interval, seconds. Default value is 60")
@@ -125,12 +125,12 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodesStorage.NewStorage(storage, nodes, zap)
+	ns, err := nodesStorage.NewJSONStorage(storage, strings.Fields(nodes), zap)
 	if err != nil {
 		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
 		return err
 	}
-	defer func(cs *nodesStorage.Storage) {
+	defer func(cs nodesStorage.Storage) {
 		err := cs.Close()
 		if err != nil {
 			zap.Error("failed to close nodes storage", zapLogger.Error(err))

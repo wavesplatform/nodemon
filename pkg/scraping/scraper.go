@@ -12,14 +12,14 @@ import (
 )
 
 type Scraper struct {
-	ns       *nodes.Storage
+	ns       nodes.Storage
 	es       *events.Storage
 	interval time.Duration
 	timeout  time.Duration
 	zap      *zap.Logger
 }
 
-func NewScraper(ns *nodes.Storage, es *events.Storage, interval, timeout time.Duration, logger *zap.Logger) (*Scraper, error) {
+func NewScraper(ns nodes.Storage, es *events.Storage, interval, timeout time.Duration, logger *zap.Logger) (*Scraper, error) {
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 

@@ -14,7 +14,7 @@ import (
 	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns *nodes.Storage, es *events.Storage, logger *zap.Logger) error {
+func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.Storage, es *events.Storage, logger *zap.Logger) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		return errors.New("invalid nanomsg IPC URL for pair socket")
 	}
