@@ -1,0 +1,60 @@
+{
+ "common_nodes": [
+  {
+   "url": "http://mainnet-statehash-go-htz-fsn1-1.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-1.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-2.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-3.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-5.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-6.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-7.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-fsn1-8.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-hel1-1.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-nbg1-1.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  },
+  {
+   "url": "http://mainnet-statehash-htz-nbg1-2.wavesnodes.com",
+   "enabled": true,
+   "alias": ""
+  }
+ ],
+ "specific_nodes": null
+}

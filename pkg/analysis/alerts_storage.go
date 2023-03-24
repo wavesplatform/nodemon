@@ -77,7 +77,7 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
 		return true
 	}
 	var (
-		alertID = alert.ID()
+		alertID = alert.ID().String()
 		old     = s.internalStorage[alertID]
 		repeats = old.repeats + 1
 	)

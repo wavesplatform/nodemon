@@ -17,6 +17,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.uber.org/zap"
@@ -131,12 +132,14 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
+	alertJson := msg[crypto.DigestSize+1:]
+
 	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
 	if err != nil {
 		dscBot.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
-	messageToBot, err := constructMessage(alertType, msg[1:], Markdown, nodes)
+	messageToBot, err := constructMessage(alertType, alertJson, Markdown, nodes)
 	if err != nil {
 		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
@@ -146,6 +149,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	if err != nil {
 		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
 	}
+
 }
 
 func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
@@ -174,19 +178,48 @@ func (dscBot *DiscordBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == dscBot.ChatID
 }
 
+type UnhandledAlertMessages struct {
+	mu            *sync.RWMutex
+	alertMessages map[string]int // map[AlertID]MessageID
+}
+
+func (m *UnhandledAlertMessages) Add(alertID string, messageID int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.alertMessages[alertID] = messageID
+}
+
+func (m *UnhandledAlertMessages) FindMessageIDByAlertID(alertID string) (int, bool) {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+	if messageID, ok := m.alertMessages[alertID]; ok {
+		return messageID, true
+	}
+	return 0, false
+}
+
+func (m *UnhandledAlertMessages) Delete(alertID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	delete(m.alertMessages, alertID)
+}
+
 type TelegramBotEnvironment struct {
-	ChatID           int64
-	Bot              *telebot.Bot
-	Mute             bool // If it used elsewhere, should be protected by mutex
-	subSocket        protocol.Socket
-	subscriptions    subscriptions
-	zap              *zap.Logger
-	requestType      chan<- pair.RequestPair
-	responsePairType <-chan pair.ResponsePair
+	ChatID                 int64
+	Bot                    *telebot.Bot
+	Mute                   bool // If it used elsewhere, should be protected by mutex
+	subSocket              protocol.Socket
+	subscriptions          subscriptions
+	zap                    *zap.Logger
+	requestType            chan<- pair.RequestPair
+	responsePairType       <-chan pair.ResponsePair
+	unhandledAlertMessages UnhandledAlertMessages
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType}
+	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
+		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
+		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[string]int)}}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
@@ -228,25 +261,42 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
+	alertID, err := crypto.NewDigestFromBytes(msg[1 : crypto.DigestSize+1]) // For FixedAlert, the ID will be the internal ID of the alert that has been fixed
+	if err != nil {
+		tgEnv.zap.Error("failed to convert alertID bytes to digest", zap.Error(err))
+	}
+	alertJson := msg[crypto.DigestSize+1:]
+
 	nodes, err := messaging.RequestAllNodes(tgEnv.requestType, tgEnv.responsePairType)
 	if err != nil {
 		tgEnv.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
-	messageToBot, err := constructMessage(alertType, msg[1:], Html, nodes)
+	messageToBot, err := constructMessage(alertType, alertJson, Html, nodes)
 	if err != nil {
 		tgEnv.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
-	_, err = tgEnv.Bot.Send(
+	if alertType == entities.AlertFixedType {
+		messageID := tgEnv.unhandledAlertMessages.alertMessages[alertID.String()]
+		_, err := tgEnv.Bot.Send(chat, messageToBot, &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML})
+		if err != nil {
+			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(err))
+		}
+		tgEnv.unhandledAlertMessages.Delete(alertID.String())
+		return
+	}
+
+	sentMessage, err := tgEnv.Bot.Send(
 		chat,
 		messageToBot,
 		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 	)
-
 	if err != nil {
 		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
+
+	tgEnv.unhandledAlertMessages.Add(alertID.String(), sentMessage.ID)
 }
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
@@ -723,10 +773,11 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 			return "", err
 		}
 
-		// TODO there is no alias here right now, but AlertFixed needs to be changed. Make previous alert to look like a number
-
 		fixedStatement := fixedStatement{
-			PreviousAlert: alertFixed.Fixed.Message(),
+			PreviousAlert: alertFixed.Fixed.ShortDescription(),
+		}
+		if extension == Markdown {
+			fixedStatement.PreviousAlert = alertFixed.Fixed.Message()
 		}
 
 		msg, err = executeTemplate("templates/alerts/alert_fixed", fixedStatement, extension)

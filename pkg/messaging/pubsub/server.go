@@ -47,6 +47,13 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 
 			message := &bytes.Buffer{}
 			message.WriteByte(byte(alert.Type()))
+			switch a := alert.(type) {
+			case *entities.AlertFixed:
+				message.Write(a.Fixed.ID().Bytes())
+			default:
+				message.Write(a.ID().Bytes())
+			}
+
 			message.Write(jsonAlert)
 			err = socketPub.Send(message.Bytes())
 			if err != nil {
