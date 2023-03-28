@@ -80,18 +80,21 @@ func (s *subscriptions) MapR(f func()) {
 }
 
 type DiscordBotEnvironment struct {
-	ChatID           string
-	Bot              *discordgo.Session
-	subSocket        protocol.Socket
-	Subscriptions    subscriptions
-	zap              *zap.Logger
-	requestType      chan<- pair.RequestPair
-	responsePairType <-chan pair.ResponsePair
+	ChatID                 string
+	Bot                    *discordgo.Session
+	subSocket              protocol.Socket
+	Subscriptions          subscriptions
+	zap                    *zap.Logger
+	requestType            chan<- pair.RequestPair
+	responsePairType       <-chan pair.ResponsePair
+	unhandledAlertMessages UnhandledAlertMessages
 }
 
 func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger, requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
-	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType}
+	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
+		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
+		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[string]int)}}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
@@ -132,6 +135,10 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
+	alertID, err := crypto.NewDigestFromBytes(msg[1 : crypto.DigestSize+1]) // For FixedAlert, the ID will be the internal ID of the alert that has been fixed
+	if err != nil {
+		dscBot.zap.Error("failed to convert alertID bytes to digest", zap.Error(err))
+	}
 	alertJson := msg[crypto.DigestSize+1:]
 
 	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
@@ -144,11 +151,28 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
-	_, err = dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
 
+	if alertType == entities.AlertFixedType {
+		messageID := dscBot.unhandledAlertMessages.alertMessages[alertID.String()]
+		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)})
+		if err != nil {
+			dscBot.zap.Error("failed to send a message about fixed alert to discord", zap.Error(err))
+		}
+		dscBot.unhandledAlertMessages.Delete(alertID.String())
+		return
+	}
+	sentMessage, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
 	if err != nil {
 		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
+		return
 	}
+
+	messageID, err := strconv.Atoi(sentMessage.ID)
+	if err != nil {
+		dscBot.zap.Error("failed to parse messageID from a send message on discord", zap.Error(err))
+		return
+	}
+	dscBot.unhandledAlertMessages.Add(alertID.String(), messageID)
 
 }
 
@@ -776,10 +800,6 @@ func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extens
 		fixedStatement := fixedStatement{
 			PreviousAlert: alertFixed.Fixed.ShortDescription(),
 		}
-		if extension == Markdown {
-			fixedStatement.PreviousAlert = alertFixed.Fixed.Message()
-		}
-
 		msg, err = executeTemplate("templates/alerts/alert_fixed", fixedStatement, extension)
 		if err != nil {
 			return "", err

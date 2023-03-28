@@ -91,9 +91,6 @@ func TestAlertFixed(t *testing.T) {
 		PreviousAlert: data.Fixed.ShortDescription(),
 	}
 	for _, f := range formats {
-		if f == Markdown {
-			fixedStatement.PreviousAlert = data.Fixed.Message()
-		}
 		const template = "templates/alerts/alert_fixed"
 		actual, err := executeTemplate(template, fixedStatement, f)
 		require.NoError(t, err)
