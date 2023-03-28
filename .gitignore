@@ -5,6 +5,7 @@
 *.dll
 *.so
 *.dylib
+*.nodes.json
 
 # Test binary, build with `go test -c`
 *.test
