@@ -24,7 +24,6 @@ import (
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
-	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
 )
@@ -986,12 +985,6 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 }
 
 func constructMessage(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
-	alert := generalMessaging.Alert{}
-	err := json.Unmarshal(alertJson, &alert)
-	if err != nil {
-		return "", errors.Wrap(err, "failed to unmarshal json")
-	}
-
 	msg, err := executeAlertTemplate(alertType, alertJson, extension, allNodes)
 	if err != nil {
 		return "", errors.Errorf("failed to execute an alert template, %v", err)
