@@ -1,6 +1,8 @@
 package messaging
 
 import (
+	"encoding/json"
+
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"nodemon/pkg/entities"
@@ -10,6 +12,25 @@ type AlertMessage struct {
 	alertType   entities.AlertType
 	referenceID crypto.Digest
 	data        []byte // it's represented in JSON format
+}
+
+func NewAlertMessageFromAlert(alert entities.Alert) (AlertMessage, error) {
+	jsonAlert, err := json.Marshal(alert)
+	if err != nil {
+		return AlertMessage{}, errors.Wrapf(err, "failed to marshal alert '%T' to JSON", alert)
+	}
+	var referenceID crypto.Digest
+	switch a := alert.(type) {
+	case *entities.AlertFixed:
+		referenceID = a.Fixed.ID()
+	default:
+		referenceID = a.ID()
+	}
+	return AlertMessage{
+		alertType:   alert.Type(),
+		referenceID: referenceID,
+		data:        jsonAlert,
+	}, nil
 }
 
 func NewAlertMessageFromBytes(msgData []byte) (AlertMessage, error) {
@@ -38,4 +59,12 @@ func (a AlertMessage) ReferenceID() crypto.Digest {
 
 func (a AlertMessage) Data() []byte {
 	return a.data
+}
+
+func (a AlertMessage) MarshalBinary() (data []byte, err error) {
+	data = make([]byte, 0, 1+crypto.DigestSize+len(data))
+	data = append(data, byte(a.alertType))
+	data = append(data, a.referenceID[:]...)
+	data = append(data, a.data...)
+	return data, nil
 }

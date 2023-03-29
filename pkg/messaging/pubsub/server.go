@@ -1,9 +1,7 @@
 package pubsub
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -12,6 +10,7 @@ import (
 	_ "go.nanomsg.org/mangos/v3/transport/all"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
 )
 
 func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
@@ -40,22 +39,17 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
-			jsonAlert, err := json.Marshal(alert)
+			msg, err := messaging.NewAlertMessageFromAlert(alert)
 			if err != nil {
 				logger.Error("Failed to marshal an alert to json", zap.Error(err))
+				continue
 			}
-
-			message := &bytes.Buffer{}
-			message.WriteByte(byte(alert.Type()))
-			switch a := alert.(type) {
-			case *entities.AlertFixed:
-				message.Write(a.Fixed.ID().Bytes())
-			default:
-				message.Write(a.ID().Bytes())
+			data, err := msg.MarshalBinary()
+			if err != nil {
+				logger.Error("Failed to marshal binary alert message", zap.Error(err))
+				continue
 			}
-
-			message.Write(jsonAlert)
-			err = socketPub.Send(message.Bytes())
+			err = socketPub.Send(data)
 			if err != nil {
 				logger.Error("Failed to send alert to socket", zap.Error(err))
 			}
