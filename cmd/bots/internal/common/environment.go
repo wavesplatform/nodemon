@@ -210,20 +210,20 @@ type UnhandledAlertMessages struct {
 	alertMessages map[crypto.Digest]int // map[AlertID]MessageID
 }
 
-func (m *UnhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
+func (m UnhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.alertMessages[alertID] = messageID
 }
 
-func (m *UnhandledAlertMessages) GetMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
+func (m UnhandledAlertMessages) GetMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	messageID, ok := m.alertMessages[alertID]
 	return messageID, ok
 }
 
-func (m *UnhandledAlertMessages) Delete(alertID crypto.Digest) {
+func (m UnhandledAlertMessages) Delete(alertID crypto.Digest) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.alertMessages, alertID)
