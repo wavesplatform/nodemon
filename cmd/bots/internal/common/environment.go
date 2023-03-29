@@ -140,7 +140,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
-	alertID := msg.ID()
+	alertID := msg.ReferenceID()
 
 	if alertType == entities.AlertFixedType {
 		messageID, ok := dscBot.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
@@ -286,7 +286,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		tgEnv.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
-	alertID := msg.ID()
+	alertID := msg.ReferenceID()
 
 	if alertType == entities.AlertFixedType {
 		messageID, ok := tgEnv.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
