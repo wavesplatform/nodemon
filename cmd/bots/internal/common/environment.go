@@ -152,7 +152,11 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	}
 
 	if alertType == entities.AlertFixedType {
-		messageID := dscBot.unhandledAlertMessages.alertMessages[alertID]
+		messageID, ok := dscBot.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
+		if !ok {
+			dscBot.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found", zap.Stringer("alertID", alertID))
+			return
+		}
 		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)})
 		if err != nil {
 			dscBot.zap.Error("failed to send a message about fixed alert to discord", zap.Error(err))
@@ -299,8 +303,11 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 	if alertType == entities.AlertFixedType {
-		// FIXME: access from multiple goroutines without using any lock
-		messageID := tgEnv.unhandledAlertMessages.alertMessages[alertID]
+		messageID, ok := tgEnv.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
+		if !ok {
+			tgEnv.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found", zap.Stringer("alertID", alertID))
+			return
+		}
 		_, err := tgEnv.Bot.Send(chat, messageToBot, &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML})
 		if err != nil {
 			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(err))
