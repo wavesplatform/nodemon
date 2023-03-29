@@ -86,14 +86,14 @@ type DiscordBotEnvironment struct {
 	zap                    *zap.Logger
 	requestType            chan<- pair.RequestPair
 	responsePairType       <-chan pair.ResponsePair
-	unhandledAlertMessages UnhandledAlertMessages
+	unhandledAlertMessages unhandledAlertMessages
 }
 
 func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger, requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
 	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
 		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
+		unhandledAlertMessages: unhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
@@ -205,25 +205,25 @@ func (dscBot *DiscordBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == dscBot.ChatID
 }
 
-type UnhandledAlertMessages struct {
+type unhandledAlertMessages struct {
 	mu            *sync.RWMutex
 	alertMessages map[crypto.Digest]int // map[AlertID]MessageID
 }
 
-func (m UnhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
+func (m unhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.alertMessages[alertID] = messageID
 }
 
-func (m UnhandledAlertMessages) GetMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
+func (m unhandledAlertMessages) GetMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	messageID, ok := m.alertMessages[alertID]
 	return messageID, ok
 }
 
-func (m UnhandledAlertMessages) Delete(alertID crypto.Digest) {
+func (m unhandledAlertMessages) Delete(alertID crypto.Digest) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.alertMessages, alertID)
@@ -238,13 +238,13 @@ type TelegramBotEnvironment struct {
 	zap                    *zap.Logger
 	requestType            chan<- pair.RequestPair
 	responsePairType       <-chan pair.ResponsePair
-	unhandledAlertMessages UnhandledAlertMessages
+	unhandledAlertMessages unhandledAlertMessages
 }
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
 		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
+		unhandledAlertMessages: unhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
