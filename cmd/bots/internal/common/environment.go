@@ -212,13 +212,11 @@ func (m *UnhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
 	m.alertMessages[alertID] = messageID
 }
 
-func (m *UnhandledAlertMessages) FindMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
+func (m *UnhandledAlertMessages) GetMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	if messageID, ok := m.alertMessages[alertID]; ok {
-		return messageID, true
-	}
-	return 0, false
+	messageID, ok := m.alertMessages[alertID]
+	return messageID, ok
 }
 
 func (m *UnhandledAlertMessages) Delete(alertID crypto.Digest) {
