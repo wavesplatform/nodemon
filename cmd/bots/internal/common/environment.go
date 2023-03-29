@@ -94,7 +94,7 @@ func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Lo
 	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
 	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
 		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[string]int)}}
+		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
@@ -153,12 +153,12 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 	}
 
 	if alertType == entities.AlertFixedType {
-		messageID := dscBot.unhandledAlertMessages.alertMessages[alertID.String()]
+		messageID := dscBot.unhandledAlertMessages.alertMessages[alertID]
 		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)})
 		if err != nil {
 			dscBot.zap.Error("failed to send a message about fixed alert to discord", zap.Error(err))
 		}
-		dscBot.unhandledAlertMessages.Delete(alertID.String())
+		dscBot.unhandledAlertMessages.Delete(alertID)
 		return
 	}
 	sentMessage, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
@@ -172,7 +172,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		dscBot.zap.Error("failed to parse messageID from a send message on discord", zap.Error(err))
 		return
 	}
-	dscBot.unhandledAlertMessages.Add(alertID.String(), messageID)
+	dscBot.unhandledAlertMessages.Add(alertID, messageID)
 
 }
 
@@ -204,16 +204,16 @@ func (dscBot *DiscordBotEnvironment) IsEligibleForAction(chatID string) bool {
 
 type UnhandledAlertMessages struct {
 	mu            *sync.RWMutex
-	alertMessages map[string]int // map[AlertID]MessageID
+	alertMessages map[crypto.Digest]int // map[AlertID]MessageID
 }
 
-func (m *UnhandledAlertMessages) Add(alertID string, messageID int) {
+func (m *UnhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.alertMessages[alertID] = messageID
 }
 
-func (m *UnhandledAlertMessages) FindMessageIDByAlertID(alertID string) (int, bool) {
+func (m *UnhandledAlertMessages) FindMessageIDByAlertID(alertID crypto.Digest) (int, bool) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if messageID, ok := m.alertMessages[alertID]; ok {
@@ -222,7 +222,7 @@ func (m *UnhandledAlertMessages) FindMessageIDByAlertID(alertID string) (int, bo
 	return 0, false
 }
 
-func (m *UnhandledAlertMessages) Delete(alertID string) {
+func (m *UnhandledAlertMessages) Delete(alertID crypto.Digest) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	delete(m.alertMessages, alertID)
@@ -243,7 +243,7 @@ type TelegramBotEnvironment struct {
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
 		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[string]int)}}
+		unhandledAlertMessages: UnhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
@@ -302,12 +302,13 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 	if alertType == entities.AlertFixedType {
-		messageID := tgEnv.unhandledAlertMessages.alertMessages[alertID.String()]
+		// FIXME: access from multiple goroutines without using any lock
+		messageID := tgEnv.unhandledAlertMessages.alertMessages[alertID]
 		_, err := tgEnv.Bot.Send(chat, messageToBot, &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML})
 		if err != nil {
 			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(err))
 		}
-		tgEnv.unhandledAlertMessages.Delete(alertID.String())
+		tgEnv.unhandledAlertMessages.Delete(alertID)
 		return
 	}
 
@@ -320,7 +321,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
 	}
 
-	tgEnv.unhandledAlertMessages.Add(alertID.String(), sentMessage.ID)
+	tgEnv.unhandledAlertMessages.Add(alertID, sentMessage.ID)
 }
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
