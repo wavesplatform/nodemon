@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"fmt"
 	htmlTemplate "html/template"
-	"net/url"
 	"sort"
 	"strconv"
 	"strings"
@@ -1017,12 +1016,4 @@ func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
 	}
 	return 0, false
 
-}
-
-func RemoveSchemePrefix(s string) (string, error) {
-	u, err := url.Parse(s)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to parse URL %s", s)
-	}
-	return u.Host, nil
 }
