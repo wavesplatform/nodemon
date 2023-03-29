@@ -24,6 +24,7 @@ import (
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
 )
@@ -115,7 +116,7 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 	}
 }
 
-func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg messaging.AlertMessage) {
+func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	alertType := msg.AlertType()
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
@@ -251,7 +252,7 @@ func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 	tgEnv.subSocket = subSocket
 }
 
-func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg messaging.AlertMessage) {
+func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	if tgEnv.Mute {
 		tgEnv.zap.Info("received an alert, but asleep now")
 		return
