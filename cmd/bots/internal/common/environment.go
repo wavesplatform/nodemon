@@ -116,12 +116,8 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 	}
 }
 
-func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
-	if len(msg) == 0 {
-		dscBot.zap.Error("received empty alert message")
-		return
-	}
-	alertType := entities.AlertType(msg[0])
+func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg messaging.AlertMessage) {
+	alertType := msg.AlertType()
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
 		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
@@ -133,22 +129,18 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	alertID, err := crypto.NewDigestFromBytes(msg[1 : crypto.DigestSize+1]) // For FixedAlert, the ID will be the internal ID of the alert that has been fixed
-	if err != nil {
-		dscBot.zap.Error("failed to convert alertID bytes to digest", zap.Error(err))
-	}
-	alertJson := msg[crypto.DigestSize+1:]
-
 	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
 	if err != nil {
 		dscBot.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
+	alertJson := msg.Data()
 	messageToBot, err := constructMessage(alertType, alertJson, Markdown, nodes)
 	if err != nil {
 		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
+	alertID := msg.ID()
 
 	if alertType == entities.AlertFixedType {
 		messageID, ok := dscBot.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
@@ -260,20 +252,15 @@ func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
 	tgEnv.subSocket = subSocket
 }
 
-func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
+func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg messaging.AlertMessage) {
 	if tgEnv.Mute {
 		tgEnv.zap.Info("received an alert, but asleep now")
 		return
 	}
 
-	if len(msg) == 0 {
-		tgEnv.zap.Info("received an empty message")
-		return
-	}
-
 	chat := &telebot.Chat{ID: tgEnv.ChatID}
 
-	alertType := entities.AlertType(msg[0])
+	alertType := msg.AlertType()
 	_, ok := entities.AlertTypes[alertType]
 	if !ok {
 		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
@@ -288,22 +275,19 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg []byte) {
 		return
 	}
 
-	alertID, err := crypto.NewDigestFromBytes(msg[1 : crypto.DigestSize+1]) // For FixedAlert, the ID will be the internal ID of the alert that has been fixed
-	if err != nil {
-		tgEnv.zap.Error("failed to convert alertID bytes to digest", zap.Error(err))
-	}
-	alertJson := msg[crypto.DigestSize+1:]
-
 	nodes, err := messaging.RequestAllNodes(tgEnv.requestType, tgEnv.responsePairType)
 	if err != nil {
 		tgEnv.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
+	alertJson := msg.Data()
 	messageToBot, err := constructMessage(alertType, alertJson, Html, nodes)
 	if err != nil {
 		tgEnv.zap.Error("failed to construct message", zap.Error(err))
 		return
 	}
+	alertID := msg.ID()
+
 	if alertType == entities.AlertFixedType {
 		messageID, ok := tgEnv.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
 		if !ok {

@@ -42,7 +42,12 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messagi
 					logger.Error("failed to receive message", zap.Error(err))
 					return
 				}
-				bot.SendAlertMessage(msg)
+				alertMsg, err := messaging.NewAlertMessageFromBytes(msg)
+				if err != nil {
+					logger.Error("failed to parse alert message from bytes", zap.Error(err))
+					return
+				}
+				bot.SendAlertMessage(alertMsg)
 			}
 		}
 	}()
