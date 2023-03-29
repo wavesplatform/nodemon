@@ -92,8 +92,7 @@ type DiscordBotEnvironment struct {
 func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger, requestType chan<- pair.RequestPair,
 	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
 	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
-		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: unhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
+		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType, unhandledAlertMessages: newUnhandledAlertMessages()}
 }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
@@ -210,6 +209,10 @@ type unhandledAlertMessages struct {
 	alertMessages map[crypto.Digest]int // map[AlertID]MessageID
 }
 
+func newUnhandledAlertMessages() unhandledAlertMessages {
+	return unhandledAlertMessages{mu: new(sync.RWMutex), alertMessages: make(map[crypto.Digest]int)}
+}
+
 func (m unhandledAlertMessages) Add(alertID crypto.Digest, messageID int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -243,8 +246,7 @@ type TelegramBotEnvironment struct {
 
 func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
-		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType,
-		unhandledAlertMessages: unhandledAlertMessages{new(sync.RWMutex), make(map[crypto.Digest]int)}}
+		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType, unhandledAlertMessages: newUnhandledAlertMessages()}
 }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
