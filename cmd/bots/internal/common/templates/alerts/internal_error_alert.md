@@ -1,5 +1,5 @@
 ```yaml
-Alert type: InternalErrorAlert ❗️
+Alert type: Internal Error ❗️
 
 Level: Warning ❗
 

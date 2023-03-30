@@ -1,9 +1,12 @@
 package messaging
 
-import "go.nanomsg.org/mangos/v3/protocol"
+import (
+	"go.nanomsg.org/mangos/v3/protocol"
+	generalMessaging "nodemon/pkg/messaging"
+)
 
 type Bot interface {
-	SendAlertMessage(msg []byte)
+	SendAlertMessage(msg generalMessaging.AlertMessage)
 	SendMessage(msg string)
 	Start() error
 	SubscribeToAllAlerts() error

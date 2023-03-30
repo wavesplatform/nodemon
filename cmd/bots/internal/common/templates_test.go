@@ -88,7 +88,7 @@ func TestAlertFixed(t *testing.T) {
 	}
 
 	fixedStatement := fixedStatement{
-		PreviousAlert: data.Fixed.Message(),
+		PreviousAlert: data.Fixed.ShortDescription(),
 	}
 	for _, f := range formats {
 		const template = "templates/alerts/alert_fixed"

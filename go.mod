@@ -5,7 +5,6 @@ go 1.19
 require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/jameycribbs/hare v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/procyon-projects/chrono v1.1.2
 	github.com/stretchr/testify v1.8.2

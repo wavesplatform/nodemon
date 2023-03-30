@@ -59,7 +59,7 @@ const (
 
 type Alert interface {
 	Notification
-	ID() string
+	ID() crypto.Digest // Digest 32 bytes
 	Message() string
 	Time() time.Time
 	Type() AlertType
@@ -84,9 +84,9 @@ func (a *SimpleAlert) Time() time.Time {
 	return time.Unix(a.Timestamp, 0)
 }
 
-func (a *SimpleAlert) ID() string {
+func (a *SimpleAlert) ID() crypto.Digest {
 	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Description))
-	return digest.String()
+	return digest
 }
 
 func (a *SimpleAlert) String() string {
@@ -118,9 +118,9 @@ func (a *UnreachableAlert) Time() time.Time {
 	return time.Unix(a.Timestamp, 0)
 }
 
-func (a *UnreachableAlert) ID() string {
+func (a *UnreachableAlert) ID() crypto.Digest {
 	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
-	return digest.String()
+	return digest
 }
 
 func (a *UnreachableAlert) String() string {
@@ -155,9 +155,9 @@ func (a *IncompleteAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }
 
-func (a *IncompleteAlert) ID() string {
+func (a *IncompleteAlert) ID() crypto.Digest {
 	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
-	return digest.String()
+	return digest
 }
 
 func (a *IncompleteAlert) Type() AlertType {
@@ -188,9 +188,9 @@ func (a *InvalidHeightAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }
 
-func (a *InvalidHeightAlert) ID() string {
+func (a *InvalidHeightAlert) ID() crypto.Digest {
 	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
-	return digest.String()
+	return digest
 }
 
 func (a *InvalidHeightAlert) Type() AlertType {
@@ -234,7 +234,7 @@ func (a *HeightAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }
 
-func (a *HeightAlert) ID() string {
+func (a *HeightAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
 	buff.WriteString(a.ShortDescription())
 
@@ -243,7 +243,7 @@ func (a *HeightAlert) ID() string {
 	}
 
 	digest := crypto.MustFastHash(buff.Bytes())
-	return digest.String()
+	return digest
 }
 
 func (a *HeightAlert) Type() AlertType {
@@ -309,7 +309,7 @@ func (a *StateHashAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
 }
 
-func (a *StateHashAlert) ID() string {
+func (a *StateHashAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
 	buff.WriteString(a.ShortDescription())
 
@@ -326,7 +326,7 @@ func (a *StateHashAlert) ID() string {
 	}
 
 	digest := crypto.MustFastHash(buff.Bytes())
-	return digest.String()
+	return digest
 }
 
 func (a *StateHashAlert) Type() AlertType {
@@ -391,9 +391,9 @@ func (a *AlertFixed) ShortDescription() string {
 	return AlertFixedNotification
 }
 
-func (a *AlertFixed) ID() string {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed.ID()))
-	return digest.String()
+func (a *AlertFixed) ID() crypto.Digest {
+	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed.ID().String()))
+	return digest
 }
 
 func (a *AlertFixed) Message() string {
@@ -431,7 +431,7 @@ func (a *BaseTargetAlert) ShortDescription() string {
 	return BaseTargetAlertNotification
 }
 
-func (a *BaseTargetAlert) ID() string {
+func (a *BaseTargetAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
 	buff.WriteString(a.ShortDescription())
 
@@ -440,7 +440,7 @@ func (a *BaseTargetAlert) ID() string {
 	}
 
 	digest := crypto.MustFastHash(buff.Bytes())
-	return digest.String()
+	return digest
 }
 
 func (a *BaseTargetAlert) Message() string {
@@ -484,9 +484,9 @@ func (a *InternalErrorAlert) ShortDescription() string {
 	return InternalErrorNotification
 }
 
-func (a *InternalErrorAlert) ID() string {
+func (a *InternalErrorAlert) ID() crypto.Digest {
 	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Error))
-	return digest.String()
+	return digest
 }
 
 func (a *InternalErrorAlert) Message() string {

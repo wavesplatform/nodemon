@@ -1,6 +1,7 @@
 package analysis
 
 import (
+	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 )
@@ -18,13 +19,13 @@ type alertInfo struct {
 	alert            entities.Alert
 }
 
-type alertsInternalStorage map[string]alertInfo
+type alertsInternalStorage map[crypto.Digest]alertInfo
 
-func (s alertsInternalStorage) ids() []string {
+func (s alertsInternalStorage) ids() []crypto.Digest {
 	if len(s) == 0 {
 		return nil
 	}
-	ids := make([]string, 0, len(s))
+	ids := make([]crypto.Digest, 0, len(s))
 	for id := range s {
 		ids = append(ids, id)
 	}
