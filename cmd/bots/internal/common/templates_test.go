@@ -83,8 +83,7 @@ func TestAlertFixed(t *testing.T) {
 	}
 
 	data := &entities.AlertFixed{
-		Timestamp: 100,
-		Fixed:     unreachable,
+		Fixed: unreachable,
 	}
 
 	fixedStatement := fixedStatement{
@@ -101,7 +100,6 @@ func TestAlertFixed(t *testing.T) {
 
 func TestHeightTemplate(t *testing.T) {
 	heightAlert := &entities.HeightAlert{
-		Timestamp: 100,
 		MaxHeightGroup: entities.HeightGroup{
 			Height: 2,
 			Nodes:  entities.Nodes{"node 3", "node 4"},
