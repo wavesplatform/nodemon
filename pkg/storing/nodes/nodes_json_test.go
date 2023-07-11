@@ -7,10 +7,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"nodemon/pkg/entities"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 func newTestJSONStorage(t *testing.T, nodes []string) *JSONStorage {
@@ -74,8 +75,8 @@ func TestNewJSONStorage(t *testing.T) {
 			} else {
 				canonicalNodesURLs := make(nodes, len(test.nodes))
 				for i, node := range test.nodes {
-					nodeURL, err := entities.ValidateNodeURL(node)
-					require.NoError(t, err)
+					nodeURL, validateErr := entities.ValidateNodeURL(node)
+					require.NoError(t, validateErr)
 					canonicalNodesURLs[i] = entities.Node{URL: nodeURL, Enabled: true}
 				}
 				require.NoError(t, err)

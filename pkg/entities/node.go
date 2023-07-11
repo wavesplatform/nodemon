@@ -8,8 +8,8 @@ import (
 )
 
 const (
-	HttpScheme  = "http"
-	HttpsScheme = "https"
+	HTTPScheme  = "http"
+	HTTPSScheme = "https"
 )
 
 type Node struct {
@@ -30,7 +30,7 @@ func CheckAndUpdateURL(s string) (string, error) {
 		return "", errors.Wrapf(err, "failed to parse URL %s", s)
 	}
 	if u.Scheme == "" {
-		u.Scheme = HttpScheme
+		u.Scheme = HTTPScheme
 	}
 	if u.Scheme != "http" && u.Scheme != "https" {
 		return "", errors.Errorf("unsupported URL scheme %s", u.Scheme)

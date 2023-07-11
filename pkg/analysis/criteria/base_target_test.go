@@ -1,12 +1,14 @@
-package criteria
+package criteria_test
 
 import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/entities"
+
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"nodemon/pkg/entities"
 )
 
 type baseTargetInfo struct {
@@ -30,11 +32,11 @@ func mkBaseTargetStatements(baseTargetInfo []baseTargetInfo) entities.NodeStatem
 func TestBaseTargetCriterion_Analyze(t *testing.T) {
 	var timestamp int64 = 1
 	test := struct {
-		opts           *BaseTargetCriterionOptions
+		opts           *criteria.BaseTargetCriterionOptions
 		data           entities.NodeStatements
 		expectedAlerts []entities.BaseTargetAlert
 	}{
-		opts: &BaseTargetCriterionOptions{Threshold: 20},
+		opts: &criteria.BaseTargetCriterionOptions{Threshold: 20},
 		data: mkBaseTargetStatements([]baseTargetInfo{
 			{node: "node1", ts: timestamp, v: "v1", h: 1, sh: nil, baseTarget: 21},
 			{node: "node2", ts: timestamp, v: "v1", h: 1, sh: nil, baseTarget: 16},
@@ -43,9 +45,14 @@ func TestBaseTargetCriterion_Analyze(t *testing.T) {
 		}),
 		expectedAlerts: []entities.BaseTargetAlert{
 			{
-				Timestamp:        timestamp,
-				BaseTargetValues: []entities.BaseTargetValue{{Node: "node1", BaseTarget: 21}, {Node: "node2", BaseTarget: 16}, {Node: "node3", BaseTarget: 21}, {Node: "node4", BaseTarget: 13}},
-				Threshold:        20,
+				Timestamp: timestamp,
+				BaseTargetValues: []entities.BaseTargetValue{
+					{Node: "node1", BaseTarget: 21},
+					{Node: "node2", BaseTarget: 16},
+					{Node: "node3", BaseTarget: 21},
+					{Node: "node4", BaseTarget: 13},
+				},
+				Threshold: 20,
 			},
 		},
 	}
@@ -63,7 +70,7 @@ func TestBaseTargetCriterion_Analyze(t *testing.T) {
 		}()
 		go func() {
 			defer close(done)
-			criterion, err := NewBaseTargetCriterion(test.opts)
+			criterion, err := criteria.NewBaseTargetCriterion(test.opts)
 			require.NoError(t, err)
 			criterion.Analyze(alerts, timestamp, test.data)
 		}()
@@ -82,11 +89,11 @@ func TestBaseTargetCriterion_Analyze(t *testing.T) {
 func TestNoBaseTargetAlertCriterion_Analyze(t *testing.T) {
 	var timestamp int64 = 1
 	test := struct {
-		opts           *BaseTargetCriterionOptions
+		opts           *criteria.BaseTargetCriterionOptions
 		data           entities.NodeStatements
 		expectedAlerts []entities.BaseTargetAlert
 	}{
-		opts: &BaseTargetCriterionOptions{Threshold: 20},
+		opts: &criteria.BaseTargetCriterionOptions{Threshold: 20},
 		data: mkBaseTargetStatements([]baseTargetInfo{
 			{node: "node1", ts: timestamp, v: "v1", h: 1, sh: nil, baseTarget: 19},
 			{node: "node2", ts: timestamp, v: "v1", h: 1, sh: nil, baseTarget: 18},
@@ -110,7 +117,7 @@ func TestNoBaseTargetAlertCriterion_Analyze(t *testing.T) {
 		go func() {
 			defer close(done)
 			defer close(alerts)
-			criterion, err := NewBaseTargetCriterion(test.opts)
+			criterion, err := criteria.NewBaseTargetCriterion(test.opts)
 			require.NoError(t, err)
 			criterion.Analyze(alerts, timestamp, test.data)
 		}()

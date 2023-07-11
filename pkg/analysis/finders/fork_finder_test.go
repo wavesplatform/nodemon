@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	zapLogger "go.uber.org/zap"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/events"
 )
 
 type shInfo struct {
@@ -69,14 +70,13 @@ func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
 }
 
 func TestFindLastCommonBlock(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	zap, logErr := zapLogger.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(zap)
 
@@ -89,30 +89,86 @@ func TestFindLastCommonBlock(t *testing.T) {
 		expectedHeight  int
 		expectedBlockID proto.BlockID
 	}{
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkB...),
-			error: true},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkB...),
-			error: true},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkA...),
-			error: false, expectedHeight: 5, expectedBlockID: forkA[4].id},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkA...),
-			error: false, expectedHeight: 15, expectedBlockID: forkA[4].id},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 2, forkA[1:]...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3]),
-			error: false, expectedHeight: 3, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3]),
-			error: false, expectedHeight: 13, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 2, forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 12, forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 2, forkA[1:]...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedBlockID: forkA[2].id},
-		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedBlockID: forkA[2].id},
+		{
+			eventsA: mkEvents("A", 1, forkA...),
+			eventsB: mkEvents("B", 1, forkB...),
+			error:   true,
+		},
+		{
+			eventsA: mkEvents("A", 11, forkA...),
+			eventsB: mkEvents("B", 11, forkB...),
+			error:   true,
+		},
+		{
+			eventsA:         mkEvents("A", 1, forkA...),
+			eventsB:         mkEvents("B", 1, forkA...),
+			error:           false,
+			expectedHeight:  5,
+			expectedBlockID: forkA[4].id,
+		},
+		{
+			eventsA:         mkEvents("A", 11, forkA...),
+			eventsB:         mkEvents("B", 11, forkA...),
+			error:           false,
+			expectedHeight:  15,
+			expectedBlockID: forkA[4].id,
+		},
+		{
+			eventsA:         mkEvents("A", 1, forkA...),
+			eventsB:         mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  3,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 11, forkA...),
+			eventsB:         mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  13,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 2, forkA[1:]...),
+			eventsB:         mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3]),
+			error:           false,
+			expectedHeight:  3,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 12, forkA[1:]...),
+			eventsB:         mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3]),
+			error:           false,
+			expectedHeight:  13,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 1, forkA...),
+			eventsB:         mkEvents("B", 2, forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  3,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 11, forkA...),
+			eventsB:         mkEvents("B", 12, forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  13,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 2, forkA[1:]...),
+			eventsB:         mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  3,
+			expectedBlockID: forkA[2].id,
+		},
+		{
+			eventsA:         mkEvents("A", 12, forkA[1:]...),
+			eventsB:         mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:           false,
+			expectedHeight:  13,
+			expectedBlockID: forkA[2].id,
+		},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
@@ -132,14 +188,13 @@ func TestFindLastCommonBlock(t *testing.T) {
 }
 
 func TestFindLastCommonStateHash(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	zap, logErr := zapLogger.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(zap)
 
@@ -153,33 +208,94 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		expectedStateHash  proto.StateHash
 		linearSearchParams *linearSearchParams
 	}{
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkB...),
-			error: true},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkB...),
-			error: true},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkA...),
-			error: false, expectedHeight: 5, expectedStateHash: forkA[4].sh},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkA...),
-			error: false, expectedHeight: 15, expectedStateHash: forkA[4].sh},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 2, forkA[1:]...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3]),
-			error: false, expectedHeight: 3, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3]),
-			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 1, forkA...), eventsB: mkEvents("B", 2, forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 11, forkA...), eventsB: mkEvents("B", 12, forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 2, forkA[1:]...), eventsB: mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 3, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh},
-		{eventsA: mkEvents("A", 12, forkA[1:]...), eventsB: mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error: false, expectedHeight: 13, expectedStateHash: forkA[2].sh,
-			linearSearchParams: &linearSearchParams{searchDepth: 4}},
+		{
+			eventsA: mkEvents("A", 1, forkA...),
+			eventsB: mkEvents("B", 1, forkB...),
+			error:   true,
+		},
+		{
+			eventsA: mkEvents("A", 11, forkA...),
+			eventsB: mkEvents("B", 11, forkB...),
+			error:   true,
+		},
+		{
+			eventsA:           mkEvents("A", 1, forkA...),
+			eventsB:           mkEvents("B", 1, forkA...),
+			error:             false,
+			expectedHeight:    5,
+			expectedStateHash: forkA[4].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 11, forkA...),
+			eventsB:           mkEvents("B", 11, forkA...),
+			error:             false,
+			expectedHeight:    15,
+			expectedStateHash: forkA[4].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 1, forkA...),
+			eventsB:           mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    3,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 11, forkA...),
+			eventsB:           mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    13,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 2, forkA[1:]...),
+			eventsB:           mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3]),
+			error:             false,
+			expectedHeight:    3,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 12, forkA[1:]...),
+			eventsB:           mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3]),
+			error:             false,
+			expectedHeight:    13,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 1, forkA...),
+			eventsB:           mkEvents("B", 2, forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    3,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 11, forkA...),
+			eventsB:           mkEvents("B", 12, forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    13,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 2, forkA[1:]...),
+			eventsB:           mkEvents("B", 1, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    3,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:           mkEvents("A", 12, forkA[1:]...),
+			eventsB:           mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    13,
+			expectedStateHash: forkA[2].sh,
+		},
+		{
+			eventsA:            mkEvents("A", 12, forkA[1:]...),
+			eventsB:            mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:              false,
+			expectedHeight:     13,
+			expectedStateHash:  forkA[2].sh,
+			linearSearchParams: &linearSearchParams{searchDepth: 4},
+		},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
@@ -202,5 +318,5 @@ func TestFindLastCommonStateHash(t *testing.T) {
 }
 
 func TestErrNoStateHashError(t *testing.T) {
-	require.Equal(t, events.NoFullStatementError, ErrNoFullStatement)
+	require.Equal(t, events.ErrNoFullStatement, ErrNoFullStatement)
 }

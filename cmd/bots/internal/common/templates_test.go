@@ -7,19 +7,22 @@ import (
 	"path/filepath"
 	"testing"
 
+	commonMessages "nodemon/cmd/bots/internal/common/messages"
+	"nodemon/pkg/entities"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	commonMessages "nodemon/cmd/bots/internal/common/messages"
-	"nodemon/pkg/entities"
 )
-
-var formats = []ExpectedExtension{Html, Markdown}
 
 var (
 	update = flag.Bool("update", false, "update the golden files of this test")
 )
+
+func expectedFormats() []ExpectedExtension {
+	return []ExpectedExtension{HTML, Markdown}
+}
 
 func TestMain(m *testing.M) {
 	flag.Parse()
@@ -53,7 +56,7 @@ func TestBaseTargetTemplate(t *testing.T) {
 		},
 		Threshold: 101,
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/base_target_alert"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -67,7 +70,7 @@ func TestUnreachableTemplate(t *testing.T) {
 		Timestamp: 100,
 		Node:      "node",
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/unreachable_alert"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -86,12 +89,12 @@ func TestAlertFixed(t *testing.T) {
 		Fixed: unreachable,
 	}
 
-	fixedStatement := fixedStatement{
+	statement := fixedStatement{
 		PreviousAlert: data.Fixed.ShortDescription(),
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/alert_fixed"
-		actual, err := executeTemplate(template, fixedStatement, f)
+		actual, err := executeTemplate(template, statement, f)
 		require.NoError(t, err)
 		expected := goldenValue(t, template, f, actual)
 		assert.Equal(t, expected, actual)
@@ -110,7 +113,7 @@ func TestHeightTemplate(t *testing.T) {
 		},
 	}
 
-	heightStatement := heightStatement{
+	statement := heightStatement{
 		HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
 		FirstGroup: heightStatementGroup{
 			Nodes:  heightAlert.MaxHeightGroup.Nodes,
@@ -121,9 +124,9 @@ func TestHeightTemplate(t *testing.T) {
 			Height: heightAlert.OtherHeightGroup.Height,
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/height_alert"
-		actual, err := executeTemplate(template, heightStatement, f)
+		actual, err := executeTemplate(template, statement, f)
 		require.NoError(t, err)
 		expected := goldenValue(t, template, f, actual)
 		assert.Equal(t, expected, actual)
@@ -162,24 +165,23 @@ func generateStateHashes(o, n int) []shInfo {
 }
 
 func TestStateHashTemplate(t *testing.T) {
-
-	shInfo := generateStateHashes(1, 5)
+	stateHashInfo := generateStateHashes(1, 5)
 	stateHashAlert := &entities.StateHashAlert{
 		CurrentGroupsBucketHeight: 100,
 		LastCommonStateHashExist:  true,
 		LastCommonStateHashHeight: 1,
-		LastCommonStateHash:       shInfo[0].sh,
+		LastCommonStateHash:       stateHashInfo[0].sh,
 		FirstGroup: entities.StateHashGroup{
 			Nodes:     entities.Nodes{"a"},
-			StateHash: shInfo[0].sh,
+			StateHash: stateHashInfo[0].sh,
 		},
 		SecondGroup: entities.StateHashGroup{
 			Nodes:     entities.Nodes{"b"},
-			StateHash: shInfo[0].sh,
+			StateHash: stateHashInfo[0].sh,
 		},
 	}
 
-	stateHashStatement := stateHashStatement{
+	statement := stateHashStatement{
 		SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
 		LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
 		ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
@@ -197,9 +199,9 @@ func TestStateHashTemplate(t *testing.T) {
 			StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/state_hash_alert"
-		actual, err := executeTemplate(template, stateHashStatement, f)
+		actual, err := executeTemplate(template, statement, f)
 		require.NoError(t, err)
 		expected := goldenValue(t, template, f, actual)
 		assert.Equal(t, expected, actual)
@@ -210,7 +212,7 @@ func TestIncompleteTemplate(t *testing.T) {
 	data := &entities.IncompleteAlert{
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/incomplete_alert"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -223,7 +225,7 @@ func TestInternalErrorTemplate(t *testing.T) {
 	data := &entities.InternalErrorAlert{
 		Error: "error",
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/internal_error_alert"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -236,7 +238,7 @@ func TestInvalidHeightTemplate(t *testing.T) {
 	data := &entities.InvalidHeightAlert{
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/alerts/invalid_height_alert"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -254,10 +256,9 @@ func TestNodesListTemplateHTML(t *testing.T) {
 	}
 	const (
 		template = "templates/nodes_list"
-		ext      = Html
+		ext      = HTML
 	)
-	urls, err := nodesToUrls(data)
-	require.NoError(t, err)
+	urls := nodesToUrls(data)
 	actual, err := executeTemplate(template, urls, ext)
 	require.NoError(t, err)
 	expected := goldenValue(t, template, ext, actual)
@@ -274,7 +275,7 @@ func TestNodeStatementTemplateHTML(t *testing.T) {
 	}
 	const (
 		template = "templates/node_statement"
-		ext      = Html
+		ext      = HTML
 	)
 	actual, err := executeTemplate(template, data, ext)
 	require.NoError(t, err)
@@ -289,7 +290,7 @@ func TestSubscriptionsTemplateHTML(t *testing.T) {
 	}
 	const (
 		template = "templates/subscriptions"
-		ext      = Html
+		ext      = HTML
 	)
 	actual, err := executeTemplate(template, data, ext)
 	require.NoError(t, err)
@@ -321,7 +322,7 @@ func TestNodesStatusDifferentHashesTemplate(t *testing.T) {
 			BlockID: "one-more-block-id",
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/nodes_status_different_hashes"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -354,7 +355,7 @@ func TestNodesStatusDifferentHeightsTemplate(t *testing.T) {
 			BlockID: "one-more-block-id",
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/nodes_status_different_heights"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -387,7 +388,7 @@ func TestNodesStatusOkTemplate(t *testing.T) {
 			BlockID: "one-more-block-id",
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/nodes_status_ok"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -402,7 +403,7 @@ func TestNodesStatusOkShortTemplate(t *testing.T) {
 		NodesNumber: 101,
 		Height:      "31425 (this_should_be_a_string_probably)",
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/nodes_status_ok_short"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)
@@ -435,7 +436,7 @@ func TestNodesStatusUnavailableTemplate(t *testing.T) {
 			BlockID: "one-more-block-id",
 		},
 	}
-	for _, f := range formats {
+	for _, f := range expectedFormats() {
 		const template = "templates/nodes_status_unavailable"
 		actual, err := executeTemplate(template, data, f)
 		require.NoError(t, err)

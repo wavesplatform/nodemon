@@ -1,9 +1,10 @@
 package analysis
 
 import (
+	"nodemon/pkg/entities"
+
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 const (
@@ -63,7 +64,11 @@ func defaultAlertConfirmations() alertConfirmations {
 	}
 }
 
-func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations, logger *zap.Logger) *alertsStorage {
+func newAlertsStorage(
+	alertBackoff, alertVacuumQuota int,
+	requiredConfirmations alertConfirmations,
+	logger *zap.Logger,
+) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:          alertBackoff,
 		alertVacuumQuota:      alertVacuumQuota,
@@ -73,7 +78,7 @@ func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations 
 	}
 }
 
-func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
+func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	if s.alertVacuumQuota <= 1 { // no need to save alerts which can't outlive even one vacuum stage
 		return true
 	}
@@ -127,7 +132,7 @@ func (s *alertsStorage) Vacuum() []entities.Alert {
 	var alertsFixed []entities.Alert
 	for _, id := range s.internalStorage.ids() {
 		info := s.internalStorage[id]
-		info.vacuumQuota -= 1
+		info.vacuumQuota--
 		if info.vacuumQuota <= 0 {
 			if info.confirmed {
 				alertsFixed = append(alertsFixed, info.alert)

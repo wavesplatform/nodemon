@@ -3,11 +3,12 @@ package criteria
 import (
 	"strings"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 const (
@@ -36,7 +37,7 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, 
 	return &StateHashCriterion{opts: opts, es: es, zap: zap}
 }
 
-func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
+func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, statements entities.NodeStatements) error {
 	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
 		var statementsAtBucketHeight entities.NodeStatements
@@ -53,19 +54,22 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, timestamp int
 					var err error
 					statementAtBucketHeight, err = c.es.GetFullStatementAtHeight(statement.Node, bucketHeight)
 					if err != nil {
-						if errors.Is(err, events.NoFullStatementError) {
-							c.zap.Sugar().Warnf("StateHashCriterion: No full statement for node %q with height %d at bucketHeight %d: %v",
-								statement.Node, statement.Height, bucketHeight, err,
+						if !errors.Is(err, events.ErrNoFullStatement) {
+							return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d",
+								bucketHeight,
 							)
-							continue
 						}
-						return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
+						c.zap.Sugar().Warnf(
+							"StateHashCriterion: No full statement for node %q with height %d at bucketHeight %d: %v",
+							statement.Node, statement.Height, bucketHeight, err,
+						)
+						continue
 					}
 				}
 				statementsAtBucketHeight = append(statementsAtBucketHeight, statementAtBucketHeight)
 			}
 		}
-		if err := c.analyzeNodesOnSameHeight(alerts, bucketHeight, timestamp, statementsAtBucketHeight); err != nil {
+		if err := c.analyzeNodesOnSameHeight(alerts, bucketHeight, ts, statementsAtBucketHeight); err != nil {
 			return errors.Wrapf(err, "failed to analyze statehash for nodes at bucketHeight=%d", bucketHeight)
 		}
 	}
@@ -103,13 +107,15 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			if err != nil {
 				switch {
 				case errors.Is(err, finders.ErrNoFullStatement):
-					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
+					c.zap.Sugar().Warnf(
+						"StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
 						first.Node, second.Node, err,
 					)
 					continue
 				case errors.Is(err, finders.ErrNoCommonBlocks):
 					lastCommonStateHashExist = false
-					c.zap.Sugar().Warnf("StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
+					c.zap.Sugar().Warnf(
+						"StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
 						first.Node, second.Node, err,
 					)
 				default:
@@ -123,9 +129,13 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			if forkDepth > 0 {
 				c.zap.Info("StateHashCriterion: fork detected",
 					zap.Int("Fork depth", forkDepth),
-					zap.String("First group", strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", ")),
+					zap.String("First group",
+						strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", "),
+					),
 					zap.String("First group StateHash", first.StateHash.SumHash.Hex()),
-					zap.String("Second group", strings.Join(splitStateHash[second.StateHash.SumHash].Nodes().Sort(), ", ")),
+					zap.String("Second group", strings.Join(
+						splitStateHash[second.StateHash.SumHash].Nodes().Sort(), ", "),
+					),
 					zap.String("Second group StateHash", second.StateHash.SumHash.Hex()))
 			}
 

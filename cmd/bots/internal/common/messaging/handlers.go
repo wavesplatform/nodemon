@@ -3,120 +3,116 @@ package messaging
 import (
 	"fmt"
 
-	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
+
+	"github.com/pkg/errors"
 )
 
-var (
+const (
 	insufficientPermissionMsg = "Sorry, you have no right to add a new node"
-	incorrectUrlMsg           = "Sorry, the url seems to be incorrect"
+	incorrectURLMsg           = "Sorry, the url seems to be incorrect"
 )
 
 var (
-	InsufficientPermissionsError = errors.New("insufficient permissions")
-	IncorrectUrlError            = errors.New("incorrect url")
+	ErrInsufficientPermissions = errors.New("insufficient permissions")
+	ErrIncorrectURL            = errors.New("incorrect url")
 )
 
 func AddNewNodeHandler(
 	chatID string,
 	bot Bot,
-	requestType chan<- pair.RequestPair,
+	requestChan chan<- pair.Request,
 	url string,
-	specific bool) (string, error) {
-
+	specific bool,
+) (string, error) {
 	if !bot.IsEligibleForAction(chatID) {
-		return insufficientPermissionMsg, InsufficientPermissionsError
+		return insufficientPermissionMsg, ErrInsufficientPermissions
 	}
 
-	updatedUrl, err := entities.CheckAndUpdateURL(url)
+	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectUrlMsg, IncorrectUrlError
+		return incorrectURLMsg, ErrIncorrectURL
 	}
-	requestType <- &pair.InsertNewNodeRequest{Url: updatedUrl, Specific: specific}
+	requestChan <- &pair.InsertNewNodeRequest{URL: updatedURL, Specific: specific}
 
 	if specific {
-		return fmt.Sprintf("New specific node '%s' was added", updatedUrl), nil
+		return fmt.Sprintf("New specific node '%s' was added", updatedURL), nil
 	}
-
-	return fmt.Sprintf("New node '%s' was added", updatedUrl), nil
+	return fmt.Sprintf("New node '%s' was added", updatedURL), nil
 }
 
 func UpdateAliasHandler(
 	chatID string,
 	bot Bot,
-	requestType chan<- pair.RequestPair,
-	url string,
-	alias string) (string, error) {
-
+	requestChan chan<- pair.Request,
+	url, alias string,
+) (string, error) {
 	if !bot.IsEligibleForAction(chatID) {
-		return insufficientPermissionMsg, InsufficientPermissionsError
+		return insufficientPermissionMsg, ErrInsufficientPermissions
 	}
 
-	updatedUrl, err := entities.CheckAndUpdateURL(url)
+	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectUrlMsg, IncorrectUrlError
+		return incorrectURLMsg, ErrIncorrectURL
 	}
-	requestType <- &pair.UpdateNodeRequest{Url: updatedUrl, Alias: alias}
+	requestChan <- &pair.UpdateNodeRequest{URL: updatedURL, Alias: alias}
 
-	return fmt.Sprintf("Node '%s' was updated with alias %s", updatedUrl, alias), nil
+	return fmt.Sprintf("Node '%s' was updated with alias %s", updatedURL, alias), nil
 }
 
-func RemoveNodeHandler(
-	chatID string,
-	bot Bot,
-	requestType chan<- pair.RequestPair,
-	url string) (string, error) {
-
+func RemoveNodeHandler(chatID string, bot Bot, requestType chan<- pair.Request, url string) (string, error) {
 	if !bot.IsEligibleForAction(chatID) {
-		return insufficientPermissionMsg, InsufficientPermissionsError
+		return insufficientPermissionMsg, ErrInsufficientPermissions
 	}
 
-	updatedUrl, err := entities.CheckAndUpdateURL(url)
+	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectUrlMsg, IncorrectUrlError
+		return incorrectURLMsg, ErrIncorrectURL
 	}
-	requestType <- &pair.DeleteNodeRequest{Url: updatedUrl}
+	requestType <- &pair.DeleteNodeRequest{URL: updatedURL}
 
 	return fmt.Sprintf("Node '%s' was deleted", url), nil
 }
 
 func RequestNodesStatus(
-	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair,
-	urls []string) (*pair.NodesStatusResponse, error) {
-
-	requestType <- &pair.NodesStatusRequest{Urls: urls}
-	responsePair := <-responsePairType
-	nodesStatus, ok := responsePair.(*pair.NodesStatusResponse)
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+	urls []string,
+) (*pair.NodesStatusResponse, error) {
+	requestChan <- &pair.NodesStatusRequest{URLs: urls}
+	response := <-responseChan
+	nodesStatus, ok := response.(*pair.NodesStatusResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the nodes status type")
 	}
-
 	return nodesStatus, nil
-
 }
 
-func RequestNodes(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, specific bool) ([]entities.Node, error) {
-	requestType <- &pair.NodesListRequest{Specific: specific}
-	responsePair := <-responsePairType
-	nodesList, ok := responsePair.(*pair.NodesListResponse)
+func RequestNodes(
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+	specific bool,
+) ([]entities.Node, error) {
+	requestChan <- &pair.NodesListRequest{Specific: specific}
+	response := <-responseChan
+	nodesList, ok := response.(*pair.NodesListResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
 	return nodesList.Nodes, nil
 }
 
-func RequestAllNodes(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) ([]entities.Node, error) {
-	regularNodes, err := RequestNodes(requestType, responsePairType, false)
+func RequestAllNodes(requestChan chan<- pair.Request, responseChan <-chan pair.Response) ([]entities.Node, error) {
+	regularNodes, err := RequestNodes(requestChan, responseChan, false)
 	if err != nil {
 		return nil, err
 	}
-	specificNodes, err := RequestNodes(requestType, responsePairType, true)
+	specificNodes, err := RequestNodes(requestChan, responseChan, true)
 	if err != nil {
 		return nil, err
 	}
-	var nodes []entities.Node
+	nodes := make([]entities.Node, 0, len(regularNodes)+len(specificNodes))
 	nodes = append(nodes, regularNodes...)
 	nodes = append(nodes, specificNodes...)
 	return nodes, nil
@@ -130,13 +126,17 @@ func NodesToUrls(nodes []entities.Node) []string {
 	return urls
 }
 
-func RequestNodeStatement(requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair, node string, height int) (*pair.NodeStatementResponse, error) {
-	requestType <- &pair.NodeStatementRequest{Url: node, Height: height}
-	responsePair := <-responsePairType
-	nodeStatementResp, ok := responsePair.(*pair.NodeStatementResponse)
+func RequestNodeStatement(
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+	node string,
+	height int,
+) (*pair.NodeStatementResponse, error) {
+	requestChan <- &pair.NodeStatementRequest{URL: node, Height: height}
+	response := <-responseChan
+	nodeStatementResp, ok := response.(*pair.NodeStatementResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the node list type")
 	}
-
 	return nodeStatementResp, nil
 }

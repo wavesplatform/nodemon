@@ -1,8 +1,9 @@
 package messaging
 
 import (
-	"go.nanomsg.org/mangos/v3/protocol"
 	generalMessaging "nodemon/pkg/messaging"
+
+	"go.nanomsg.org/mangos/v3/protocol"
 )
 
 type Bot interface {

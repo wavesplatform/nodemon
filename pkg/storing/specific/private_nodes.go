@@ -1,14 +1,15 @@
-package private_nodes
+package specific
 
 import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
-	"nodemon/pkg/storing/nodes"
+	nodesStor "nodemon/pkg/storing/nodes"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type PrivateNodesEventsWriter interface {
@@ -43,7 +44,11 @@ type PrivateNodesHandler struct {
 	privateEvents *privateNodesEvents
 }
 
-func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns nodes.Storage, zap *zap.Logger) (*PrivateNodesHandler, error) {
+func NewPrivateNodesHandlerWithUnreachableInitialState(
+	es *events.Storage,
+	ns nodesStor.Storage,
+	zap *zap.Logger,
+) (*PrivateNodesHandler, error) {
 	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get specific nodes")
@@ -56,7 +61,11 @@ func NewPrivateNodesHandlerWithUnreachableInitialState(es *events.Storage, ns no
 	return NewPrivateNodesHandler(es, zap, initialPrivateNodesEvents...), nil
 }
 
-func NewPrivateNodesHandler(es *events.Storage, zap *zap.Logger, initial ...entities.EventProducerWithTimestamp) *PrivateNodesHandler {
+func NewPrivateNodesHandler(
+	es *events.Storage,
+	zap *zap.Logger,
+	initial ...entities.EventProducerWithTimestamp,
+) *PrivateNodesHandler {
 	pe := newPrivateNodesEvents()
 	for _, producer := range initial {
 		pe.unsafeWrite(producer)
@@ -93,24 +102,36 @@ func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {
 	}
 	switch e := e.(type) {
 	case *entities.InvalidHeightEvent:
-		h.zap.Sugar().Infof("Statement produced by (%T) for private node %s has been put into the storage, height %d", e, e.Node(), e.Height())
+		h.zap.Sugar().Infof(
+			"Statement produced by (%T) for private node %s has been put into the storage, height %d",
+			e, e.Node(), e.Height(),
+		)
 	case *entities.StateHashEvent:
-		h.zap.Sugar().Infof("Statement produced by (%T) for private node %s has been put into the storage, height %d, statehash %s",
+		h.zap.Sugar().Infof(
+			"Statement produced by (%T) for private node %s has been put into the storage, height %d, statehash %s",
 			e, e.Node(), e.Height(), e.StateHash().SumHash.Hex(),
 		)
 	default:
-		h.zap.Sugar().Warnf("Statement produced by unexpected (%T) for private node %s has been put into the storage", e, e.Node())
+		h.zap.Sugar().Warnf(
+			"Statement produced by unexpected (%T) for private node %s has been put into the storage",
+			e, e.Node(),
+		)
 	}
 	return nil
 }
 
-func (h *PrivateNodesHandler) Run(input <-chan entities.NodesGatheringNotification) <-chan entities.NodesGatheringNotification {
+func (h *PrivateNodesHandler) Run(
+	input <-chan entities.NodesGatheringNotification,
+) <-chan entities.NodesGatheringNotification {
 	output := make(chan entities.NodesGatheringNotification)
 	go h.handlePrivateEvents(input, output)
 	return output
 }
 
-func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.NodesGatheringNotification, output chan<- entities.NodesGatheringNotification) {
+func (h *PrivateNodesHandler) handlePrivateEvents(
+	input <-chan entities.NodesGatheringNotification,
+	output chan<- entities.NodesGatheringNotification,
+) {
 	defer close(output)
 	for notification := range input {
 		var (
@@ -118,7 +139,9 @@ func (h *PrivateNodesHandler) handlePrivateEvents(input <-chan entities.NodesGat
 			polledNodes = notification.Nodes()
 		)
 		storedPrivateNodes := h.putPrivateNodesEvents(ts)
-		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d", len(storedPrivateNodes), ts)
+		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d",
+			len(storedPrivateNodes), ts,
+		)
 		output <- entities.NewNodesGatheringComplete(append(polledNodes, storedPrivateNodes...), ts)
 	}
 }

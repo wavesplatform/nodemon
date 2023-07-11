@@ -1,31 +1,31 @@
 package pair
 
-type RequestPair interface{ requestMarker() }
+type Request interface{ requestMarker() }
 
 type NodesListRequest struct {
 	Specific bool
 }
 
 type NodesStatusRequest struct {
-	Urls []string
+	URLs []string
 }
 
 type InsertNewNodeRequest struct {
-	Url      string
+	URL      string
 	Specific bool
 }
 
 type UpdateNodeRequest struct {
-	Url   string
+	URL   string
 	Alias string
 }
 
 type DeleteNodeRequest struct {
-	Url string
+	URL string
 }
 
 type NodeStatementRequest struct {
-	Url    string
+	URL    string
 	Height int
 }
 

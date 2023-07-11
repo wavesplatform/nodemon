@@ -1,13 +1,14 @@
-package init
+package initial
 
 import (
+	"nodemon/cmd/bots/internal/common"
+	"nodemon/cmd/bots/internal/telegram/config"
+	"nodemon/pkg/messaging/pair"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 	tele "gopkg.in/telebot.v3"
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/telegram/config"
-	"nodemon/pkg/messaging/pair"
 )
 
 func InitTgBot(behavior string,
@@ -16,8 +17,8 @@ func InitTgBot(behavior string,
 	botToken string,
 	chatID int64,
 	logger *zap.Logger,
-	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair,
+	requestType chan<- pair.Request,
+	responsePairType <-chan pair.Response,
 ) (*common.TelegramBotEnvironment, error) {
 	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
@@ -38,8 +39,8 @@ func InitDiscordBot(
 	botToken string,
 	chatID string,
 	logger *zap.Logger,
-	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair,
+	requestType chan<- pair.Request,
+	responsePairType <-chan pair.Response,
 ) (*common.DiscordBotEnvironment, error) {
 	bot, err := discordgo.New("Bot " + botToken)
 	if err != nil {

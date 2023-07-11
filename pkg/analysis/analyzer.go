@@ -5,11 +5,12 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type AnalyzerOptions struct {
@@ -76,9 +77,9 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 	for _, f := range routines {
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
-			if err := f(criteriaOut); err != nil {
-				a.zap.Error("Error occurred on criterion routine", zap.Error(err))
-				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), err)
+			if routineErr := f(criteriaOut); routineErr != nil {
+				a.zap.Error("Error occurred on criterion routine", zap.Error(routineErr))
+				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), routineErr)
 			}
 		}(f)
 	}
@@ -112,7 +113,10 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 	return nil
 }
 
-func (a *Analyzer) criteriaRoutines(statements entities.NodeStatements, timestamp int64) []func(in chan<- entities.Alert) error {
+func (a *Analyzer) criteriaRoutines(
+	statements entities.NodeStatements,
+	timestamp int64,
+) []func(in chan<- entities.Alert) error {
 	statusSplit := statements.SplitByNodeStatus()
 	for _, nodeStatements := range statusSplit {
 		nodeStatements.SortByNodeAsc()
@@ -175,8 +179,8 @@ func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.
 		return errors.Wrap(err, "failed to get statements count")
 	}
 	a.zap.Sugar().Infof("Total statements count: %d", cnt)
-	if err := a.analyze(alerts, n); err != nil {
-		return errors.Wrap(err, "failed to analyze nodes statements")
+	if analyzeErr := a.analyze(alerts, n); analyzeErr != nil {
+		return errors.Wrap(analyzeErr, "failed to analyze nodes statements")
 	}
 	return nil
 }

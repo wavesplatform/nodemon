@@ -1,11 +1,12 @@
 package pair
 
 import (
-	"github.com/wavesplatform/gowaves/pkg/proto"
 	"nodemon/pkg/entities"
+
+	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
-type ResponsePair interface{ responseMarker() }
+type Response interface{ responseMarker() }
 
 type NodesListResponse struct {
 	Nodes []entities.Node `json:"nodes"`
@@ -28,7 +29,7 @@ func (nl *NodesStatusResponse) responseMarker() {}
 func (nl *NodeStatementResponse) responseMarker() {}
 
 type NodeStatement struct {
-	Url       string              `json:"url"`
+	URL       string              `json:"url"`
 	StateHash *proto.StateHash    `json:"statehash"`
 	Height    int                 `json:"height"`
 	Status    entities.NodeStatus `json:"status"`

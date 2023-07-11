@@ -11,23 +11,26 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
+	nodesStor "nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/specific"
+
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/events"
-	"nodemon/pkg/storing/nodes"
-	"nodemon/pkg/storing/private_nodes"
 )
+
+const megabyte = 1 << 20
 
 type API struct {
 	srv                *http.Server
-	nodesStorage       nodes.Storage
+	nodesStorage       nodesStor.Storage
 	eventsStorage      *events.Storage
 	zap                *zap.Logger
-	privateNodesEvents private_nodes.PrivateNodesEventsWriter
+	privateNodesEvents specific.PrivateNodesEventsWriter
 	atom               *zap.AtomicLevel
 }
 
@@ -35,8 +38,22 @@ type mwLog struct{ *zap.Logger }
 
 func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
 
-func NewAPI(bind string, nodesStorage nodes.Storage, eventsStorage *events.Storage, apiReadTimeout time.Duration, logger *zap.Logger, privateNodesEvents private_nodes.PrivateNodesEventsWriter, atom *zap.AtomicLevel) (*API, error) {
-	a := &API{nodesStorage: nodesStorage, eventsStorage: eventsStorage, zap: logger, privateNodesEvents: privateNodesEvents, atom: atom}
+func NewAPI(
+	bind string,
+	nodesStorage nodesStor.Storage,
+	eventsStorage *events.Storage,
+	apiReadTimeout time.Duration,
+	logger *zap.Logger,
+	privateNodesEvents specific.PrivateNodesEventsWriter,
+	atom *zap.AtomicLevel,
+) (*API, error) {
+	a := &API{
+		nodesStorage:       nodesStorage,
+		eventsStorage:      eventsStorage,
+		zap:                logger,
+		privateNodesEvents: privateNodesEvents,
+		atom:               atom,
+	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
@@ -49,13 +66,13 @@ func NewAPI(bind string, nodesStorage nodes.Storage, eventsStorage *events.Stora
 }
 
 func (a *API) Start() error {
-	l, err := net.Listen("tcp", a.srv.Addr)
-	if err != nil {
-		return errors.Errorf("Failed to start REST API at '%s': %v", a.srv.Addr, err)
+	l, listenErr := net.Listen("tcp", a.srv.Addr)
+	if listenErr != nil {
+		return errors.Errorf("Failed to start REST API at '%s': %v", a.srv.Addr, listenErr)
 	}
 	go func() {
 		err := a.srv.Serve(l)
-		if err != nil && err != http.ErrServerClosed {
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.zap.Sugar().Fatalf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
 		}
 	}()
@@ -80,32 +97,25 @@ func (a *API) routes() chi.Router {
 	return r
 }
 
-type NodeShortStatement struct {
+type nodeShortStatement struct {
 	Node    string `json:"node,omitempty"`
 	Version string `json:"version,omitempty"`
 	Height  int    `json:"height,omitempty"`
 }
 
-func DecodeValueFromBody(body io.ReadCloser, v interface{}) error {
-	if err := json.NewDecoder(body).Decode(v); err != nil {
-		return err
-	}
-	return nil
-}
-
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
-	buf, err := io.ReadAll(r.Body)
+	body, err := io.ReadAll(io.LimitReader(r.Body, megabyte))
 	if err != nil {
 		a.zap.Error("Failed to read request body", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
 		return
 	}
 	// TODO remove these readers after implementing proper statehash structure
-	stateHashReader := io.NopCloser(bytes.NewBuffer(buf))
-	statementReader := io.NopCloser(bytes.NewBuffer(buf))
-	statehash := &proto.StateHash{}
+	stateHashReader := io.NopCloser(bytes.NewBuffer(body))
+	statementReader := io.NopCloser(bytes.NewBuffer(body))
 
-	err = DecodeValueFromBody(stateHashReader, statehash)
+	statehash := &proto.StateHash{}
+	err = json.NewDecoder(stateHashReader).Decode(statehash)
 	if err != nil {
 		a.zap.Error("Failed to decode statehash", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
@@ -113,25 +123,23 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	nodeName := r.Header.Get("node-name")
-	escapedNodeName := strings.Replace(nodeName, "\n", "", -1)
-	escapedNodeName = strings.Replace(escapedNodeName, "\r", "", -1)
+	escapedNodeName := strings.ReplaceAll(nodeName, "\n", "")
+	escapedNodeName = strings.ReplaceAll(escapedNodeName, "\r", "")
 
-	statement := NodeShortStatement{}
+	statement := nodeShortStatement{}
 	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
 		a.zap.Error("Failed to decode a specific nodes statement", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
-	updatedUrl, err := entities.CheckAndUpdateURL(escapedNodeName)
+	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
 		a.zap.Error("Failed to check and update node's url", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusInternalServerError)
 		return
 	}
-	statement.Node = updatedUrl
-
-	var mockTs int64 = 0
+	statement.Node = updatedURL
 
 	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
 	if err != nil {
@@ -140,39 +148,59 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	foundInStorage := false
-	for _, enabled := range enabledSpecificNodes {
-		if enabled.URL == statement.Node {
-			foundInStorage = true
-		}
-	}
-
-	if !foundInStorage {
-		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon", zap.String("node", statement.Node))
+	if !specificNodeFoundInStorage(enabledSpecificNodes, statement) {
+		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon",
+			zap.String("node", statement.Node),
+		)
 		w.WriteHeader(http.StatusForbidden)
 		return
 	}
-
+	const (
+		zeroTS = 0 // timestamp stub
+		zeroBT = 0 // base target stub
+	)
 	if statement.Height < 2 {
-		invalidHeightEvent := entities.NewInvalidHeightEvent(statement.Node, mockTs, statement.Version, statement.Height)
+		invalidHeightEvent := entities.NewInvalidHeightEvent(
+			statement.Node,
+			zeroTS,
+			statement.Version,
+			statement.Height,
+		)
 		a.privateNodesEvents.Write(invalidHeightEvent)
 		return
 	}
-
-	stateHashEvent := entities.NewStateHashEvent(statement.Node, mockTs, statement.Version, statement.Height, statehash, 0) // TODO: these nodes don't send base target value at the moment
+	// TODO: these nodes don't send base target value at the moment
+	stateHashEvent := entities.NewStateHashEvent(
+		statement.Node,
+		zeroTS,
+		statement.Version,
+		statement.Height,
+		statehash,
+		zeroBT,
+	)
 	a.privateNodesEvents.Write(stateHashEvent)
 
-	err = json.NewEncoder(w).Encode(statement)
-	if err != nil {
+	if err = json.NewEncoder(w).Encode(statement); err != nil {
 		a.zap.Error("Failed to marshal statements", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to marshal statements to JSON: %v", err), http.StatusInternalServerError)
 		return
 	}
 	w.WriteHeader(http.StatusOK)
 
-	sumhash := strings.Replace(statehash.SumHash.Hex(), "\n", "", -1)
-	sumhash = strings.Replace(sumhash, "\r", "", -1)
-	a.zap.Sugar().Infof("Statement for node %s has been received, height %d, statehash %s\n", escapedNodeName, statement.Height, sumhash)
+	sumhash := strings.ReplaceAll(statehash.SumHash.Hex(), "\n", "")
+	sumhash = strings.ReplaceAll(sumhash, "\r", "")
+	a.zap.Sugar().Infof("Statement for node %s has been received, height %d, statehash %s\n",
+		escapedNodeName, statement.Height, sumhash)
+}
+
+func specificNodeFoundInStorage(enabledSpecificNodes []entities.Node, statement nodeShortStatement) bool {
+	foundInStorage := false
+	for _, enabled := range enabledSpecificNodes {
+		if enabled.URL == statement.Node {
+			foundInStorage = true
+		}
+	}
+	return foundInStorage
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {

@@ -12,13 +12,21 @@ import (
 const (
 	PollingMethod = "polling"
 	WebhookMethod = "webhook"
-
-	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
 )
 
-func NewTgBotSettings(behavior string, webhookLocalAddress string, publicURL string, botToken string) (_ *tele.Settings, err error) {
+const (
+	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
+	longPollingTimeout    = 10 * time.Second
+)
 
-	if behavior == WebhookMethod {
+func NewTgBotSettings(
+	behavior string,
+	webhookLocalAddress string,
+	publicURL string,
+	botToken string,
+) (*tele.Settings, error) {
+	switch behavior {
+	case WebhookMethod:
 		if publicURL == "" {
 			return nil, errors.New("no public url for webhook method was provided")
 		}
@@ -30,35 +38,38 @@ func NewTgBotSettings(behavior string, webhookLocalAddress string, publicURL str
 			Token:  botToken,
 			Poller: webhook}
 		return &botSettings, nil
-	}
-	if behavior == PollingMethod {
-		// delete webhook if there is any
-		resp, formErr := http.PostForm(fmt.Sprintf(telegramRemoveWebhook, botToken), nil)
-		if formErr != nil {
-			return nil, errors.Wrap(formErr, "failed to remove webhook")
+	case PollingMethod:
+		if err := tryRemoveWebhookIfExists(botToken); err != nil {
+			return nil, errors.Wrap(err, "failed to remove webhook if exists")
 		}
-		resp.Close = true
-		defer func() {
-			if closeErr := resp.Body.Close(); closeErr != nil {
-				if err != nil {
-					err = errors.Wrap(err, closeErr.Error())
-				} else {
-					err = closeErr
-				}
-			}
-		}()
-
-		if resp.StatusCode == http.StatusInternalServerError {
-			return nil, errors.Wrap(err, "failed to remove webhook")
-		}
-
 		botSettings := tele.Settings{
 			Token:  botToken,
-			Poller: &tele.LongPoller{Timeout: 10 * time.Second},
+			Poller: &tele.LongPoller{Timeout: longPollingTimeout},
 		}
 		return &botSettings, nil
-
+	default:
+		return nil, errors.Errorf("wrong type of bot behavior %q was provided", behavior)
 	}
+}
 
-	return nil, errors.New("wrong type of bot behavior was provided")
+// tryRemoveWebhookIfExists deletes webhook if there is any.
+func tryRemoveWebhookIfExists(botToken string) (err error) {
+	resp, formErr := http.PostForm(fmt.Sprintf(telegramRemoveWebhook, botToken), nil)
+	if formErr != nil {
+		return errors.Wrap(formErr, "failed to remove webhook")
+	}
+	resp.Close = true
+	defer func() {
+		if closeErr := resp.Body.Close(); closeErr != nil {
+			if err != nil {
+				err = errors.Wrap(err, closeErr.Error())
+			} else {
+				err = closeErr
+			}
+		}
+	}()
+	if resp.StatusCode == http.StatusInternalServerError {
+		return errors.Wrap(err, "failed to remove webhook")
+	}
+	return nil
 }

@@ -1,4 +1,4 @@
-package criteria
+package criteria_test
 
 import (
 	"encoding/binary"
@@ -7,12 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
+
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	zapLogger "go.uber.org/zap"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/events"
 )
 
 func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event) {
@@ -93,14 +95,13 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 func TestStateHashCriterion_Analyze(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	zap, loggerErr := zapLogger.NewDevelopment()
+	if loggerErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", loggerErr)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(zap)
 
@@ -109,10 +110,10 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 		forkB             = generateStateHashes(50, 5)
 		forkC             = generateStateHashes(100, 5)
 		commonStateHashes = generateStateHashes(250, 5)
-		opts              = &StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 2}
+		opts              = &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 2}
 	)
 	tests := []struct {
-		opts           *StateHashCriterionOptions
+		opts           *criteria.StateHashCriterionOptions
 		historyData    []entities.Event
 		data           entities.NodeStatements
 		expectedAlerts []entities.StateHashAlert
@@ -220,8 +221,8 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute, zap)
-			require.NoError(t, err)
+			es, storageErr := events.NewStorage(time.Minute, zap)
+			require.NoError(t, storageErr)
 			done := make(chan struct{})
 			defer func() {
 				select {
@@ -236,9 +237,9 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewStateHashCriterion(es, test.opts, zap)
-				err := criterion.Analyze(alerts, 0, test.data)
-				require.NoError(t, err)
+				criterion := criteria.NewStateHashCriterion(es, test.opts, zap)
+				criteriaErr := criterion.Analyze(alerts, 0, test.data)
+				require.NoError(t, criteriaErr)
 			}()
 			for j := range test.expectedAlerts {
 				select {

@@ -6,9 +6,10 @@ import (
 	"path/filepath"
 	"sync"
 
+	"nodemon/pkg/entities"
+
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 type nodes []entities.Node
@@ -82,8 +83,8 @@ func (db dbStruct) SyncToFile(path string) error {
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal nodes db as json")
 	}
-	if err := os.WriteFile(path, data, 0600); err != nil {
-		return errors.Wrapf(err, "failed to write nodes db data to file '%s'", path)
+	if writeErr := os.WriteFile(path, data, 0600); writeErr != nil {
+		return errors.Wrapf(writeErr, "failed to write nodes db data to file '%s'", path)
 	}
 	return nil
 }
@@ -106,12 +107,12 @@ func NewJSONStorage(path string, nodes []string, logger *zap.Logger) (*JSONStora
 		return nil, errors.Wrap(err, "failed to read nodes file")
 	}
 	db := new(dbStruct)
-	if err := json.Unmarshal(data, db); err != nil {
-		return nil, errors.Wrapf(err, "failed to parse data as json from file '%s'", path)
+	if unmarshalErr := json.Unmarshal(data, db); unmarshalErr != nil {
+		return nil, errors.Wrapf(unmarshalErr, "failed to parse data as json from file '%s'", path)
 	}
 	s := &JSONStorage{mu: new(sync.RWMutex), db: db, dbFile: path, zap: logger}
-	if err := s.populate(nodes); err != nil {
-		return nil, errors.Wrapf(err, "failed to populate nodes storage")
+	if populateErr := s.populate(nodes); populateErr != nil {
+		return nil, errors.Wrapf(populateErr, "failed to populate nodes storage")
 	}
 	return s, nil
 }
@@ -122,9 +123,9 @@ func createDBFileIfNotExist(path string) error {
 		return nil
 	case errors.Is(err, os.ErrNotExist):
 		var empty dbStruct
-		data, err := json.Marshal(empty)
-		if err != nil {
-			return errors.Wrap(err, "failed to marshal empty db struct to json")
+		data, marshalErr := json.Marshal(empty)
+		if marshalErr != nil {
+			return errors.Wrap(marshalErr, "failed to marshal empty db struct to json")
 		}
 		return os.WriteFile(path, data, 0600)
 	default:

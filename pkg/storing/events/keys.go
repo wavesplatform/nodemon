@@ -49,11 +49,11 @@ func newStatementKeyFromString(key string) (statementKey, error) {
 	if err != nil {
 		return statementKey{}, errors.Wrapf(err, "failed to parse timestamp value to int from statement key %q", key)
 	}
-	statementKey := statementKey{
+	parsedKey := statementKey{
 		node:      nodeURL,
 		timestamp: ts,
 	}
-	return statementKey, nil
+	return parsedKey, nil
 }
 
 func newStatementKey(node, timestamp string) string {

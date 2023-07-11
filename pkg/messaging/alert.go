@@ -3,9 +3,10 @@ package messaging
 import (
 	"encoding/json"
 
+	"nodemon/pkg/entities"
+
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
-	"nodemon/pkg/entities"
 )
 
 type AlertMessage struct {
@@ -61,8 +62,8 @@ func (a AlertMessage) Data() []byte {
 	return a.data
 }
 
-func (a AlertMessage) MarshalBinary() (data []byte, err error) {
-	data = make([]byte, 0, 1+crypto.DigestSize+len(data))
+func (a AlertMessage) MarshalBinary() ([]byte, error) {
+	data := make([]byte, 0, 1+crypto.DigestSize+len(a.data))
 	data = append(data, byte(a.alertType))
 	data = append(data, a.referenceID[:]...)
 	data = append(data, a.data...)

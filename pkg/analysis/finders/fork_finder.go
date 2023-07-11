@@ -1,14 +1,15 @@
 package finders
 
 import (
+	"nodemon/pkg/storing/events"
+
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"nodemon/pkg/storing/events"
 )
 
 var (
 	ErrNoCommonBlocks  = errors.New("no common blocks")
-	ErrNoFullStatement = events.NoFullStatementError
+	ErrNoFullStatement = events.ErrNoFullStatement
 )
 
 type ForkFinder struct {
@@ -54,9 +55,9 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 	var r int
 	for start <= stop {
 		middle := (start + stop) / 2
-		different, err := f.differentBlocksAt(nodeA, nodeB, middle)
-		if err != nil {
-			return 0, proto.BlockID{}, err
+		different, storErr := f.differentBlocksAt(nodeA, nodeB, middle)
+		if storErr != nil {
+			return 0, proto.BlockID{}, storErr
 		}
 		if different {
 			stop = middle - 1
@@ -89,7 +90,7 @@ func (f *ForkFinder) tryLinearStateHashSearch(nodeA, nodeB string, start, stop i
 		h := stop - i
 		different, err := f.differentStateHashesAt(nodeA, nodeB, h)
 		if err != nil {
-			if errors.Is(err, events.NoFullStatementError) {
+			if errors.Is(err, events.ErrNoFullStatement) {
 				continue
 			}
 			return 0, proto.StateHash{}, errors.Wrapf(err,
@@ -131,8 +132,8 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 	h, sh, err := f.tryLinearStateHashSearch(nodeA, nodeB, start, stop)
 	switch {
 	case err != nil && !errors.Is(err, errNotFound):
-		err := errors.Wrapf(err, "linear statehash search failed for nodes '%s' and '%s'", nodeA, nodeB)
-		return 0, proto.StateHash{}, err
+		return 0, proto.StateHash{},
+			errors.Wrapf(err, "linear statehash search failed for nodes '%s' and '%s'", nodeA, nodeB)
 	case err == nil:
 		return h, sh, nil
 	}
@@ -140,10 +141,12 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 	var r int
 	for start <= stop {
 		middle := (start + stop) / 2
-		different, err := f.differentStateHashesAt(nodeA, nodeB, middle)
-		if err != nil {
-			err := errors.Wrapf(err, "binsearch failed for nodes '%s' and '%s' at height %d", nodeA, nodeB, middle)
-			return 0, proto.StateHash{}, err
+		different, storErr := f.differentStateHashesAt(nodeA, nodeB, middle)
+		if storErr != nil {
+			storErr = errors.Wrapf(storErr, "binsearch failed for nodes '%s' and '%s' at height %d",
+				nodeA, nodeB, middle,
+			)
+			return 0, proto.StateHash{}, storErr
 		}
 		if different {
 			stop = middle - 1

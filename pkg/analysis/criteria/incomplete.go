@@ -1,10 +1,11 @@
 package criteria
 
 import (
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type IncompleteCriterionOptions struct {
@@ -19,7 +20,11 @@ type IncompleteCriterion struct {
 	zap  *zap.Logger
 }
 
-func NewIncompleteCriterion(es *events.Storage, opts *IncompleteCriterionOptions, logger *zap.Logger) *IncompleteCriterion {
+func NewIncompleteCriterion(
+	es *events.Storage,
+	opts *IncompleteCriterionOptions,
+	logger *zap.Logger,
+) *IncompleteCriterion {
 	if opts == nil { // by default
 		opts = &IncompleteCriterionOptions{
 			Streak:                              3,
@@ -45,12 +50,13 @@ func (c *IncompleteCriterion) analyzeNode(alerts chan<- entities.Alert, statemen
 		depth  = 0
 	)
 	err := c.es.ViewStatementsByNodeWithDescendKeys(statement.Node, func(statement *entities.NodeStatement) bool {
-		if s := statement.Status; s == entities.Incomplete || (c.opts.ConsiderPrevUnreachableAsIncomplete && s == entities.Unreachable) {
-			streak += 1
+		s := statement.Status
+		if s == entities.Incomplete || (c.opts.ConsiderPrevUnreachableAsIncomplete && s == entities.Unreachable) {
+			streak++
 		} else {
 			streak = 0
 		}
-		depth += 1
+		depth++
 		if streak >= c.opts.Streak || depth >= c.opts.Depth {
 			return false
 		}

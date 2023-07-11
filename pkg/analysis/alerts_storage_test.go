@@ -4,9 +4,10 @@ import (
 	"log"
 	"testing"
 
+	"nodemon/pkg/entities"
+
 	"github.com/stretchr/testify/require"
 	zapLogger "go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 func TestAlertsStorage(t *testing.T) {
@@ -15,9 +16,8 @@ func TestAlertsStorage(t *testing.T) {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
 	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(zap)
 

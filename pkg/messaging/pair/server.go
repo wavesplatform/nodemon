@@ -5,22 +5,29 @@ import (
 	"encoding/json"
 	"strings"
 
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
+	nodesStor "nodemon/pkg/storing/nodes"
+
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pair"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/storing/events"
-	"nodemon/pkg/storing/nodes"
 )
 
-func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.Storage, es *events.Storage, logger *zap.Logger) error {
+func StartPairMessagingServer(
+	ctx context.Context,
+	nanomsgURL string,
+	ns nodesStor.Storage,
+	es *events.Storage,
+	logger *zap.Logger,
+) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		return errors.New("invalid nanomsg IPC URL for pair socket")
 	}
-	socketPair, err := pair.NewSocket()
-	if err != nil {
-		return err
+	socketPair, sockErr := pair.NewSocket()
+	if sockErr != nil {
+		return sockErr
 	}
 	defer func(socketPair protocol.Socket) {
 		if err := socketPair.Close(); err != nil {
@@ -37,15 +44,18 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.S
 		case <-ctx.Done():
 			return nil
 		default:
-			msg, err := socketPair.Recv()
-			if err != nil {
-				logger.Error("Failed to receive a message from pair socket", zap.Error(err))
+			msg, recvErr := socketPair.Recv()
+			if recvErr != nil {
+				logger.Error("Failed to receive a message from pair socket", zap.Error(recvErr))
 				return nil
 			}
 			request := RequestPairType(msg[0])
 			switch request {
 			case RequestNodeListT, RequestSpecificNodeListT:
-				var nodes []entities.Node
+				var (
+					nodes []entities.Node
+					err   error
+				)
 				if request == RequestNodeListT {
 					nodes, err = ns.Nodes(false)
 					if err != nil {
@@ -105,10 +115,10 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.S
 
 				statements, err := es.FindAllStateHashesOnCommonHeight(nodes)
 				switch {
-				case errors.Is(err, events.BigHeightDifference):
-					nodesStatusResp.ErrMessage = events.BigHeightDifference.Error()
-				case errors.Is(err, events.StorageIsNotReady):
-					nodesStatusResp.ErrMessage = events.StorageIsNotReady.Error()
+				case errors.Is(err, events.ErrBigHeightDifference):
+					nodesStatusResp.ErrMessage = events.ErrBigHeightDifference.Error()
+				case errors.Is(err, events.ErrStorageIsNotReady):
+					nodesStatusResp.ErrMessage = events.ErrStorageIsNotReady.Error()
 				default:
 					if err != nil {
 						logger.Error("failed to find all statehashes by last height", zap.Error(err))
@@ -116,7 +126,12 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.S
 				}
 
 				for _, statement := range statements {
-					nodeStat := NodeStatement{Height: statement.Height, StateHash: statement.StateHash, Url: statement.Node, Status: statement.Status}
+					nodeStat := NodeStatement{
+						Height:    statement.Height,
+						StateHash: statement.StateHash,
+						URL:       statement.Node,
+						Status:    statement.Status,
+					}
 					nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)
 				}
 				response, err := json.Marshal(nodesStatusResp)
@@ -151,7 +166,6 @@ func StartPairMessagingServer(ctx context.Context, nanomsgURL string, ns nodes.S
 			default:
 				logger.Error("Unknown request type", zap.String("request", string(request)))
 			}
-
 		}
 	}
 }

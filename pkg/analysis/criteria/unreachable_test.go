@@ -1,4 +1,4 @@
-package criteria
+package criteria_test
 
 import (
 	"fmt"
@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	zapLogger "go.uber.org/zap"
+	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+
+	"github.com/stretchr/testify/require"
+	zapLogger "go.uber.org/zap"
 )
 
 func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
@@ -21,9 +23,9 @@ func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
 }
 
 func TestUnreachableCriterion_Analyze(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	zap, logErr := zapLogger.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
 	defer func(zap *zapLogger.Logger) {
 		err := zap.Sync()
@@ -31,18 +33,17 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			log.Println(err)
 		}
 	}(zap)
-	var (
-		commonStateHashes = generateStateHashes(250, 5)
-	)
+
+	commonStateHashes := generateStateHashes(250, 5)
 	tests := []struct {
-		opts           *UnreachableCriterionOptions
+		opts           *criteria.UnreachableCriterionOptions
 		historyData    []entities.Event
 		data           entities.NodeStatements
 		timestamp      int64
 		expectedAlerts []entities.UnreachableAlert
 	}{
 		{
-			opts: &UnreachableCriterionOptions{Streak: 2, Depth: 3},
+			opts: &criteria.UnreachableCriterionOptions{Streak: 2, Depth: 3},
 			historyData: mergeEvents(
 				mkEvents("a", 1, commonStateHashes[:len(commonStateHashes)-1]...),
 				mkUnreachableEvents("a", len(commonStateHashes), 2),
@@ -55,7 +56,7 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			},
 		},
 		{
-			opts: &UnreachableCriterionOptions{Streak: 1, Depth: 2},
+			opts: &criteria.UnreachableCriterionOptions{Streak: 1, Depth: 2},
 			historyData: mergeEvents(
 				mkEvents("a", 1, commonStateHashes[:len(commonStateHashes)-1]...),
 				mkUnreachableEvents("a", len(commonStateHashes), 2),
@@ -88,9 +89,9 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := NewUnreachableCriterion(es, test.opts, zap)
-				err := criterion.Analyze(alerts, 0, test.data)
-				require.NoError(t, err)
+				criterion := criteria.NewUnreachableCriterion(es, test.opts, zap)
+				alanyzerErr := criterion.Analyze(alerts, 0, test.data)
+				require.NoError(t, alanyzerErr)
 			}()
 			for j := range test.expectedAlerts {
 				select {
