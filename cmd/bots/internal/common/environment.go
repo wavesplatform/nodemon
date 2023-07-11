@@ -691,159 +691,224 @@ func executeAlertTemplate(
 			nodesAliases[n.URL] = n.Alias
 		}
 	}
-	var msg string
+	var (
+		msg string
+		err error
+	)
 	switch alertType {
 	case entities.UnreachableAlertType:
-		var unreachableAlert entities.UnreachableAlert
-		err := json.Unmarshal(alertJSON, &unreachableAlert)
-		if err != nil {
-			return "", err
-		}
-
-		unreachableAlert.Node = replaceNodeWithAlias(unreachableAlert.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeUnreachableTemplate(alertJSON, nodesAliases, extension)
 	case entities.IncompleteAlertType:
-		var incompleteAlert entities.IncompleteAlert
-		err := json.Unmarshal(alertJSON, &incompleteAlert)
-		if err != nil {
-			return "", err
-		}
-		statement := incompleteAlert.NodeStatement
-		statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/incomplete_alert", statement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeIncompleteTemplate(alertJSON, nodesAliases, extension)
 	case entities.InvalidHeightAlertType:
-		var invalidHeightAlert entities.InvalidHeightAlert
-		err := json.Unmarshal(alertJSON, &invalidHeightAlert)
-		if err != nil {
-			return "", err
-		}
-		statement := invalidHeightAlert.NodeStatement
-
-		statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/invalid_height_alert", statement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeInvalidHeightTemplate(alertJSON, nodesAliases, extension)
 	case entities.HeightAlertType:
-		var heightAlert entities.HeightAlert
-		err := json.Unmarshal(alertJSON, &heightAlert)
-		if err != nil {
-			return "", err
-		}
-
-		for i := range heightAlert.MaxHeightGroup.Nodes {
-			heightAlert.MaxHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.MaxHeightGroup.Nodes[i], nodesAliases)
-		}
-		for i := range heightAlert.OtherHeightGroup.Nodes {
-			heightAlert.OtherHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.OtherHeightGroup.Nodes[i], nodesAliases)
-		}
-
-		statement := heightStatement{
-			HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
-			FirstGroup: heightStatementGroup{
-				Nodes:  heightAlert.MaxHeightGroup.Nodes,
-				Height: heightAlert.MaxHeightGroup.Height,
-			},
-			SecondGroup: heightStatementGroup{
-				Nodes:  heightAlert.OtherHeightGroup.Nodes,
-				Height: heightAlert.OtherHeightGroup.Height,
-			},
-		}
-
-		msg, err = executeTemplate("templates/alerts/height_alert", statement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeHeightTemplate(alertJSON, nodesAliases, extension)
 	case entities.StateHashAlertType:
-		var stateHashAlert entities.StateHashAlert
-		err := json.Unmarshal(alertJSON, &stateHashAlert)
-		if err != nil {
-			return "", err
-		}
-
-		for i := range stateHashAlert.FirstGroup.Nodes {
-			stateHashAlert.FirstGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.FirstGroup.Nodes[i], nodesAliases)
-		}
-		for i := range stateHashAlert.SecondGroup.Nodes {
-			stateHashAlert.SecondGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.SecondGroup.Nodes[i], nodesAliases)
-		}
-
-		statement := stateHashStatement{
-			SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
-			LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
-			ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
-			ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
-			ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
-
-			FirstGroup: stateHashStatementGroup{
-				BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
-				Nodes:     stateHashAlert.FirstGroup.Nodes,
-				StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
-			},
-			SecondGroup: stateHashStatementGroup{
-				BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
-				Nodes:     stateHashAlert.SecondGroup.Nodes,
-				StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
-			},
-		}
-
-		msg, err = executeTemplate("templates/alerts/state_hash_alert", statement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeStateHashTemplate(alertJSON, nodesAliases, extension)
 	case entities.AlertFixedType:
-		var alertFixed entities.AlertFixed
-		err := json.Unmarshal(alertJSON, &alertFixed)
-		if err != nil {
-			return "", err
-		}
-
-		statement := fixedStatement{
-			PreviousAlert: alertFixed.Fixed.ShortDescription(),
-		}
-		msg, err = executeTemplate("templates/alerts/alert_fixed", statement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeAlertFixed(alertJSON, extension)
 	case entities.BaseTargetAlertType:
-		var btAlert entities.BaseTargetAlert
-		err := json.Unmarshal(alertJSON, &btAlert)
-
-		for i := range btAlert.BaseTargetValues {
-			btAlert.BaseTargetValues[i].Node = replaceNodeWithAlias(btAlert.BaseTargetValues[i].Node, nodesAliases)
-		}
-
-		if err != nil {
-			return "", err
-		}
-
-		msg, err = executeTemplate("templates/alerts/base_target_alert", btAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeBaseTargetTemplate(alertJSON, nodesAliases, extension)
 	case entities.InternalErrorAlertType:
-		var internalErrorAlert entities.InternalErrorAlert
-		err := json.Unmarshal(alertJSON, &internalErrorAlert)
-		if err != nil {
-			return "", err
-		}
-		msg, err = executeTemplate("templates/alerts/internal_error_alert", internalErrorAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeInternalErrorTemplate(alertJSON, extension)
 	default:
-		return "", errors.New("unknown alert type")
+		return "", errors.Errorf("unknown alert type (%d)", alertType)
+	}
+	if err != nil {
+		return "", err
 	}
 
+	return msg, nil
+}
+
+func executeInternalErrorTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var internalErrorAlert entities.InternalErrorAlert
+	err := json.Unmarshal(alertJSON, &internalErrorAlert)
+	if err != nil {
+		return "", err
+	}
+	msg, err := executeTemplate("templates/alerts/internal_error_alert", internalErrorAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeBaseTargetTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var btAlert entities.BaseTargetAlert
+	err := json.Unmarshal(alertJSON, &btAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range btAlert.BaseTargetValues {
+		btAlert.BaseTargetValues[i].Node = replaceNodeWithAlias(btAlert.BaseTargetValues[i].Node, nodesAliases)
+	}
+
+	msg, err := executeTemplate("templates/alerts/base_target_alert", btAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeAlertFixed(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var alertFixed entities.AlertFixed
+	err := json.Unmarshal(alertJSON, &alertFixed)
+	if err != nil {
+		return "", err
+	}
+
+	statement := fixedStatement{
+		PreviousAlert: alertFixed.Fixed.ShortDescription(),
+	}
+	msg, err := executeTemplate("templates/alerts/alert_fixed", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeStateHashTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var stateHashAlert entities.StateHashAlert
+	err := json.Unmarshal(alertJSON, &stateHashAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range stateHashAlert.FirstGroup.Nodes {
+		stateHashAlert.FirstGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.FirstGroup.Nodes[i], nodesAliases)
+	}
+	for i := range stateHashAlert.SecondGroup.Nodes {
+		stateHashAlert.SecondGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.SecondGroup.Nodes[i], nodesAliases)
+	}
+
+	statement := stateHashStatement{
+		SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
+		LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
+		ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
+		ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
+		ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
+
+		FirstGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.FirstGroup.Nodes,
+			StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
+		},
+		SecondGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.SecondGroup.Nodes,
+			StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
+		},
+	}
+
+	msg, err := executeTemplate("templates/alerts/state_hash_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeHeightTemplate(alertJSON []byte, nodesAliases map[string]string, ext ExpectedExtension) (string, error) {
+	var heightAlert entities.HeightAlert
+	err := json.Unmarshal(alertJSON, &heightAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range heightAlert.MaxHeightGroup.Nodes {
+		heightAlert.MaxHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.MaxHeightGroup.Nodes[i], nodesAliases)
+	}
+	for i := range heightAlert.OtherHeightGroup.Nodes {
+		heightAlert.OtherHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.OtherHeightGroup.Nodes[i], nodesAliases)
+	}
+
+	statement := heightStatement{
+		HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
+		FirstGroup: heightStatementGroup{
+			Nodes:  heightAlert.MaxHeightGroup.Nodes,
+			Height: heightAlert.MaxHeightGroup.Height,
+		},
+		SecondGroup: heightStatementGroup{
+			Nodes:  heightAlert.OtherHeightGroup.Nodes,
+			Height: heightAlert.OtherHeightGroup.Height,
+		},
+	}
+
+	msg, err := executeTemplate("templates/alerts/height_alert", statement, ext)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeInvalidHeightTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var invalidHeightAlert entities.InvalidHeightAlert
+	err := json.Unmarshal(alertJSON, &invalidHeightAlert)
+	if err != nil {
+		return "", err
+	}
+	statement := invalidHeightAlert.NodeStatement
+
+	statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/invalid_height_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeIncompleteTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var incompleteAlert entities.IncompleteAlert
+	err := json.Unmarshal(alertJSON, &incompleteAlert)
+	if err != nil {
+		return "", err
+	}
+	statement := incompleteAlert.NodeStatement
+	statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/incomplete_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeUnreachableTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var unreachableAlert entities.UnreachableAlert
+	err := json.Unmarshal(alertJSON, &unreachableAlert)
+	if err != nil {
+		return "", err
+	}
+
+	unreachableAlert.Node = replaceNodeWithAlias(unreachableAlert.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
+	if err != nil {
+		return "", err
+	}
 	return msg, nil
 }
 
@@ -966,7 +1031,12 @@ func nodeURLToAlias(allNodes []entities.Node) map[string]string {
 	return nodesAliases
 }
 
-func sortedNodesByStatusWithHeight(resp *pair.NodesStatusResponse) (unavailable, ok []NodeStatus, height string) {
+func sortedNodesByStatusWithHeight(resp *pair.NodesStatusResponse) ([]NodeStatus, []NodeStatus, string) {
+	var (
+		unavailable []NodeStatus
+		okNodes     []NodeStatus
+		height      string
+	)
 	for _, stat := range resp.NodesStatus {
 		if stat.Status != entities.OK {
 			unavailable = append(unavailable, NodeStatus{URL: stat.URL})
@@ -979,12 +1049,12 @@ func sortedNodesByStatusWithHeight(resp *pair.NodesStatusResponse) (unavailable,
 				Height:  height,
 				BlockID: stat.StateHash.BlockID.String(),
 			}
-			ok = append(ok, s)
+			okNodes = append(okNodes, s)
 		}
 	}
 	sortNodesStatuses(unavailable)
-	sortNodesStatuses(ok)
-	return unavailable, ok, height
+	sortNodesStatuses(okNodes)
+	return unavailable, okNodes, height
 }
 
 type nodeStatement struct {

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"time"
@@ -15,8 +16,9 @@ const (
 )
 
 const (
-	telegramRemoveWebhook = "https://api.telegram.org/bot%s/setWebhook?remove"
-	longPollingTimeout    = 10 * time.Second
+	telegramRemoveWebhook        = "https://api.telegram.org/bot%s/setWebhook?remove"
+	telegramRemoveWebhookTimeout = 5 * time.Second
+	longPollingTimeout           = 10 * time.Second
 )
 
 func NewTgBotSettings(
@@ -54,10 +56,21 @@ func NewTgBotSettings(
 
 // tryRemoveWebhookIfExists deletes webhook if there is any.
 func tryRemoveWebhookIfExists(botToken string) (err error) {
-	resp, formErr := http.PostForm(fmt.Sprintf(telegramRemoveWebhook, botToken), nil)
-	if formErr != nil {
-		return errors.Wrap(formErr, "failed to remove webhook")
+	ctx, cancel := context.WithTimeout(context.Background(), telegramRemoveWebhookTimeout)
+	defer cancel()
+
+	url := fmt.Sprintf(telegramRemoveWebhook, botToken)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to create HTTP request with context")
 	}
+
+	cl := &http.Client{Timeout: telegramRemoveWebhookTimeout}
+	resp, err := cl.Do(req)
+	if err != nil {
+		return errors.Wrap(err, "failed to remove webhook")
+	}
+
 	resp.Close = true
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {

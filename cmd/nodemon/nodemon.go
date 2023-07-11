@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
 	"nodemon/pkg/storing/specific"
@@ -197,13 +198,38 @@ func run() error {
 		return apiErr
 	}
 
+	alerts := runAnalyzer(cfg, es, zap, notifications)
+
+	runMessagingServices(ctx, cfg, alerts, zap, ns, es)
+
+	<-ctx.Done()
+	a.Shutdown()
+	zap.Info("shutting down")
+	return nil
+}
+
+func runAnalyzer(
+	cfg *nodemonConfig,
+	es *eventsStorage.Storage,
+	zap *zapLogger.Logger,
+	notifications <-chan entities.NodesGatheringNotification,
+) <-chan entities.Alert {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: cfg.baseTargetThreshold},
 	}
 	analyzer := analysis.NewAnalyzer(es, opts, zap)
-
 	alerts := analyzer.Start(notifications)
+	return alerts
+}
 
+func runMessagingServices(
+	ctx context.Context,
+	cfg *nodemonConfig,
+	alerts <-chan entities.Alert,
+	zap *zapLogger.Logger,
+	ns *nodesStorage.JSONStorage,
+	es *eventsStorage.Storage,
+) {
 	go func() {
 		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, zap)
 		if pubSubErr != nil {
@@ -228,9 +254,4 @@ func run() error {
 			}
 		}()
 	}
-
-	<-ctx.Done()
-	a.Shutdown()
-	zap.Info("shutting down")
-	return nil
 }

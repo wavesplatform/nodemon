@@ -23,7 +23,10 @@ import (
 	"go.uber.org/zap"
 )
 
-const megabyte = 1 << 20
+const (
+	megabyte           = 1 << 20
+	apiShutdownTimeout = 5 * time.Second
+)
 
 type API struct {
 	srv                *http.Server
@@ -80,7 +83,7 @@ func (a *API) Start() error {
 }
 
 func (a *API) Shutdown() {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), apiShutdownTimeout)
 	defer cancel()
 
 	if err := a.srv.Shutdown(ctx); err != nil {
@@ -122,10 +125,6 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	nodeName := r.Header.Get("node-name")
-	escapedNodeName := strings.ReplaceAll(nodeName, "\n", "")
-	escapedNodeName = strings.ReplaceAll(escapedNodeName, "\r", "")
-
 	statement := nodeShortStatement{}
 	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
@@ -133,6 +132,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
+	escapedNodeName := cleanCRLF(r.Header.Get("node-name"))
 	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
 		a.zap.Error("Failed to check and update node's url", zap.Error(err))
@@ -187,8 +187,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 
-	sumhash := strings.ReplaceAll(statehash.SumHash.Hex(), "\n", "")
-	sumhash = strings.ReplaceAll(sumhash, "\r", "")
+	sumhash := cleanCRLF(statehash.SumHash.Hex())
 	a.zap.Sugar().Infof("Statement for node %s has been received, height %d, statehash %s\n",
 		escapedNodeName, statement.Height, sumhash)
 }
@@ -201,6 +200,12 @@ func specificNodeFoundInStorage(enabledSpecificNodes []entities.Node, statement 
 		}
 	}
 	return foundInStorage
+}
+
+func cleanCRLF(s string) string {
+	cleaned := strings.ReplaceAll(s, "\n", "")
+	cleaned = strings.ReplaceAll(cleaned, "\r", "")
+	return cleaned
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {

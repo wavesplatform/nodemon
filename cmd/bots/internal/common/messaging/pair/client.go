@@ -46,110 +46,25 @@ func StartPairMessagingClient(
 				request := <-requestPair
 
 				message := &bytes.Buffer{}
+				message.WriteByte(byte(request.RequestType()))
 
 				switch r := request.(type) {
 				case *pair.NodesListRequest:
-					if r.Specific {
-						message.WriteByte(byte(pair.RequestSpecificNodeListT))
-					} else {
-						message.WriteByte(byte(pair.RequestNodeListT))
-					}
-
-					err := pairSocket.Send(message.Bytes())
-					if err != nil {
-						logger.Error("failed to send message", zap.Error(err))
-					}
-
-					response, err := pairSocket.Recv()
-					if err != nil {
-						logger.Error("failed to receive message", zap.Error(err))
-					}
-					nodeList := pair.NodesListResponse{}
-					err = json.Unmarshal(response, &nodeList)
-					if err != nil {
-						logger.Error("failed to unmarshal message", zap.Error(err))
-					}
-					responsePair <- &nodeList
+					handleNodesListRequest(pairSocket, message, logger, responsePair)
 				case *pair.InsertNewNodeRequest:
-					if r.Specific {
-						message.WriteByte(byte(pair.RequestInsertSpecificNewNodeT))
-					} else {
-						message.WriteByte(byte(pair.RequestInsertNewNodeT))
-					}
-
-					message.WriteString(r.URL)
-					err := pairSocket.Send(message.Bytes())
-					if err != nil {
-						logger.Error("failed to send message", zap.Error(err))
-					}
-
+					handleInsertNewNodeRequest(r.URL, message, pairSocket, logger)
 				case *pair.UpdateNodeRequest:
-					message.WriteByte(byte(pair.RequestUpdateNode))
-					node := entities.Node{
-						URL:     r.URL,
-						Enabled: true,
-						Alias:   r.Alias,
-					}
-					nodeInfo, err := json.Marshal(node)
-					if err != nil {
-						logger.Error("failed to marshal node's info")
-					}
-					message.Write(nodeInfo)
-					err = pairSocket.Send(message.Bytes())
-					if err != nil {
-						logger.Error("failed to send message", zap.Error(err))
-					}
+					handleUpdateNodeRequest(r.URL, r.Alias, logger, message, pairSocket)
 				case *pair.DeleteNodeRequest:
-					message.WriteByte(byte(pair.RequestDeleteNodeT))
-
 					message.WriteString(r.URL)
 					err := pairSocket.Send(message.Bytes())
 					if err != nil {
 						logger.Error("failed to send a request to pair socket", zap.Error(err))
 					}
 				case *pair.NodesStatusRequest:
-					message.WriteByte(byte(pair.RequestNodesStatus))
-
-					message.WriteString(strings.Join(r.URLs, ","))
-					err := pairSocket.Send(message.Bytes())
-					if err != nil {
-						logger.Error("failed to send a request to pair socket", zap.Error(err))
-					}
-
-					response, err := pairSocket.Recv()
-					if err != nil {
-						logger.Error("failed to receive message from pair socket", zap.Error(err))
-					}
-					nodesStatusResp := pair.NodesStatusResponse{}
-					err = json.Unmarshal(response, &nodesStatusResp)
-					if err != nil {
-						logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
-					}
-					responsePair <- &nodesStatusResp
+					handleNodesStatusRequest(r.URLs, message, pairSocket, logger, responsePair)
 				case *pair.NodeStatementRequest:
-					message.WriteByte(byte(pair.RequestNodeStatement))
-
-					req, err := json.Marshal(entities.NodeHeight{URL: r.URL, Height: r.Height})
-					if err != nil {
-						logger.Error("failed to marshal message to pair socket", zap.Error(err))
-					}
-
-					message.Write(req)
-					err = pairSocket.Send(message.Bytes())
-					if err != nil {
-						logger.Error("failed to send a request to pair socket", zap.Error(err))
-					}
-
-					response, err := pairSocket.Recv()
-					if err != nil {
-						logger.Error("failed to receive message from pair socket", zap.Error(err))
-					}
-					nodeStatementResp := pair.NodeStatementResponse{}
-					err = json.Unmarshal(response, &nodeStatementResp)
-					if err != nil {
-						logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
-					}
-					responsePair <- &nodeStatementResp
+					handleNodesStatementRequest(r.URL, r.Height, logger, message, pairSocket, responsePair)
 				default:
 					logger.Error("unknown request type to pair socket")
 				}
@@ -160,4 +75,104 @@ func StartPairMessagingClient(
 	<-ctx.Done()
 	logger.Info("pair messaging service finished")
 	return nil
+}
+
+func handleNodesStatementRequest(
+	url string,
+	height int,
+	logger *zap.Logger,
+	message *bytes.Buffer,
+	pairSocket protocol.Socket,
+	responsePair chan<- pair.Response,
+) {
+	req, err := json.Marshal(entities.NodeHeight{URL: url, Height: height})
+	if err != nil {
+		logger.Error("failed to marshal message to pair socket", zap.Error(err))
+	}
+
+	message.Write(req)
+	err = pairSocket.Send(message.Bytes())
+	if err != nil {
+		logger.Error("failed to send a request to pair socket", zap.Error(err))
+	}
+
+	response, err := pairSocket.Recv()
+	if err != nil {
+		logger.Error("failed to receive message from pair socket", zap.Error(err))
+	}
+	nodeStatementResp := pair.NodeStatementResponse{}
+	err = json.Unmarshal(response, &nodeStatementResp)
+	if err != nil {
+		logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
+	}
+	responsePair <- &nodeStatementResp
+}
+
+func handleNodesStatusRequest(
+	urls []string,
+	message *bytes.Buffer,
+	pairSocket protocol.Socket,
+	logger *zap.Logger,
+	responsePair chan<- pair.Response,
+) {
+	message.WriteString(strings.Join(urls, ","))
+	err := pairSocket.Send(message.Bytes())
+	if err != nil {
+		logger.Error("failed to send a request to pair socket", zap.Error(err))
+	}
+
+	response, err := pairSocket.Recv()
+	if err != nil {
+		logger.Error("failed to receive message from pair socket", zap.Error(err))
+	}
+	nodesStatusResp := pair.NodesStatusResponse{}
+	err = json.Unmarshal(response, &nodesStatusResp)
+	if err != nil {
+		logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
+	}
+	responsePair <- &nodesStatusResp
+}
+
+func handleUpdateNodeRequest(url, alias string, logger *zap.Logger, message *bytes.Buffer, pairSocket protocol.Socket) {
+	node := entities.Node{URL: url, Enabled: true, Alias: alias}
+	nodeInfo, err := json.Marshal(node)
+	if err != nil {
+		logger.Error("failed to marshal node's info")
+	}
+	message.Write(nodeInfo)
+	err = pairSocket.Send(message.Bytes())
+	if err != nil {
+		logger.Error("failed to send message", zap.Error(err))
+	}
+}
+
+func handleInsertNewNodeRequest(url string, message *bytes.Buffer, pairSocket protocol.Socket, logger *zap.Logger) {
+	message.WriteString(url)
+	err := pairSocket.Send(message.Bytes())
+	if err != nil {
+		logger.Error("failed to send message", zap.Error(err))
+	}
+}
+
+func handleNodesListRequest(
+	pairSocket protocol.Socket,
+	message *bytes.Buffer,
+	logger *zap.Logger,
+	responsePair chan<- pair.Response,
+) {
+	err := pairSocket.Send(message.Bytes())
+	if err != nil {
+		logger.Error("failed to send message", zap.Error(err))
+	}
+
+	response, err := pairSocket.Recv()
+	if err != nil {
+		logger.Error("failed to receive message", zap.Error(err))
+	}
+	nodeList := pair.NodesListResponse{}
+	err = json.Unmarshal(response, &nodeList)
+	if err != nil {
+		logger.Error("failed to unmarshal message", zap.Error(err))
+	}
+	responsePair <- &nodeList
 }
