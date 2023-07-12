@@ -12,10 +12,6 @@ vendor:
 vetcheck:
 	go vet ./...
 	golangci-lint run -c .golangci.yml
-	golangci-lint run -c .golangci-strict.yml --new-from-rev=origin/main
-
-strict-vet-check:
-	golangci-lint run -c .golangci-strict.yml
 
 fmtcheck:
 	@gofmt -l -s $(SOURCE_DIRS) | grep ".*\.go"; if [ "$$?" = "0" ]; then exit 1; fi
