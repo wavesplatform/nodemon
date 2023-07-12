@@ -696,6 +696,8 @@ func executeAlertTemplate(
 		err error
 	)
 	switch alertType {
+	case entities.SimpleAlertType:
+		msg, err = executeSimpleAlertTemplate(alertJSON, extension)
 	case entities.UnreachableAlertType:
 		msg, err = executeUnreachableTemplate(alertJSON, nodesAliases, extension)
 	case entities.IncompleteAlertType:
@@ -719,6 +721,19 @@ func executeAlertTemplate(
 		return "", err
 	}
 
+	return msg, nil
+}
+
+func executeSimpleAlertTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var simpleAlert entities.SimpleAlert
+	err := json.Unmarshal(alertJSON, &simpleAlert)
+	if err != nil {
+		return "", err
+	}
+	msg, err := executeTemplate("templates/alerts/simple_alert", simpleAlert, extension)
+	if err != nil {
+		return "", err
+	}
 	return msg, nil
 }
 

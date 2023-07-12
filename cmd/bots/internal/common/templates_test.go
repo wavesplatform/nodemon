@@ -47,6 +47,20 @@ func goldenValue(t *testing.T, goldenFile string, expectedExtension ExpectedExte
 	return string(content)
 }
 
+func TestSimpleAlertTemplate(t *testing.T) {
+	data := entities.SimpleAlert{
+		Timestamp:   100500,
+		Description: "Simple alert !!!",
+	}
+	for _, f := range expectedFormats() {
+		const template = "templates/alerts/simple_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
 func TestBaseTargetTemplate(t *testing.T) {
 	data := &entities.BaseTargetAlert{
 		Timestamp: 100,
