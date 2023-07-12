@@ -1,4 +1,4 @@
-package finders
+package finders_test
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
@@ -175,7 +176,7 @@ func TestFindLastCommonBlock(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
 			require.NoError(t, err)
 			loadEvents(t, storage, test.eventsA, test.eventsB)
-			ff := NewForkFinder(storage)
+			ff := finders.NewForkFinder(storage)
 			h, id, err := ff.FindLastCommonBlock("A", "B")
 			if test.error {
 				assert.Error(t, err)
@@ -202,12 +203,12 @@ func TestFindLastCommonStateHash(t *testing.T) {
 	forkA := generateFiveStateHashes(0)
 	forkB := generateFiveStateHashes(50)
 	for i, test := range []struct {
-		eventsA            []entities.Event
-		eventsB            []entities.Event
-		error              bool
-		expectedHeight     int
-		expectedStateHash  proto.StateHash
-		linearSearchParams *linearSearchParams
+		eventsA           []entities.Event
+		eventsB           []entities.Event
+		error             bool
+		expectedHeight    int
+		expectedStateHash proto.StateHash
+		linearSearchDepth int
 	}{
 		{
 			eventsA: mkEvents("A", 1, forkA...),
@@ -290,21 +291,21 @@ func TestFindLastCommonStateHash(t *testing.T) {
 			expectedStateHash: forkA[2].sh,
 		},
 		{
-			eventsA:            mkEvents("A", 12, forkA[1:]...),
-			eventsB:            mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
-			error:              false,
-			expectedHeight:     13,
-			expectedStateHash:  forkA[2].sh,
-			linearSearchParams: &linearSearchParams{searchDepth: 4},
+			eventsA:           mkEvents("A", 12, forkA[1:]...),
+			eventsB:           mkEvents("B", 11, forkA[0], forkA[1], forkA[2], forkB[3], forkB[4]),
+			error:             false,
+			expectedHeight:    13,
+			expectedStateHash: forkA[2].sh,
+			linearSearchDepth: 4,
 		},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
 			storage, err := events.NewStorage(10*time.Minute, zap)
 			require.NoError(t, err)
 			loadEvents(t, storage, test.eventsA, test.eventsB)
-			ff := NewForkFinder(storage)
-			if lsp := test.linearSearchParams; lsp != nil {
-				ff = ff.WithLinearSearchParams(lsp.searchDepth)
+			ff := finders.NewForkFinder(storage)
+			if depth := test.linearSearchDepth; depth != 0 {
+				ff = ff.WithLinearSearchParams(depth)
 			}
 			h, sh, err := ff.FindLastCommonStateHash("A", "B")
 			if test.error {
@@ -319,5 +320,5 @@ func TestFindLastCommonStateHash(t *testing.T) {
 }
 
 func TestErrNoStateHashError(t *testing.T) {
-	require.Equal(t, events.ErrNoFullStatement, ErrNoFullStatement)
+	require.Equal(t, events.ErrNoFullStatement, finders.ErrNoFullStatement)
 }

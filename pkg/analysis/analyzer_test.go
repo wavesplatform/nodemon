@@ -1,4 +1,4 @@
-package analysis
+package analysis_test
 
 import (
 	"encoding/binary"
@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -87,7 +88,7 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 type testCase struct {
-	opts           *AnalyzerOptions
+	opts           *analysis.AnalyzerOptions
 	historyData    []entities.Event
 	nodes          entities.Nodes
 	height         int
@@ -112,7 +113,7 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	)
 	tests := []testCase{
 		{
-			opts: &AnalyzerOptions{
+			opts: &analysis.AnalyzerOptions{
 				StateHashCriteriaOpts:   &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 3},
 				BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: 2},
 			},
@@ -165,7 +166,7 @@ func runTestCase(zap *zapLogger.Logger, test testCase) func(t *testing.T) {
 		alerts := make(chan entities.Alert)
 		go func() {
 			defer close(done)
-			analyzer := NewAnalyzer(es, test.opts, zap)
+			analyzer := analysis.NewAnalyzer(es, test.opts, zap)
 			event := entities.NewNodesGatheringComplete(test.nodes, mkTimestamp(test.height))
 			notifications := make(chan entities.NodesGatheringNotification)
 			analyzerOut := analyzer.Start(notifications)

@@ -1,4 +1,4 @@
-package events
+package events_test
 
 import (
 	"errors"
@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"nodemon/pkg/entities"
+	eventsStorage "nodemon/pkg/storing/events"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,7 +20,7 @@ import (
 
 type EventsStorageTestSuite struct {
 	suite.Suite
-	es *Storage
+	es *eventsStorage.Storage
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
@@ -32,7 +33,7 @@ func (s *EventsStorageTestSuite) SetupTest() {
 			log.Println(syncErr)
 		}
 	}(zap)
-	es, err := NewStorage(time.Minute, zap)
+	es, err := eventsStorage.NewStorage(time.Minute, zap)
 	s.Require().NoError(err)
 	s.es = es
 }
@@ -89,7 +90,7 @@ func (s *EventsStorageTestSuite) TestPutAndGetStatementRoundtrip() {
 
 func (s *EventsStorageTestSuite) TestGetStatementNotFound() {
 	_, err := s.es.GetStatement("some-url", 100500)
-	s.Assert().True(errors.Is(err, ErrNotFound))
+	s.Assert().True(errors.Is(err, eventsStorage.ErrNotFound))
 }
 
 type dummyEvent struct {
@@ -358,7 +359,7 @@ func TestEarliestHeight(t *testing.T) {
 			he("A", 3, 300),
 			she("A", 3, 310)), false, 2},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := eventsStorage.NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		h, err := storage.EarliestHeight(test.node)
@@ -422,7 +423,7 @@ func TestLatestHeight(t *testing.T) {
 				he("A", 3, 300),
 				she("A", 3, 310)), false, 3},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := eventsStorage.NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		h, err := storage.LatestHeight(test.node)
@@ -499,7 +500,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 				he("A", 2, 200),
 			), 1, false, *sh1},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := eventsStorage.NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		sh, err := storage.StateHashAtHeight(test.node, test.height)
@@ -528,7 +529,7 @@ func he(n string, h int, ts int64) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, nil, 1)
 }
 
-func putEvents(t *testing.T, st *Storage, events []entities.Event) {
+func putEvents(t *testing.T, st *eventsStorage.Storage, events []entities.Event) {
 	for _, ev := range events {
 		err := st.PutEvent(ev)
 		require.NoError(t, err)
@@ -583,7 +584,7 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 				fshe("3", 1000, 100, sh2),
 			), false, 999, sh1},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := eventsStorage.NewStorage(time.Minute, zap)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		statements, err := storage.FindAllStateHashesOnCommonHeight([]string{"1", "2", "3"})
