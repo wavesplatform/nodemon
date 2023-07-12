@@ -385,6 +385,8 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 		out.Fixed = &BaseTargetAlert{}
 	case InternalErrorAlertType:
 		out.Fixed = &InternalErrorAlert{}
+	case AlertFixedType:
+		return errors.Errorf("nested fixed alerts (%d) are not allowed", t)
 	default:
 		return errors.Errorf("failed to unmarshal alert fixed, unknown internal alert type (%d)", t)
 	}
