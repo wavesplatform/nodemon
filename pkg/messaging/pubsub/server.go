@@ -38,6 +38,10 @@ func StartPubMessagingServer(
 		return err
 	}
 
+	return enterLoop(ctx, alerts, logger, socketPub)
+}
+
+func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, socketPub protocol.Socket) error {
 	for {
 		select {
 		case <-ctx.Done():

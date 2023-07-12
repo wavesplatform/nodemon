@@ -284,16 +284,18 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 				}
 			}
 		}
-		if !sameHeight {
-			nodesHeights, err = s.findMinCommonSpecificHeight(nodesList, minHeight)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to find min common specific height")
-			}
-		} else {
+		if sameHeight {
 			break
 		}
+		nodesHeights, err = s.findMinCommonSpecificHeight(nodesList, minHeight)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find min common specific height")
+		}
 	}
+	return s.findStatementsOnHeight(nodesList, minHeight)
+}
 
+func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height int) ([]entities.NodeStatement, error) {
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {
 		if !reachable {
@@ -303,14 +305,14 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 			})
 			continue
 		}
-		statement, storErr := s.GetFullStatementAtHeight(node, minHeight)
+		statement, storErr := s.GetFullStatementAtHeight(node, height)
 		if storErr != nil {
 			if !errors.Is(storErr, ErrNoFullStatement) {
 				return nil,
-					errors.Wrapf(storErr, "failed to find statement at height %d for node '%s'", minHeight, node)
+					errors.Wrapf(storErr, "failed to find statement at height %d for node '%s'", height, node)
 			}
 			s.zap.Error("failed to find statement at height",
-				zap.Int("height", minHeight), zap.String("node", node), zap.Error(storErr),
+				zap.Int("height", height), zap.String("node", node), zap.Error(storErr),
 			)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
 				Node:   node,
@@ -318,11 +320,11 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 			})
 			continue
 		}
-		if statement.Height == minHeight {
+		if statement.Height == height {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
 			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d",
-				node, minHeight, statement.Height,
+				node, height, statement.Height,
 			)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
 				Node:   node,
