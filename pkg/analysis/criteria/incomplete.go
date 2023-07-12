@@ -20,6 +20,12 @@ type IncompleteCriterion struct {
 	zap  *zap.Logger
 }
 
+const (
+	incompleteStreakDefault                              = 3
+	incompleteDepthDefault                               = 5
+	incompleteConsiderPrevUnreachableAsIncompleteDefault = true
+)
+
 func NewIncompleteCriterion(
 	es *events.Storage,
 	opts *IncompleteCriterionOptions,
@@ -27,9 +33,9 @@ func NewIncompleteCriterion(
 ) *IncompleteCriterion {
 	if opts == nil { // by default
 		opts = &IncompleteCriterionOptions{
-			Streak:                              3,
-			Depth:                               5,
-			ConsiderPrevUnreachableAsIncomplete: true,
+			Streak:                              incompleteStreakDefault,
+			Depth:                               incompleteDepthDefault,
+			ConsiderPrevUnreachableAsIncomplete: incompleteConsiderPrevUnreachableAsIncompleteDefault,
 		}
 	}
 	return &IncompleteCriterion{opts: opts, es: es, zap: logger}

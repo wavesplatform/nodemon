@@ -114,7 +114,8 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		s.zap.Sugar().Warnf("Failed to get height for node %s: %v", url, err)
 		return entities.NewVersionEvent(url, ts, v) // we know version, sending what we know about node
 	}
-	if h < 2 {
+	const minValidHeight = 2
+	if h < minValidHeight {
 		s.zap.Sugar().Warnf("Node %s has invalid height %d", url, h)
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}

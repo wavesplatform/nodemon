@@ -54,7 +54,7 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 
 	var r int
 	for start <= stop {
-		middle := (start + stop) / 2
+		middle := (start + stop) / 2 //nolint:gomnd // count here is 2
 		different, storErr := f.differentBlocksAt(nodeA, nodeB, middle)
 		if storErr != nil {
 			return 0, proto.BlockID{}, storErr
@@ -140,7 +140,7 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 
 	var r int
 	for start <= stop {
-		middle := (start + stop) / 2
+		middle := (start + stop) / 2 //nolint:gomnd // count here is 2
 		different, storErr := f.differentStateHashesAt(nodeA, nodeB, middle)
 		if storErr != nil {
 			storErr = errors.Wrapf(storErr, "binsearch failed for nodes '%s' and '%s' at height %d",

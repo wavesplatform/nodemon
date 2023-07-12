@@ -100,7 +100,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 			bucketHeight, others.Nodes(),
 		)
 	}
-	if len(splitStateHash) < 2 { // same state hash
+	if len(splitStateHash) <= 1 { // same state hash
 		return nil
 	}
 	// take sample from each state hash group

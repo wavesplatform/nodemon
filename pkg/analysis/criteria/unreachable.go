@@ -19,6 +19,11 @@ type UnreachableCriterion struct {
 	zap  *zap.Logger
 }
 
+const (
+	unreachableStreakDefault = 3
+	unreachableDepthDefault  = 5
+)
+
 func NewUnreachableCriterion(
 	es *events.Storage,
 	opts *UnreachableCriterionOptions,
@@ -26,8 +31,8 @@ func NewUnreachableCriterion(
 ) *UnreachableCriterion {
 	if opts == nil { // by default
 		opts = &UnreachableCriterionOptions{
-			Streak: 3,
-			Depth:  5,
+			Streak: unreachableStreakDefault,
+			Depth:  unreachableDepthDefault,
 		}
 	}
 	return &UnreachableCriterion{opts: opts, es: es, zap: logger}

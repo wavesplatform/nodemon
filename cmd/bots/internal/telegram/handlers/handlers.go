@@ -96,8 +96,9 @@ func removeCmd(
 
 func addAliasCmd(env *common.TelegramBotEnvironment, requestType chan<- pair.Request) func(c tele.Context) error {
 	return func(c tele.Context) error {
+		const requiredArgsCount = 2
 		args := c.Args()
-		if len(args) != 2 {
+		if len(args) != requiredArgsCount {
 			return c.Send(messages.AliasWrongFormat, &tele.SendOptions{ParseMode: tele.ModeDefault})
 		}
 		url, alias := args[0], args[1]

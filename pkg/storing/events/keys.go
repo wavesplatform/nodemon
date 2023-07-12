@@ -23,8 +23,9 @@ func (s statementKey) String() string {
 }
 
 func newStatementKeyFromString(key string) (statementKey, error) {
+	const splitPartsCount = 2
 	split := strings.Split(key, statementKeyPartSeparator)
-	if len(split) != 2 {
+	if len(split) != splitPartsCount {
 		return statementKey{}, errors.Errorf("invalid statement key %q", key)
 	}
 	var (

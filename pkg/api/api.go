@@ -156,10 +156,11 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	const (
-		zeroTS = 0 // timestamp stub
-		zeroBT = 0 // base target stub
+		zeroTS         = 0 // timestamp stub
+		zeroBT         = 0 // base target stub
+		minValidHeight = 2
 	)
-	if statement.Height < 2 {
+	if statement.Height < minValidHeight {
 		invalidHeightEvent := entities.NewInvalidHeightEvent(
 			statement.Node,
 			zeroTS,
