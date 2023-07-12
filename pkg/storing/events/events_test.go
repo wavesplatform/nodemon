@@ -344,11 +344,11 @@ func TestEarliestHeight(t *testing.T) {
 			she("B", 2, 210),
 			she("B", 3, 300),
 			she("A", 3, 310)), false, 2},
-		{"A", events(
-			he("A", 1, 100),
-			he("A", 1, 200),
-			he("A", 2, 300),
-			he("A", 3, 400)), true, 0},
+		{"B", events(
+			he("B", 1, 100),
+			he("B", 1, 200),
+			he("B", 2, 300),
+			he("B", 3, 400)), true, 0},
 		{"A", events(
 			he("A", 1, 100),
 			she("B", 1, 110),
@@ -486,11 +486,11 @@ func TestLastStateHashAtHeight(t *testing.T) {
 				he("A", 1, 110),
 				he("A", 2, 200),
 			), 1, true, proto.StateHash{}},
-		{"A",
+		{"C",
 			events(
-				he("A", 1, 100),
-				he("A", 1, 110),
-				he("A", 2, 200),
+				he("C", 1, 100),
+				he("C", 1, 110),
+				he("C", 2, 200),
 			), 2, true, proto.StateHash{}},
 		{"A",
 			events(

@@ -37,7 +37,8 @@ func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
 	}
 }
 
-func generateStateHashes(o, n int) []shInfo {
+func generateFiveStateHashes(o int) []shInfo {
+	const n = 5
 	r := make([]shInfo, n)
 	for i := 0; i < n; i++ {
 		id := sequentialBlockID(o + i + 1)
@@ -80,8 +81,8 @@ func TestFindLastCommonBlock(t *testing.T) {
 		}
 	}(zap)
 
-	forkA := generateStateHashes(0, 5)
-	forkB := generateStateHashes(50, 5)
+	forkA := generateFiveStateHashes(0)
+	forkB := generateFiveStateHashes(50)
 	for i, test := range []struct {
 		eventsA         []entities.Event
 		eventsB         []entities.Event
@@ -198,8 +199,8 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		}
 	}(zap)
 
-	forkA := generateStateHashes(0, 5)
-	forkB := generateStateHashes(50, 5)
+	forkA := generateFiveStateHashes(0)
+	forkB := generateFiveStateHashes(50)
 	for i, test := range []struct {
 		eventsA            []entities.Event
 		eventsB            []entities.Event

@@ -45,7 +45,8 @@ func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
 	}
 }
 
-func generateStateHashes(o, n int) []shInfo {
+func generateFiveStateHashes(o int) []shInfo {
+	const n = 5
 	r := make([]shInfo, n)
 	for i := 0; i < n; i++ {
 		id := sequentialBlockID(o + i + 1)
@@ -106,10 +107,10 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	}(zap)
 
 	var (
-		forkA             = generateStateHashes(0, 5)
-		forkB             = generateStateHashes(50, 5)
-		forkC             = generateStateHashes(100, 5)
-		commonStateHashes = generateStateHashes(250, 5)
+		forkA             = generateFiveStateHashes(0)
+		forkB             = generateFiveStateHashes(50)
+		forkC             = generateFiveStateHashes(100)
+		commonStateHashes = generateFiveStateHashes(250)
 		opts              = &criteria.StateHashCriterionOptions{MaxForkDepth: 1, HeightBucketSize: 2}
 	)
 	tests := []struct {

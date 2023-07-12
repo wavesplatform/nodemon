@@ -34,7 +34,7 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 		}
 	}(zap)
 
-	commonStateHashes := generateStateHashes(250, 5)
+	commonStateHashes := generateFiveStateHashes(250)
 	tests := []struct {
 		opts           *criteria.UnreachableCriterionOptions
 		historyData    []entities.Event
