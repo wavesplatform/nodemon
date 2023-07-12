@@ -6,6 +6,7 @@ import (
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 
 	"github.com/pkg/errors"
@@ -103,12 +104,12 @@ func UpdateAliasHandler(
 	return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
-func SubscribeHandler(c tele.Context, environment *common.TelegramBotEnvironment, alertName string) error {
+func SubscribeHandler(c tele.Context, environment *common.TelegramBotEnvironment, alertName entities.AlertName) error {
 	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
 
-	alertType, ok := common.FindAlertTypeByName(alertName)
+	alertType, ok := alertName.AlertType()
 	if !ok {
 		return c.Send("Sorry, this alert does not exist", &tele.SendOptions{ParseMode: tele.ModeDefault})
 	}
@@ -132,13 +133,13 @@ func SubscribeHandler(c tele.Context, environment *common.TelegramBotEnvironment
 	return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
-func UnsubscribeHandler(c tele.Context, env *common.TelegramBotEnvironment, alertName string) error {
+func UnsubscribeHandler(c tele.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
 	chatID := strconv.FormatInt(c.Chat().ID, 10)
 	if !env.IsEligibleForAction(chatID) {
 		return c.Send("Sorry, you have no right to unsubscribe from alerts")
 	}
 
-	alertType, ok := common.FindAlertTypeByName(alertName)
+	alertType, ok := alertName.AlertType()
 	if !ok {
 		return c.Send("Sorry, this alert does not exist", &tele.SendOptions{ParseMode: tele.ModeDefault})
 	}

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	commonMessages "nodemon/cmd/bots/internal/common/messages"
@@ -16,9 +17,15 @@ import (
 	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
-var (
-	update = flag.Bool("update", false, "update the golden files of this test")
-)
+const updateGoldenFilesEnv = "UPDATE_GOLDEN_FILES"
+
+func needToUpdateGoldenFiles() (bool, error) {
+	strVal := os.Getenv(updateGoldenFilesEnv)
+	if strVal == "" {
+		return false, nil
+	}
+	return strconv.ParseBool(strVal)
+}
 
 func expectedFormats() []ExpectedExtension {
 	return []ExpectedExtension{HTML, Markdown}
@@ -33,9 +40,11 @@ func goldenValue(t *testing.T, goldenFile string, expectedExtension ExpectedExte
 	t.Helper()
 	goldenPath := filepath.Join("testdata", goldenFile+string(expectedExtension)+".golden")
 
-	if *update {
+	update, err := needToUpdateGoldenFiles()
+	require.NoError(t, err)
+	if update {
 		dir := filepath.Dir(goldenPath)
-		err := os.MkdirAll(dir, 0755)
+		err = os.MkdirAll(dir, 0755)
 		require.NoError(t, err, "Error creating directories tree %s", dir)
 		err = os.WriteFile(goldenPath, []byte(actual), 0644)
 		require.NoError(t, err, "Error writing to file %s", goldenPath)
@@ -104,7 +113,7 @@ func TestAlertFixed(t *testing.T) {
 	}
 
 	statement := fixedStatement{
-		PreviousAlert: data.Fixed.ShortDescription(),
+		PreviousAlert: data.Fixed.Name().String(),
 	}
 	for _, f := range expectedFormats() {
 		const template = "templates/alerts/alert_fixed"

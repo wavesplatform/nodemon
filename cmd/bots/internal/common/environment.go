@@ -50,17 +50,17 @@ var errUnknownAlertType = errors.New("received unknown alert type")
 
 type subscriptions struct {
 	mu   *sync.RWMutex
-	subs map[entities.AlertType]string
+	subs map[entities.AlertType]entities.AlertName
 }
 
-func (s *subscriptions) Add(alertType entities.AlertType, alertName string) {
+func (s *subscriptions) Add(alertType entities.AlertType, alertName entities.AlertName) {
 	s.mu.Lock()
 	s.subs[alertType] = alertName
 	s.mu.Unlock()
 }
 
 // Read returns alert name.
-func (s *subscriptions) Read(alertType entities.AlertType) (string, bool) {
+func (s *subscriptions) Read(alertType entities.AlertType) (entities.AlertName, bool) {
 	s.mu.RLock()
 	elem, ok := s.subs[alertType]
 	s.mu.RUnlock()
@@ -98,9 +98,12 @@ func NewDiscordBotEnvironment(
 	responsePairType <-chan pair.Response,
 ) *DiscordBotEnvironment {
 	return &DiscordBotEnvironment{
-		Bot:                    bot,
-		ChatID:                 chatID,
-		Subscriptions:          subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)},
+		Bot:    bot,
+		ChatID: chatID,
+		Subscriptions: subscriptions{
+			subs: make(map[entities.AlertType]entities.AlertName),
+			mu:   new(sync.RWMutex),
+		},
 		zap:                    zap,
 		requestType:            requestType,
 		responsePairType:       responsePairType,
@@ -133,7 +136,7 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	alertType := msg.AlertType()
-	if _, ok := entities.AlertTypes[alertType]; !ok {
+	if !alertType.Exist() {
 		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
 			byte(alertType), errUnknownAlertType,
 		)
@@ -189,7 +192,7 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 }
 
 func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
@@ -261,10 +264,13 @@ func NewTelegramBotEnvironment(
 	responsePairType <-chan pair.Response,
 ) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{
-		Bot:                    bot,
-		ChatID:                 chatID,
-		Mute:                   mute,
-		subscriptions:          subscriptions{subs: make(map[entities.AlertType]string), mu: new(sync.RWMutex)},
+		Bot:    bot,
+		ChatID: chatID,
+		Mute:   mute,
+		subscriptions: subscriptions{
+			subs: make(map[entities.AlertType]entities.AlertName),
+			mu:   new(sync.RWMutex),
+		},
 		zap:                    zap,
 		requestType:            requestType,
 		responsePairType:       responsePairType,
@@ -294,7 +300,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	chat := &telebot.Chat{ID: tgEnv.ChatID}
 
 	alertType := msg.AlertType()
-	if _, ok := entities.AlertTypes[alertType]; !ok {
+	if !alertType.Exist() {
 		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
 			byte(alertType), errUnknownAlertType,
 		)
@@ -410,7 +416,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (st
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
@@ -426,7 +432,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertType) error {
-	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	alertName, ok := alertType.AlertName() // check if such an alert exists
 	if !ok {
 		return errors.New("failed to subscribe to alert, unknown alert type")
 	}
@@ -445,7 +451,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 }
 
 func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.AlertType) error {
-	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	alertName, ok := alertType.AlertName() // check if such an alert exists
 	if !ok {
 		return errors.New("failed to unsubscribe from alert, unknown alert type")
 	}
@@ -490,16 +496,16 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	var subscribedTo []subscribed
 	tgEnv.subscriptions.MapR(func() {
 		for _, alertName := range tgEnv.subscriptions.subs {
-			s := subscribed{AlertName: alertName + "\n\n"}
+			s := subscribed{AlertName: string(alertName) + "\n\n"}
 			subscribedTo = append(subscribedTo, s)
 		}
 	})
 
 	var unsubscribedFrom []unsubscribed
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
 		if !ok { // find those alerts that are not in the subscriptions list
-			u := unsubscribed{AlertName: alertName + "\n\n"}
+			u := unsubscribed{AlertName: string(alertName) + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
 	}
@@ -780,7 +786,7 @@ func executeAlertFixed(alertJSON []byte, extension ExpectedExtension) (string, e
 	}
 
 	statement := fixedStatement{
-		PreviousAlert: alertFixed.Fixed.ShortDescription(),
+		PreviousAlert: alertFixed.Fixed.Name().String(),
 	}
 	msg, err := executeTemplate("templates/alerts/alert_fixed", statement, extension)
 	if err != nil {
@@ -1115,13 +1121,4 @@ func constructMessage(
 		return "", errors.Wrap(err, "failed to execute an alert template")
 	}
 	return msg, nil
-}
-
-func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
-	for key, val := range entities.AlertTypes {
-		if val == alertName {
-			return key, true
-		}
-	}
-	return 0, false
 }

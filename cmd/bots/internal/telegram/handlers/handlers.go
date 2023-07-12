@@ -147,11 +147,11 @@ func onTextMsgHandler(
 			u := strings.TrimPrefix(command, "remove ")
 			return RemoveNodeHandler(c, environment, requestType, responsePairType, u)
 		case strings.HasPrefix(command, "subscribe to"):
-			alertName := strings.TrimPrefix(command, "subscribe to ")
-			return SubscribeHandler(c, environment, alertName)
+			alertName := strings.TrimSpace(strings.TrimPrefix(command, "subscribe to "))
+			return SubscribeHandler(c, environment, entities.AlertName(alertName))
 		case strings.HasPrefix(command, "unsubscribe from"):
-			alertName := strings.TrimPrefix(command, "unsubscribe from ")
-			return UnsubscribeHandler(c, environment, alertName)
+			alertName := strings.TrimSpace(strings.TrimPrefix(command, "unsubscribe from "))
+			return UnsubscribeHandler(c, environment, entities.AlertName(alertName))
 		default:
 			return nil // do nothing
 		}
@@ -236,7 +236,7 @@ func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c tele.Cont
 		if len(args) != 1 {
 			return c.Send(messages.SubscribeWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
 		}
-		alertName := args[0]
+		alertName := entities.AlertName(args[0])
 		return UnsubscribeHandler(c, environment, alertName)
 	}
 }
@@ -247,7 +247,7 @@ func subscribeCmd(environment *common.TelegramBotEnvironment) func(c tele.Contex
 		if len(args) != 1 {
 			return c.Send(messages.SubscribeWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
 		}
-		alertName := args[0]
+		alertName := entities.AlertName(args[0])
 		return SubscribeHandler(c, environment, alertName)
 	}
 }
