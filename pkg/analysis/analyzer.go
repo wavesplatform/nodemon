@@ -42,7 +42,10 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 		opts.AlertVacuumQuota = defaultAlertVacuumQuota
 	}
 	if opts.AlertConfirmations == nil {
-		opts.AlertConfirmations = defaultAlertConfirmations()
+		opts.AlertConfirmations = newAlertConfirmations(alertConfirmationsValue{
+			alertType:     entities.HeightAlertType,
+			confirmations: heightAlertConfirmationsDefault,
+		})
 	}
 
 	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, opts.AlertConfirmations, logger)

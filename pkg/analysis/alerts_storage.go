@@ -55,13 +55,30 @@ type alertsStorage struct {
 type alertConfirmations map[entities.AlertType]int
 
 const (
-	HeightAlertConfirmations = 2
+	heightAlertConfirmationsDefault = 2
 )
 
-func defaultAlertConfirmations() alertConfirmations {
-	return alertConfirmations{
-		entities.HeightAlertType: HeightAlertConfirmations,
+type alertConfirmationsValue struct {
+	alertType     entities.AlertType
+	confirmations int
+}
+
+func newAlertConfirmations(customConfirmations ...alertConfirmationsValue) alertConfirmations {
+	confirmations := alertConfirmations{
+		entities.SimpleAlertType:        0,
+		entities.UnreachableAlertType:   0,
+		entities.IncompleteAlertType:    0,
+		entities.InvalidHeightAlertType: 0,
+		entities.HeightAlertType:        0,
+		entities.StateHashAlertType:     0,
+		entities.AlertFixedType:         0,
+		entities.BaseTargetAlertType:    0,
+		entities.InternalErrorAlertType: 0,
 	}
+	for _, cc := range customConfirmations {
+		confirmations[cc.alertType] = cc.confirmations
+	}
+	return confirmations
 }
 
 func newAlertsStorage(

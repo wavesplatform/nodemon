@@ -120,9 +120,10 @@ func TestAlertsStorage(t *testing.T) {
 			initialAlerts:       []entities.Alert{alert1, alert2, alert1},
 			alerts:              []entities.Alert{alert3, alert3, alert2, alert1, alert1, alert1, alert1, alert1},
 			sendAlertNowResults: []bool{false, true, false, false, true, false, true, false},
-			alertConfirmations: alertConfirmations{
-				entities.SimpleAlertType: 2,
-			},
+			alertConfirmations: newAlertConfirmations(alertConfirmationsValue{
+				alertType:     entities.SimpleAlertType,
+				confirmations: 2,
+			}),
 			expectedAlertsInfo: []alertInfo{
 				{
 					vacuumQuota:      2,
