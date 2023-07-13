@@ -1,8 +1,7 @@
-package messages
+package messaging
 
 const (
 	MonitoringMsg = "📡"
 	SleepingMsg   = "💤"
-	PongMsg       = "🏓"
 	TimerMsg      = "⏱"
 )

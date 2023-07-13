@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"nodemon/cmd/bots/internal/common/messages"
+	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/assert"
@@ -422,7 +422,7 @@ func TestNodesStatusOkTemplate(t *testing.T) {
 
 func TestNodesStatusOkShortTemplate(t *testing.T) {
 	data := shortOkNodes{
-		TimeEmoji:   messages.TimerMsg,
+		TimeEmoji:   messaging.TimerMsg,
 		NodesNumber: 101,
 		Height:      "31425 (this_should_be_a_string_probably)",
 	}

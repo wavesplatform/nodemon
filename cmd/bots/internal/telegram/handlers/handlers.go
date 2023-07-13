@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"nodemon/cmd/bots/internal/common"
-	commonMessages "nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/buttons"
 	"nodemon/cmd/bots/internal/telegram/messages"
@@ -309,10 +308,10 @@ func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context)
 			return c.Send("Sorry, you have no right to mute me")
 		}
 		if environment.Mute {
-			return c.Send("I had already been sleeping, continue sleeping.." + commonMessages.SleepingMsg)
+			return c.Send("I had already been sleeping, continue sleeping.." + messaging.SleepingMsg)
 		}
 		environment.Mute = true
-		return c.Send("I had been monitoring, but going to sleep now.." + commonMessages.SleepingMsg)
+		return c.Send("I had been monitoring, but going to sleep now.." + messaging.SleepingMsg)
 	}
 }
 
@@ -323,18 +322,18 @@ func startCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context
 		}
 		if environment.Mute {
 			environment.Mute = false
-			return c.Send("I had been asleep, but started monitoring now... " + commonMessages.MonitoringMsg)
+			return c.Send("I had been asleep, but started monitoring now... " + messaging.MonitoringMsg)
 		}
-		return c.Send("I had already been monitoring" + commonMessages.MonitoringMsg)
+		return c.Send("I had already been monitoring" + messaging.MonitoringMsg)
 	}
 }
 
 func pingCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		if environment.Mute {
-			return c.Send(messages.PongText + " I am currently sleeping" + commonMessages.SleepingMsg)
+			return c.Send(messages.PongText + " I am currently sleeping" + messaging.SleepingMsg)
 		}
-		return c.Send(messages.PongText + " I am monitoring" + commonMessages.MonitoringMsg)
+		return c.Send(messages.PongText + " I am monitoring" + messaging.MonitoringMsg)
 	}
 }
 
