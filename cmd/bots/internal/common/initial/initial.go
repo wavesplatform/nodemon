@@ -8,7 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	tele "gopkg.in/telebot.v3"
+	"gopkg.in/telebot.v3"
 )
 
 func InitTgBot(behavior string,
@@ -24,7 +24,7 @@ func InitTgBot(behavior string,
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up bot configuration")
 	}
-	bot, err := tele.NewBot(*botSettings)
+	bot, err := telebot.NewBot(*botSettings)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start telegram bot")
 	}

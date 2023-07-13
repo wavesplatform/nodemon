@@ -15,7 +15,7 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	tele "gopkg.in/telebot.v3"
+	"gopkg.in/telebot.v3"
 )
 
 func InitTgHandlers(
@@ -24,7 +24,7 @@ func InitTgHandlers(
 	requestCh chan<- pair.Request,
 	responseCh <-chan pair.Response,
 ) {
-	env.Bot.Handle("/chat", func(c tele.Context) error {
+	env.Bot.Handle("/chat", func(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", env.ChatID))
 	})
 
@@ -34,27 +34,27 @@ func InitTgHandlers(
 
 	env.Bot.Handle("/mute", muteCmd(env))
 
-	env.Bot.Handle("/help", func(c tele.Context) error {
-		return c.Send(messages.HelpInfoText, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	env.Bot.Handle("/help", func(c telebot.Context) error {
+		return c.Send(messages.HelpInfoText, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	})
 
-	env.Bot.Handle("\f"+buttons.AddNewNode, func(c tele.Context) error {
-		return c.Send(messages.AddNewNodeMsg, &tele.SendOptions{ParseMode: tele.ModeDefault})
+	env.Bot.Handle("\f"+buttons.AddNewNode, func(c telebot.Context) error {
+		return c.Send(messages.AddNewNodeMsg, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	})
-	env.Bot.Handle("\f"+buttons.RemoveNode, func(c tele.Context) error {
-		return c.Send(messages.RemoveNode, &tele.SendOptions{ParseMode: tele.ModeDefault})
+	env.Bot.Handle("\f"+buttons.RemoveNode, func(c telebot.Context) error {
+		return c.Send(messages.RemoveNode, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	})
-	env.Bot.Handle("\f"+buttons.SubscribeTo, func(c tele.Context) error {
-		return c.Send(messages.SubscribeTo, &tele.SendOptions{ParseMode: tele.ModeDefault})
+	env.Bot.Handle("\f"+buttons.SubscribeTo, func(c telebot.Context) error {
+		return c.Send(messages.SubscribeTo, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	})
-	env.Bot.Handle("\f"+buttons.UnsubscribeFrom, func(c tele.Context) error {
-		return c.Send(messages.UnsubscribeFrom, &tele.SendOptions{ParseMode: tele.ModeDefault})
+	env.Bot.Handle("\f"+buttons.UnsubscribeFrom, func(c telebot.Context) error {
+		return c.Send(messages.UnsubscribeFrom, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	})
 
-	env.Bot.Handle("/pool", func(c tele.Context) error {
+	env.Bot.Handle("/pool", func(c telebot.Context) error {
 		return EditPool(c, env, requestCh, responseCh)
 	})
-	env.Bot.Handle("/subscriptions", func(c tele.Context) error {
+	env.Bot.Handle("/subscriptions", func(c telebot.Context) error {
 		return EditSubscriptions(c, env)
 	})
 
@@ -74,7 +74,7 @@ func InitTgHandlers(
 
 	env.Bot.Handle("/statement", statementCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 
-	env.Bot.Handle(tele.OnText, onTextMsgHandler(env, requestCh, responseCh))
+	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh))
 
 	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 }
@@ -83,23 +83,23 @@ func removeCmd(
 	env *common.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
-			return c.Send(messages.RemovedDoesNotEqualOne, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.RemovedDoesNotEqualOne, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
 		return RemoveNodeHandler(c, env, requestChan, responseChan, url)
 	}
 }
 
-func addAliasCmd(env *common.TelegramBotEnvironment, requestType chan<- pair.Request) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func addAliasCmd(env *common.TelegramBotEnvironment, requestType chan<- pair.Request) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		const requiredArgsCount = 2
 		args := c.Args()
 		if len(args) != requiredArgsCount {
-			return c.Send(messages.AliasWrongFormat, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.AliasWrongFormat, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url, alias := args[0], args[1]
 		return UpdateAliasHandler(c, env, requestType, url, alias)
@@ -110,8 +110,8 @@ func aliasesCmd(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 	zapLogger *zap.Logger,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responseChan)
 		if err != nil {
 			zapLogger.Error("failed to request nodes list", zap.Error(err))
@@ -126,7 +126,7 @@ func aliasesCmd(
 		if msg == "" {
 			msg = "No aliases have been found"
 		}
-		return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
+		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
 
@@ -134,8 +134,8 @@ func onTextMsgHandler(
 	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		command := strings.ToLower(c.Text())
 		switch {
 		case strings.HasPrefix(command, "add specific"):
@@ -164,8 +164,8 @@ func statusCmd(
 	responsePairType <-chan pair.Response,
 	ext common.ExpectedExtension,
 	zapLogger *zap.Logger,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
 			zapLogger.Error("failed to get nodes list", zap.Error(err))
@@ -188,7 +188,7 @@ func statusCmd(
 			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
 		}
 
-		return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
+		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
 
@@ -197,22 +197,22 @@ func statementCmd(
 	responseChan <-chan pair.Response,
 	ext common.ExpectedExtension,
 	zapLogger *zap.Logger,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) > 2 || len(args) < 1 {
-			return c.Send(messages.StatementWrongFormat, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.StatementWrongFormat, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
 
 		updatedURL, err := entities.CheckAndUpdateURL(url)
 		if err != nil {
-			return c.Send(messages.InvalidURL, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.InvalidURL, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		height, err := strconv.Atoi(args[1])
 		if err != nil {
 			return c.Send(fmt.Sprintf("failed to parse height: %s", err.Error()),
-				&tele.SendOptions{ParseMode: tele.ModeDefault},
+				&telebot.SendOptions{ParseMode: telebot.ModeDefault},
 			)
 		}
 		statement, err := messaging.RequestNodeStatement(requestChan, responseChan, updatedURL, height)
@@ -227,26 +227,26 @@ func statementCmd(
 			return err
 		}
 
-		return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
+		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
 
-func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
-			return c.Send(messages.SubscribeWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.SubscribeWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		alertName := entities.AlertName(args[0])
 		return UnsubscribeHandler(c, environment, alertName)
 	}
 }
 
-func subscribeCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func subscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
-			return c.Send(messages.SubscribeWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.SubscribeWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		alertName := entities.AlertName(args[0])
 		return SubscribeHandler(c, environment, alertName)
@@ -257,15 +257,15 @@ func addSpecificCmd(
 	environment *common.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
-			return c.Send(messages.AddWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
 		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, true)
-		return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeHTML})
+		return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
 
@@ -273,16 +273,16 @@ func addCmd(
 	environment *common.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
-) func(c tele.Context) error {
-	return func(c tele.Context) error {
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
-			return c.Send(messages.AddWrongNumberOfNodes, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
 
 		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, false)
-		err := c.Send(response, &tele.SendOptions{ParseMode: tele.ModeHTML})
+		err := c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 		if err != nil {
 			return err
 		}
@@ -296,15 +296,15 @@ func addCmd(
 		}
 		return c.Send(
 			message,
-			&tele.SendOptions{
-				ParseMode: tele.ModeHTML,
+			&telebot.SendOptions{
+				ParseMode: telebot.ModeHTML,
 			},
 		)
 	}
 }
 
-func muteCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 			return c.Send("Sorry, you have no right to mute me")
 		}
@@ -316,8 +316,8 @@ func muteCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) er
 	}
 }
 
-func startCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func startCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 			return c.Send("Sorry, you have no right to start me")
 		}
@@ -329,8 +329,8 @@ func startCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) e
 	}
 }
 
-func pingCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) error {
-	return func(c tele.Context) error {
+func pingCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
 		if environment.Mute {
 			return c.Send(messages.PongText + " I am currently sleeping" + commonMessages.SleepingMsg)
 		}
@@ -339,7 +339,7 @@ func pingCmd(environment *common.TelegramBotEnvironment) func(c tele.Context) er
 }
 
 func EditPool(
-	c tele.Context,
+	c telebot.Context,
 	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
@@ -352,12 +352,12 @@ func EditPool(
 	if err != nil {
 		return errors.Wrap(err, "failed to construct nodes list message")
 	}
-	err = c.Send(message, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	err = c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
 		return err
 	}
 
-	keyboardAddDelete := [][]tele.InlineButton{{
+	keyboardAddDelete := [][]telebot.InlineButton{{
 		{
 			Text:   "Add new node",
 			Unique: buttons.AddNewNode,
@@ -369,9 +369,9 @@ func EditPool(
 	}}
 
 	return c.Send("Please choose",
-		&tele.SendOptions{
-			ParseMode: tele.ModeHTML,
-			ReplyMarkup: &tele.ReplyMarkup{
+		&telebot.SendOptions{
+			ParseMode: telebot.ModeHTML,
+			ReplyMarkup: &telebot.ReplyMarkup{
 				InlineKeyboard:  keyboardAddDelete,
 				ResizeKeyboard:  true,
 				OneTimeKeyboard: true},
@@ -380,18 +380,18 @@ func EditPool(
 }
 
 func EditSubscriptions(
-	c tele.Context,
+	c telebot.Context,
 	environment *common.TelegramBotEnvironment) error {
 	msg, err := environment.SubscriptionsList()
 	if err != nil {
 		return errors.Wrap(err, "failed to request subscriptions")
 	}
-	err = c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	err = c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
 		return err
 	}
 
-	keyboardSubUnsub := [][]tele.InlineButton{{
+	keyboardSubUnsub := [][]telebot.InlineButton{{
 		{
 			Text:   "Subscribe to",
 			Unique: buttons.SubscribeTo,
@@ -403,9 +403,9 @@ func EditSubscriptions(
 	}}
 
 	return c.Send("Please choose",
-		&tele.SendOptions{
-			ParseMode: tele.ModeHTML,
-			ReplyMarkup: &tele.ReplyMarkup{
+		&telebot.SendOptions{
+			ParseMode: telebot.ModeHTML,
+			ReplyMarkup: &telebot.ReplyMarkup{
 				InlineKeyboard:  keyboardSubUnsub,
 				ResizeKeyboard:  true,
 				OneTimeKeyboard: true},

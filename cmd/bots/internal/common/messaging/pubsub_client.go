@@ -3,12 +3,12 @@ package messaging
 import (
 	"context"
 
-	generalMessaging "nodemon/pkg/messaging"
-
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/sub"
 	_ "go.nanomsg.org/mangos/v3/transport/all" // registers all transports
 	"go.uber.org/zap"
+
+	"nodemon/pkg/messaging"
 )
 
 func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot Bot, logger *zap.Logger) error {
@@ -42,7 +42,7 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot Bot, lo
 					logger.Error("failed to receive message", zap.Error(err))
 					return
 				}
-				alertMsg, err := generalMessaging.NewAlertMessageFromBytes(msg)
+				alertMsg, err := messaging.NewAlertMessageFromBytes(msg)
 				if err != nil {
 					logger.Error("failed to parse alert message from bytes", zap.Error(err))
 					return

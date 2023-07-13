@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	tele "gopkg.in/telebot.v3"
+	"gopkg.in/telebot.v3"
 )
 
 const (
@@ -26,17 +26,17 @@ func NewTgBotSettings(
 	webhookLocalAddress string,
 	publicURL string,
 	botToken string,
-) (*tele.Settings, error) {
+) (*telebot.Settings, error) {
 	switch behavior {
 	case WebhookMethod:
 		if publicURL == "" {
 			return nil, errors.New("no public url for webhook method was provided")
 		}
-		webhook := &tele.Webhook{
+		webhook := &telebot.Webhook{
 			Listen:   webhookLocalAddress,
-			Endpoint: &tele.WebhookEndpoint{PublicURL: publicURL},
+			Endpoint: &telebot.WebhookEndpoint{PublicURL: publicURL},
 		}
-		botSettings := tele.Settings{
+		botSettings := telebot.Settings{
 			Token:  botToken,
 			Poller: webhook}
 		return &botSettings, nil
@@ -44,9 +44,9 @@ func NewTgBotSettings(
 		if err := tryRemoveWebhookIfExists(botToken); err != nil {
 			return nil, errors.Wrap(err, "failed to remove webhook if exists")
 		}
-		botSettings := tele.Settings{
+		botSettings := telebot.Settings{
 			Token:  botToken,
-			Poller: &tele.LongPoller{Timeout: longPollingTimeout},
+			Poller: &telebot.LongPoller{Timeout: longPollingTimeout},
 		}
 		return &botSettings, nil
 	default:
