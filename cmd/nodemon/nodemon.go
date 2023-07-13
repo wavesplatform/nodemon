@@ -11,20 +11,19 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
+	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/api"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
+	"nodemon/pkg/scraping"
+	"nodemon/pkg/storing/events"
+	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
-
-	zapLogger "go.uber.org/zap"
-
-	"nodemon/pkg/analysis"
-	"nodemon/pkg/api"
-	"nodemon/pkg/scraping"
-	eventsStorage "nodemon/pkg/storing/events"
-	nodesStorage "nodemon/pkg/storing/nodes"
 )
 
 const (
@@ -99,7 +98,7 @@ func newNodemonConfig() *nodemonConfig {
 	return c
 }
 
-func (c *nodemonConfig) validate(zap *zapLogger.Logger) error {
+func (c *nodemonConfig) validate(zap *zap.Logger) error {
 	if len(c.storage) == 0 || len(strings.Fields(c.storage)) > 1 {
 		zap.Error(fmt.Sprintf("Invalid storage path '%s'", c.storage))
 		return errInvalidParameters
@@ -131,87 +130,87 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	zap, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return errInvalidParameters
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
-	if validateErr := cfg.validate(zap); validateErr != nil {
+	if validateErr := cfg.validate(logger); validateErr != nil {
 		return validateErr
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodesStorage.NewJSONStorage(cfg.storage, strings.Fields(cfg.nodes), zap)
+	ns, err := nodes.NewJSONStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
 	if err != nil {
-		zap.Error("failed to initialize nodes storage", zapLogger.Error(err))
+		logger.Error("failed to initialize nodes storage", zap.Error(err))
 		return err
 	}
-	defer func(cs nodesStorage.Storage) {
+	defer func(cs nodes.Storage) {
 		if closeErr := cs.Close(); closeErr != nil {
-			zap.Error("failed to close nodes storage", zapLogger.Error(closeErr))
+			logger.Error("failed to close nodes storage", zap.Error(closeErr))
 		}
 	}(ns)
 
-	es, err := eventsStorage.NewStorage(cfg.retention, zap)
+	es, err := events.NewStorage(cfg.retention, logger)
 	if err != nil {
-		zap.Error("failed to initialize events storage", zapLogger.Error(err))
+		logger.Error("failed to initialize events storage", zap.Error(err))
 		return err
 	}
-	defer func(es *eventsStorage.Storage) {
+	defer func(es *events.Storage) {
 		if closeErr := es.Close(); closeErr != nil {
-			zap.Error("failed to close events storage", zapLogger.Error(closeErr))
+			logger.Error("failed to close events storage", zap.Error(closeErr))
 		}
 	}(es)
 
-	scraper, err := scraping.NewScraper(ns, es, cfg.interval, cfg.timeout, zap)
+	scraper, err := scraping.NewScraper(ns, es, cfg.interval, cfg.timeout, logger)
 	if err != nil {
-		zap.Error("failed to initialize scraper", zapLogger.Error(err))
+		logger.Error("failed to initialize scraper", zap.Error(err))
 		return err
 	}
 
-	privateNodesHandler, err := specific.NewPrivateNodesHandlerWithUnreachableInitialState(es, ns, zap)
+	privateNodesHandler, err := specific.NewPrivateNodesHandlerWithUnreachableInitialState(es, ns, logger)
 	if err != nil {
-		zap.Error("failed to create private nodes handler with unreachable initial state", zapLogger.Error(err))
+		logger.Error("failed to create private nodes handler with unreachable initial state", zap.Error(err))
 		return err
 	}
 
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
 
-	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, zap,
+	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger,
 		privateNodesHandler.PrivateNodesEventsWriter(), atom,
 	)
 	if err != nil {
-		zap.Error("failed to initialize API", zapLogger.Error(err))
+		logger.Error("failed to initialize API", zap.Error(err))
 		return err
 	}
 	if apiErr := a.Start(); apiErr != nil {
-		zap.Error("failed to start API", zapLogger.Error(apiErr))
+		logger.Error("failed to start API", zap.Error(apiErr))
 		return apiErr
 	}
 
-	alerts := runAnalyzer(cfg, es, zap, notifications)
+	alerts := runAnalyzer(cfg, es, logger, notifications)
 
-	runMessagingServices(ctx, cfg, alerts, zap, ns, es)
+	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
 
 	<-ctx.Done()
 	a.Shutdown()
-	zap.Info("shutting down")
+	logger.Info("shutting down")
 	return nil
 }
 
 func runAnalyzer(
 	cfg *nodemonConfig,
-	es *eventsStorage.Storage,
-	zap *zapLogger.Logger,
+	es *events.Storage,
+	zap *zap.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
 ) <-chan entities.Alert {
 	opts := &analysis.AnalyzerOptions{
@@ -226,31 +225,31 @@ func runMessagingServices(
 	ctx context.Context,
 	cfg *nodemonConfig,
 	alerts <-chan entities.Alert,
-	zap *zapLogger.Logger,
-	ns *nodesStorage.JSONStorage,
-	es *eventsStorage.Storage,
+	logger *zap.Logger,
+	ns *nodes.JSONStorage,
+	es *events.Storage,
 ) {
 	go func() {
-		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, zap)
+		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, logger)
 		if pubSubErr != nil {
-			zap.Fatal("failed to start pub messaging server", zapLogger.Error(pubSubErr))
+			logger.Fatal("failed to start pub messaging server", zap.Error(pubSubErr))
 		}
 	}()
 
 	if cfg.runTelegramPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, zap)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, logger)
 			if pairErr != nil {
-				zap.Fatal("failed to start pair messaging server", zapLogger.Error(pairErr))
+				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
 		}()
 	}
 
 	if cfg.runDiscordPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, zap)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, logger)
 			if pairErr != nil {
-				zap.Fatal("failed to start pair messaging server", zapLogger.Error(pairErr))
+				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
 		}()
 	}

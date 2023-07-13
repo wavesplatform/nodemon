@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event) {
@@ -96,15 +96,15 @@ type testCase struct {
 }
 
 func TestAnalyzer_analyzeStateHash(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	var (
 		forkA             = generateStateHashes(0, 5)
@@ -144,11 +144,11 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	}
 	for i := range tests {
 		test := tests[i]
-		t.Run(fmt.Sprintf("TestCase#%d", i+1), runTestCase(zap, test))
+		t.Run(fmt.Sprintf("TestCase#%d", i+1), runTestCase(logger, test))
 	}
 }
 
-func runTestCase(zap *zapLogger.Logger, test testCase) func(t *testing.T) {
+func runTestCase(zap *zap.Logger, test testCase) func(t *testing.T) {
 	return func(t *testing.T) {
 		es, err := events.NewStorage(time.Minute, zap)
 		require.NoError(t, err)

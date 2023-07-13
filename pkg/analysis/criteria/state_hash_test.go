@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event) {
@@ -96,15 +96,15 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 func TestStateHashCriterion_Analyze(t *testing.T) {
-	zap, loggerErr := zapLogger.NewDevelopment()
+	logger, loggerErr := zap.NewDevelopment()
 	if loggerErr != nil {
 		log.Fatalf("can't initialize zap logger: %v", loggerErr)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	var (
 		forkA             = generateFiveStateHashes(0)
@@ -222,7 +222,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, storageErr := events.NewStorage(time.Minute, zap)
+			es, storageErr := events.NewStorage(time.Minute, logger)
 			require.NoError(t, storageErr)
 			done := make(chan struct{})
 			defer func() {
@@ -238,7 +238,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := criteria.NewStateHashCriterion(es, test.opts, zap)
+				criterion := criteria.NewStateHashCriterion(es, test.opts, logger)
 				criteriaErr := criterion.Analyze(alerts, 0, test.data)
 				require.NoError(t, criteriaErr)
 			}()

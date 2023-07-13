@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 type shInfo struct {
@@ -72,15 +72,15 @@ func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
 }
 
 func TestFindLastCommonBlock(t *testing.T) {
-	zap, logErr := zapLogger.NewDevelopment()
+	logger, logErr := zap.NewDevelopment()
 	if logErr != nil {
 		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	forkA := generateFiveStateHashes(0)
 	forkB := generateFiveStateHashes(50)
@@ -173,7 +173,7 @@ func TestFindLastCommonBlock(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
-			storage, err := events.NewStorage(10*time.Minute, zap)
+			storage, err := events.NewStorage(10*time.Minute, logger)
 			require.NoError(t, err)
 			loadEvents(t, storage, test.eventsA, test.eventsB)
 			ff := finders.NewForkFinder(storage)
@@ -190,15 +190,15 @@ func TestFindLastCommonBlock(t *testing.T) {
 }
 
 func TestFindLastCommonStateHash(t *testing.T) {
-	zap, logErr := zapLogger.NewDevelopment()
+	logger, logErr := zap.NewDevelopment()
 	if logErr != nil {
 		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	forkA := generateFiveStateHashes(0)
 	forkB := generateFiveStateHashes(50)
@@ -300,7 +300,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("#%d", i+1), func(t *testing.T) {
-			storage, err := events.NewStorage(10*time.Minute, zap)
+			storage, err := events.NewStorage(10*time.Minute, logger)
 			require.NoError(t, err)
 			loadEvents(t, storage, test.eventsA, test.eventsB)
 			ff := finders.NewForkFinder(storage)

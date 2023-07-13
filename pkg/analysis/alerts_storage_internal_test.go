@@ -7,19 +7,19 @@ import (
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/require"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 func TestAlertsStorage(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	var (
 		alert1 = &entities.SimpleAlert{Description: "first simple alert"}
@@ -155,7 +155,7 @@ func TestAlertsStorage(t *testing.T) {
 			"failed constraint in test case#%d", tcNum,
 		)
 
-		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, test.alertConfirmations, zap)
+		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, test.alertConfirmations, logger)
 		for _, alert := range test.initialAlerts {
 			storage.PutAlert(alert)
 		}

@@ -4,23 +4,23 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
-func SetupZapLogger(logLevel string) (*zapLogger.Logger, *zapLogger.AtomicLevel, error) {
-	atom := zapLogger.NewAtomicLevel()
-	encoderCfg := zapLogger.NewDevelopmentEncoderConfig()
+func SetupZapLogger(logLevel string) (*zap.Logger, *zap.AtomicLevel, error) {
+	atom := zap.NewAtomicLevel()
+	encoderCfg := zap.NewDevelopmentEncoderConfig()
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.Lock(os.Stdout), atom)
-	zap := zapLogger.New(core)
+	logger := zap.New(core)
 
 	level, err := zapcore.ParseLevel(logLevel)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "invalid log level '%s'", logLevel)
 	}
 	atom.SetLevel(level)
-	zapLogger.ReplaceGlobals(zap)
+	zap.ReplaceGlobals(logger)
 
-	return zap, &atom, nil
+	return logger, &atom, nil
 }

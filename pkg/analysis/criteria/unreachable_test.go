@@ -11,7 +11,7 @@ import (
 	"nodemon/pkg/storing/events"
 
 	"github.com/stretchr/testify/require"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
@@ -23,16 +23,16 @@ func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
 }
 
 func TestUnreachableCriterion_Analyze(t *testing.T) {
-	zap, logErr := zapLogger.NewDevelopment()
+	logger, logErr := zap.NewDevelopment()
 	if logErr != nil {
 		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		err := zap.Sync()
 		if err != nil {
 			log.Println(err)
 		}
-	}(zap)
+	}(logger)
 
 	commonStateHashes := generateFiveStateHashes(250)
 	tests := []struct {
@@ -73,7 +73,7 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 	for i := range tests {
 		test := tests[i]
 		t.Run(fmt.Sprintf("TestCase#%d", i+1), func(t *testing.T) {
-			es, err := events.NewStorage(time.Minute, zap)
+			es, err := events.NewStorage(time.Minute, logger)
 			require.NoError(t, err)
 			done := make(chan struct{})
 			defer func() {
@@ -89,7 +89,7 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			alerts := make(chan entities.Alert)
 			go func() {
 				defer close(done)
-				criterion := criteria.NewUnreachableCriterion(es, test.opts, zap)
+				criterion := criteria.NewUnreachableCriterion(es, test.opts, logger)
 				alanyzerErr := criterion.Analyze(alerts, 0, test.data)
 				require.NoError(t, alanyzerErr)
 			}()

@@ -10,7 +10,7 @@ import (
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/require"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 type heightInfo struct {
@@ -30,15 +30,15 @@ func mkHeightStatements(heightInfos []heightInfo) entities.NodeStatements {
 }
 
 func TestHeightCriterion_Analyze(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {
 			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	tests := []struct {
 		opts           *criteria.HeightCriterionOptions
@@ -95,7 +95,7 @@ func TestHeightCriterion_Analyze(t *testing.T) {
 			}()
 			go func() {
 				defer close(done)
-				criterion := criteria.NewHeightCriterion(test.opts, zap)
+				criterion := criteria.NewHeightCriterion(test.opts, logger)
 				criterion.Analyze(alerts, 0, test.data)
 			}()
 			for j := range test.expectedAlerts {
