@@ -65,7 +65,8 @@ func handleMessage(
 	es *events.Storage,
 ) error {
 	if len(rawMsg) == 0 {
-		return errors.New("empty message")
+		logger.Warn("empty raw message received from pair socket")
+		return nil
 	}
 	var (
 		t   = RequestPairType(rawMsg[0])
