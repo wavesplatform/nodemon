@@ -13,7 +13,7 @@ import (
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
-	nodesStor "nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 
 	"github.com/go-chi/chi"
@@ -30,7 +30,7 @@ const (
 
 type API struct {
 	srv                *http.Server
-	nodesStorage       nodesStor.Storage
+	nodesStorage       nodes.Storage
 	eventsStorage      *events.Storage
 	zap                *zap.Logger
 	privateNodesEvents specific.PrivateNodesEventsWriter
@@ -43,7 +43,7 @@ func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
 
 func NewAPI(
 	bind string,
-	nodesStorage nodesStor.Storage,
+	nodesStorage nodes.Storage,
 	eventsStorage *events.Storage,
 	apiReadTimeout time.Duration,
 	logger *zap.Logger,
@@ -210,12 +210,12 @@ func cleanCRLF(s string) string {
 }
 
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
-	nodes, err := a.nodesStorage.Nodes(false)
+	regularNodes, err := a.nodesStorage.Nodes(false)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return
 	}
-	err = json.NewEncoder(w).Encode(nodes)
+	err = json.NewEncoder(w).Encode(regularNodes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal nodes to JSON: %v", err), http.StatusInternalServerError)
 		return
@@ -223,12 +223,12 @@ func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *API) enabled(w http.ResponseWriter, _ *http.Request) {
-	nodes, err := a.nodesStorage.EnabledNodes()
+	enabledNodes, err := a.nodesStorage.EnabledNodes()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return
 	}
-	err = json.NewEncoder(w).Encode(nodes)
+	err = json.NewEncoder(w).Encode(enabledNodes)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal nodes to JSON: %v", err), http.StatusInternalServerError)
 		return

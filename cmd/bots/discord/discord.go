@@ -9,15 +9,14 @@ import (
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/initial"
-	"nodemon/cmd/bots/internal/common/messaging/pair"
-	"nodemon/cmd/bots/internal/common/messaging/pubsub"
+	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
-	pairCommon "nodemon/pkg/messaging/pair"
+	"nodemon/pkg/messaging/pair"
 
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
 	gow "github.com/wavesplatform/gowaves/pkg/util/common"
-	zapLogger "go.uber.org/zap"
+	"go.uber.org/zap"
 )
 
 func main() {
@@ -55,7 +54,7 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 	return c
 }
 
-func (c *discordBotConfig) validate(zap *zapLogger.Logger) error {
+func (c *discordBotConfig) validate(zap *zap.Logger) error {
 	if c.discordBotToken == "" {
 		zap.Error("discord bot token is required")
 		return common.ErrInvalidParameters
@@ -71,73 +70,79 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	zap, _ := gow.SetupLogger(cfg.logLevel)
+	logger, _ := gow.SetupLogger(cfg.logLevel)
 
-	defer func(zap *zapLogger.Logger) {
+	defer func(zap *zap.Logger) {
 		if err := zap.Sync(); err != nil {
 			log.Println(err)
 		}
-	}(zap)
+	}(logger)
 
-	if err := cfg.validate(zap); err != nil {
+	if err := cfg.validate(logger); err != nil {
 		return err
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	requestCh := make(chan pairCommon.Request)
-	responseCh := make(chan pairCommon.Response)
+	requestChan := make(chan pair.Request)
+	responseChan := make(chan pair.Response)
 
-	discordBotEnv, initErr := initial.InitDiscordBot(cfg.discordBotToken, cfg.discordChatID, zap, requestCh, responseCh)
+	discordBotEnv, initErr := initial.InitDiscordBot(
+		cfg.discordBotToken,
+		cfg.discordChatID,
+		logger,
+		requestChan,
+		responseChan,
+	)
 	if initErr != nil {
 		return errors.Wrap(initErr, "failed to init discord bot")
 	}
-	handlers.InitDscHandlers(discordBotEnv, requestCh, responseCh, zap)
+	handlers.InitDscHandlers(discordBotEnv, requestChan, responseChan, logger)
 
 	go func() {
-		clientErr := pubsub.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, discordBotEnv, zap)
+		clientErr := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, discordBotEnv, logger)
 		if clientErr != nil {
-			zap.Fatal("failed to start sub messaging client", zapLogger.Error(clientErr))
+			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
 			return
 		}
 	}()
 
 	go func() {
-		err := pair.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, requestCh, responseCh, zap)
+		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, requestChan, responseChan, logger)
 		if err != nil {
-			zap.Fatal("failed to start pair messaging client", zapLogger.Error(err))
+			logger.Fatal("failed to start pair messaging client", zap.Error(err))
 			return
 		}
 	}()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err := common.ScheduleNodesStatus(taskScheduler, requestCh, responseCh, discordBotEnv, zap)
+	err := common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
-		zap.Fatal("failed to schedule nodes status", zapLogger.Error(err))
+		logger.Fatal("failed to schedule nodes status", zap.Error(err))
 		return err
 	}
 
-	zap.Info("Nodes status has been scheduled successfully")
+	logger.Info("Nodes status has been scheduled successfully")
 
 	err = discordBotEnv.Start()
 	if err != nil {
-		zap.Fatal("failed to start discord bot", zapLogger.Error(err))
+		logger.Fatal("failed to start discord bot", zap.Error(err))
 		return err
 	}
 	defer func() {
 		err = discordBotEnv.Bot.Close()
 		if err != nil {
-			zap.Error("failed to close discord bot web socket", zapLogger.Error(err))
+			logger.Error("failed to close discord bot web socket", zap.Error(err))
 		}
 	}()
 	<-ctx.Done()
 
-	zap.Info("Discord bot finished")
+	logger.Info("Discord bot finished")
 	if !taskScheduler.IsShutdown() {
 		taskScheduler.Shutdown()
-		zap.Info("scheduler finished")
+		logger.Info("scheduler finished")
 	}
 	return nil
 }

@@ -1,4 +1,4 @@
-package pair
+package messaging
 
 import (
 	"bytes"

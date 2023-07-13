@@ -1,9 +1,8 @@
-package pubsub
+package messaging
 
 import (
 	"context"
 
-	"nodemon/cmd/bots/internal/common/messaging"
 	generalMessaging "nodemon/pkg/messaging"
 
 	"go.nanomsg.org/mangos/v3/protocol"
@@ -12,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.Bot, logger *zap.Logger) error {
+func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot Bot, logger *zap.Logger) error {
 	subSocket, sockErr := sub.NewSocket()
 	if sockErr != nil {
 		return sockErr

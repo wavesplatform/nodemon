@@ -6,7 +6,7 @@ import (
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
-	nodesStor "nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/nodes"
 
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
@@ -46,7 +46,7 @@ type PrivateNodesHandler struct {
 
 func NewPrivateNodesHandlerWithUnreachableInitialState(
 	es *events.Storage,
-	ns nodesStor.Storage,
+	ns nodes.Storage,
 	zap *zap.Logger,
 ) (*PrivateNodesHandler, error) {
 	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
@@ -82,18 +82,18 @@ func (h *PrivateNodesHandler) PrivateNodesEventsWriter() PrivateNodesEventsWrite
 }
 
 func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
-	nodes := make(entities.Nodes, 0, len(h.privateEvents.data))
+	nodesList := make(entities.Nodes, 0, len(h.privateEvents.data))
 	h.privateEvents.mu.RLock()
 	defer h.privateEvents.mu.RUnlock()
 	for node, eventProducer := range h.privateEvents.data {
 		event := eventProducer.WithTimestamp(ts)
 		if err := h.putPrivateNodesEvent(event); err != nil {
 			h.zap.Error("Failed to put private node event", zap.Error(err))
-			return nodes
+			return nodesList
 		}
-		nodes = append(nodes, node)
+		nodesList = append(nodesList, node)
 	}
-	return nodes
+	return nodesList
 }
 
 func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {

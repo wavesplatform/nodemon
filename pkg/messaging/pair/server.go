@@ -7,7 +7,7 @@ import (
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
-	nodesStor "nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/nodes"
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
@@ -18,7 +18,7 @@ import (
 func StartPairMessagingServer(
 	ctx context.Context,
 	nanomsgURL string,
-	ns nodesStor.Storage,
+	ns nodes.Storage,
 	es *events.Storage,
 	logger *zap.Logger,
 ) error {
@@ -59,7 +59,7 @@ func StartPairMessagingServer(
 
 func handleMessage(
 	rawMsg []byte,
-	ns nodesStor.Storage,
+	ns nodes.Storage,
 	logger *zap.Logger,
 	socket protocol.Socket,
 	es *events.Storage,
@@ -68,36 +68,22 @@ func handleMessage(
 		return errors.New("empty message")
 	}
 	var (
-		request = RequestPairType(rawMsg[0])
-		msg     = rawMsg[1:] // cut first byte
+		t   = RequestPairType(rawMsg[0])
+		msg = rawMsg[1:] // cut first byte, which is request type
 	)
-	switch request {
+	switch t {
 	case RequestNodeListType:
-		nodes, err := ns.Nodes(false)
-		if err != nil {
-			logger.Error("Failed to get list of nodes from storage", zap.Error(err))
+		if err := handleNodesRequest(ns, false, logger, socket); err != nil {
 			return err
 		}
-		handleNodesRequest(nodes, logger, socket)
 	case RequestSpecificNodeListType:
-		nodes, err := ns.Nodes(true)
-		if err != nil {
-			logger.Error("Failed to receive list of specific nodes from storage", zap.Error(err))
+		if err := handleNodesRequest(ns, true, logger, socket); err != nil {
 			return err
 		}
-		handleNodesRequest(nodes, logger, socket)
 	case RequestInsertNewNodeType:
-		url := msg
-		err := ns.InsertIfNew(string(url), false)
-		if err != nil {
-			logger.Error("Failed to insert a new node to storage", zap.Error(err))
-		}
+		insertNodeIfNew(msg, ns, false, logger)
 	case RequestInsertSpecificNewNodeType:
-		url := msg
-		err := ns.InsertIfNew(string(url), true)
-		if err != nil {
-			logger.Error("Failed to insert a new specific node to storage", zap.Error(err))
-		}
+		insertNodeIfNew(msg, ns, true, logger)
 	case RequestUpdateNodeType:
 		handleUpdateNodeRequest(msg, logger, ns)
 	case RequestDeleteNodeType:
@@ -107,12 +93,22 @@ func handleMessage(
 	case RequestNodeStatementType:
 		handleNodeStatementRequest(msg, logger, es, socket)
 	default:
-		logger.Error("Unknown request type", zap.String("request", string(request)))
+		logger.Error("Unknown request type", zap.Int("type", int(t)), zap.Binary("message", msg))
 	}
 	return nil
 }
 
-func handleDeleteNodeRequest(msg []byte, ns nodesStor.Storage, logger *zap.Logger) {
+func insertNodeIfNew(msg []byte, ns nodes.Storage, specific bool, logger *zap.Logger) {
+	url := msg
+	err := ns.InsertIfNew(string(url), specific)
+	if err != nil {
+		logger.Error("Failed to insert a new node to storage",
+			zap.Error(err), zap.Bool("specific", specific),
+		)
+	}
+}
+
+func handleDeleteNodeRequest(msg []byte, ns nodes.Storage, logger *zap.Logger) {
 	url := msg
 	err := ns.Delete(string(url))
 	if err != nil {
@@ -120,7 +116,7 @@ func handleDeleteNodeRequest(msg []byte, ns nodesStor.Storage, logger *zap.Logge
 	}
 }
 
-func handleUpdateNodeRequest(msg []byte, logger *zap.Logger, ns nodesStor.Storage) {
+func handleUpdateNodeRequest(msg []byte, logger *zap.Logger, ns nodes.Storage) {
 	node := entities.Node{}
 	err := json.Unmarshal(msg, &node)
 	if err != nil {
@@ -132,16 +128,24 @@ func handleUpdateNodeRequest(msg []byte, logger *zap.Logger, ns nodesStor.Storag
 	}
 }
 
-func handleNodesRequest(nodes []entities.Node, logger *zap.Logger, socketPair protocol.Socket) {
-	nodeList := NodesListResponse{Nodes: nodes}
-	response, err := json.Marshal(nodeList)
+func handleNodesRequest(ns nodes.Storage, specific bool, logger *zap.Logger, socketPair protocol.Socket) error {
+	nodesList, err := ns.Nodes(specific)
+	if err != nil {
+		logger.Error("Failed to get list of nodes from storage",
+			zap.Error(err), zap.Bool("specific", specific),
+		)
+		return err
+	}
+	response := NodesListResponse{Nodes: nodesList}
+	marshaledResponse, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Failed to marshal node list to json", zap.Error(err))
 	}
-	err = socketPair.Send(response)
+	err = socketPair.Send(marshaledResponse)
 	if err != nil {
 		logger.Error("Failed to send a node list to pair socket", zap.Error(err))
 	}
+	return nil
 }
 
 func handleNodeStatementRequest(msg []byte, logger *zap.Logger, es *events.Storage, socketPair protocol.Socket) {
@@ -168,11 +172,10 @@ func handleNodeStatementRequest(msg []byte, logger *zap.Logger, es *events.Stora
 }
 
 func handleNodeStatusRequest(msg []byte, es *events.Storage, logger *zap.Logger, socketPair protocol.Socket) {
-	listOfNodes := msg
-	nodes := strings.Split(string(listOfNodes), ",")
+	listOfNodes := strings.Split(string(msg), ",")
 	var nodesStatusResp NodesStatusResponse
 
-	statements, err := es.FindAllStateHashesOnCommonHeight(nodes)
+	statements, err := es.FindAllStateHashesOnCommonHeight(listOfNodes)
 	switch {
 	case errors.Is(err, events.ErrBigHeightDifference):
 		nodesStatusResp.ErrMessage = events.ErrBigHeightDifference.Error()

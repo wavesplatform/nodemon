@@ -10,11 +10,11 @@ import (
 	"nodemon/pkg/messaging/pair"
 
 	"github.com/pkg/errors"
-	tele "gopkg.in/telebot.v3"
+	"gopkg.in/telebot.v3"
 )
 
 func AddNewNodeHandler(
-	c tele.Context,
+	c telebot.Context,
 	env *common.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
@@ -25,11 +25,11 @@ func AddNewNodeHandler(
 	response, err := messaging.AddNewNodeHandler(chatID, env, requestType, url, specific)
 	if err != nil {
 		if errors.Is(err, messaging.ErrIncorrectURL) || errors.Is(err, messaging.ErrInsufficientPermissions) {
-			return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		return errors.Wrap(err, "failed to add a new node")
 	}
-	err = c.Send(response, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	err = c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
 		return err
 	}
@@ -41,11 +41,11 @@ func AddNewNodeHandler(
 	if err != nil {
 		return errors.Wrap(err, "failed to construct nodes list message")
 	}
-	return c.Send(message, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	return c.Send(message, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 }
 
 func RemoveNodeHandler(
-	c tele.Context,
+	c telebot.Context,
 	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
@@ -60,13 +60,13 @@ func RemoveNodeHandler(
 	response, err := messaging.RemoveNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url)
 	if err != nil {
 		if errors.Is(err, messaging.ErrIncorrectURL) || errors.Is(err, messaging.ErrInsufficientPermissions) {
-			return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		return errors.Wrap(err, "failed to remove a node")
 	}
 	err = c.Send(
 		response,
-		&tele.SendOptions{ParseMode: tele.ModeHTML})
+		&telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	if err != nil {
 		return err
 	}
@@ -81,14 +81,14 @@ func RemoveNodeHandler(
 	}
 	return c.Send(
 		message,
-		&tele.SendOptions{
-			ParseMode: tele.ModeHTML,
+		&telebot.SendOptions{
+			ParseMode: telebot.ModeHTML,
 		},
 	)
 }
 
 func UpdateAliasHandler(
-	c tele.Context,
+	c telebot.Context,
 	env *common.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	url string,
@@ -97,61 +97,31 @@ func UpdateAliasHandler(
 	response, err := messaging.UpdateAliasHandler(strconv.FormatInt(c.Chat().ID, 10), env, requestChan, url, alias)
 	if err != nil {
 		if errors.Is(err, messaging.ErrIncorrectURL) || errors.Is(err, messaging.ErrInsufficientPermissions) {
-			return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeDefault})
+			return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		return errors.Wrap(err, "failed to update a node")
 	}
-	return c.Send(response, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 }
 
-func SubscribeHandler(c tele.Context, environment *common.TelegramBotEnvironment, alertName entities.AlertName) error {
-	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+func SubscribeHandler(c telebot.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
+	if !env.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
 
 	alertType, ok := alertName.AlertType()
 	if !ok {
-		return c.Send("Sorry, this alert does not exist", &tele.SendOptions{ParseMode: tele.ModeDefault})
+		return c.Send("Sorry, this alert does not exist", &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	}
-	if environment.IsAlreadySubscribed(alertType) {
-		return c.Send("I am already subscribed to it", &tele.SendOptions{ParseMode: tele.ModeDefault})
+	if env.IsAlreadySubscribed(alertType) {
+		return c.Send("I am already subscribed to it", &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 	}
-	err := environment.SubscribeToAlert(alertType)
+	err := env.SubscribeToAlert(alertType)
 	if err != nil {
 		return errors.Wrapf(err, "failed to subscribe to alert %s", alertName)
 	}
 	err = c.Send(fmt.Sprintf("I succesfully subscribed to %s", alertName),
-		&tele.SendOptions{ParseMode: tele.ModeHTML},
-	)
-	if err != nil {
-		return errors.Wrap(err, "failed to send a message")
-	}
-	msg, err := environment.SubscriptionsList()
-	if err != nil {
-		return errors.Wrap(err, "failed to receive list of subscriptions")
-	}
-	return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
-}
-
-func UnsubscribeHandler(c tele.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
-	chatID := strconv.FormatInt(c.Chat().ID, 10)
-	if !env.IsEligibleForAction(chatID) {
-		return c.Send("Sorry, you have no right to unsubscribe from alerts")
-	}
-
-	alertType, ok := alertName.AlertType()
-	if !ok {
-		return c.Send("Sorry, this alert does not exist", &tele.SendOptions{ParseMode: tele.ModeDefault})
-	}
-	if !env.IsAlreadySubscribed(alertType) {
-		return c.Send("I was not subscribed to it", &tele.SendOptions{ParseMode: tele.ModeDefault})
-	}
-	err := env.UnsubscribeFromAlert(alertType)
-	if err != nil {
-		return errors.Wrapf(err, "failed to unsubscribe from alert %s", alertName)
-	}
-	err = c.Send(fmt.Sprintf("I succesfully unsubscribed from %s", alertName),
-		&tele.SendOptions{ParseMode: tele.ModeHTML},
+		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 	)
 	if err != nil {
 		return errors.Wrap(err, "failed to send a message")
@@ -160,5 +130,35 @@ func UnsubscribeHandler(c tele.Context, env *common.TelegramBotEnvironment, aler
 	if err != nil {
 		return errors.Wrap(err, "failed to receive list of subscriptions")
 	}
-	return c.Send(msg, &tele.SendOptions{ParseMode: tele.ModeHTML})
+	return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+}
+
+func UnsubscribeHandler(c telebot.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
+	chatID := strconv.FormatInt(c.Chat().ID, 10)
+	if !env.IsEligibleForAction(chatID) {
+		return c.Send("Sorry, you have no right to unsubscribe from alerts")
+	}
+
+	alertType, ok := alertName.AlertType()
+	if !ok {
+		return c.Send("Sorry, this alert does not exist", &telebot.SendOptions{ParseMode: telebot.ModeDefault})
+	}
+	if !env.IsAlreadySubscribed(alertType) {
+		return c.Send("I was not subscribed to it", &telebot.SendOptions{ParseMode: telebot.ModeDefault})
+	}
+	err := env.UnsubscribeFromAlert(alertType)
+	if err != nil {
+		return errors.Wrapf(err, "failed to unsubscribe from alert %s", alertName)
+	}
+	err = c.Send(fmt.Sprintf("I succesfully unsubscribed from %s", alertName),
+		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
+	)
+	if err != nil {
+		return errors.Wrap(err, "failed to send a message")
+	}
+	msg, err := env.SubscriptionsList()
+	if err != nil {
+		return errors.Wrap(err, "failed to receive list of subscriptions")
+	}
+	return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 }

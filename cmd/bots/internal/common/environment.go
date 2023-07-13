@@ -13,7 +13,7 @@ import (
 	"sync"
 	textTemplate "text/template"
 
-	commonMessages "nodemon/cmd/bots/internal/common/messages"
+	"nodemon/cmd/bots/internal/common/messages"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
 	generalMessaging "nodemon/pkg/messaging"
@@ -563,7 +563,7 @@ func ScheduleNodesStatus(
 		if statusCondition.AllNodesAreOk {
 			var msg string
 			okNodes := shortOkNodes{
-				TimeEmoji:   commonMessages.TimerMsg,
+				TimeEmoji:   messages.TimerMsg,
 				NodesNumber: statusCondition.NodesNumber,
 				Height:      statusCondition.Height,
 			}
@@ -577,9 +577,9 @@ func ScheduleNodesStatus(
 		var msg string
 		switch bot.(type) {
 		case *TelegramBotEnvironment:
-			msg = fmt.Sprintf("Status %s\n\n%s", commonMessages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("Status %s\n\n%s", messages.TimerMsg, handledNodesStatus)
 		case *DiscordBotEnvironment:
-			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", commonMessages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messages.TimerMsg, handledNodesStatus)
 		default:
 			zapLogger.Error("failed to schedule nodes status, unknown bot type")
 			return
