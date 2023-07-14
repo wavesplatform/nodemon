@@ -1,15 +1,17 @@
-package entities
+package entities_test
 
 import (
 	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"nodemon/pkg/entities"
 )
 
 func TestFixedAlertJSON(t *testing.T) {
 	t.Run("ShadowedTypeDoesNotImplementUnmarshaler", func(t *testing.T) {
-		type shadowed AlertFixed
+		type shadowed entities.AlertFixed
 		var v shadowed // see trick in AlertFixed.UnmarshalJSON
 		_, typeImplements := interface{}(v).(json.Unmarshaler)
 		require.False(t, typeImplements, "type must not implement Unmarshaler")
@@ -17,7 +19,7 @@ func TestFixedAlertJSON(t *testing.T) {
 		require.False(t, pointerImplements, "pointer must not implement Unmarshaler")
 	})
 	t.Run("ShadowedTypeDoesNotImplementMarshaler", func(t *testing.T) {
-		type shadowed AlertFixed
+		type shadowed entities.AlertFixed
 		var v shadowed // see trick in AlertFixed.UnmarshalJSON
 		_, typeImplements := interface{}(v).(json.Marshaler)
 		require.False(t, typeImplements, "type must not implement Marshaler")
@@ -25,9 +27,9 @@ func TestFixedAlertJSON(t *testing.T) {
 		require.False(t, pointerImplements, "pointer must not implement Marshaler")
 	})
 	var (
-		expectedFixedAlert = AlertFixed{
+		expectedFixedAlert = entities.AlertFixed{
 			Timestamp: 1,
-			Fixed: &UnreachableAlert{
+			Fixed: &entities.UnreachableAlert{
 				Timestamp: 2,
 				Node:      "node1",
 			},
@@ -40,7 +42,7 @@ func TestFixedAlertJSON(t *testing.T) {
 		// - pointer implements != type implements
 		// Hence json.Marshal won't use AlertFixed.MarshalJSON implementation if you pass AlertFixed by type
 		// in case when AlertFixed implements json.Marshaler by pointer.
-		_ = json.Marshaler(AlertFixed{})
+		_ = json.Marshaler(entities.AlertFixed{})
 
 		data, err := json.Marshal(expectedFixedAlert)
 		require.NoError(t, err)
@@ -48,9 +50,9 @@ func TestFixedAlertJSON(t *testing.T) {
 	})
 	t.Run("Unmarshal", func(t *testing.T) {
 		// AlertFixed implements json.Unmarshaler by pointer
-		_ = json.Unmarshaler(&AlertFixed{})
+		_ = json.Unmarshaler(&entities.AlertFixed{})
 
-		var alert AlertFixed
+		var alert entities.AlertFixed
 		err := json.Unmarshal([]byte(expectedJSON), &alert)
 		require.NoError(t, err)
 		require.Equal(t, expectedFixedAlert, alert)

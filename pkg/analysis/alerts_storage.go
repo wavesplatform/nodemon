@@ -1,9 +1,10 @@
 package analysis
 
 import (
+	"nodemon/pkg/entities"
+
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 const (
@@ -54,16 +55,37 @@ type alertsStorage struct {
 type alertConfirmations map[entities.AlertType]int
 
 const (
-	HeightAlertConfirmations = 2
+	heightAlertConfirmationsDefault = 2
 )
 
-func defaultAlertConfirmations() alertConfirmations {
-	return alertConfirmations{
-		entities.HeightAlertType: HeightAlertConfirmations,
-	}
+type alertConfirmationsValue struct {
+	alertType     entities.AlertType
+	confirmations int
 }
 
-func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations alertConfirmations, logger *zap.Logger) *alertsStorage {
+func newAlertConfirmations(customConfirmations ...alertConfirmationsValue) alertConfirmations {
+	confirmations := alertConfirmations{
+		entities.SimpleAlertType:        0,
+		entities.UnreachableAlertType:   0,
+		entities.IncompleteAlertType:    0,
+		entities.InvalidHeightAlertType: 0,
+		entities.HeightAlertType:        0,
+		entities.StateHashAlertType:     0,
+		entities.AlertFixedType:         0,
+		entities.BaseTargetAlertType:    0,
+		entities.InternalErrorAlertType: 0,
+	}
+	for _, cc := range customConfirmations {
+		confirmations[cc.alertType] = cc.confirmations
+	}
+	return confirmations
+}
+
+func newAlertsStorage(
+	alertBackoff, alertVacuumQuota int,
+	requiredConfirmations alertConfirmations,
+	logger *zap.Logger,
+) *alertsStorage {
 	return &alertsStorage{
 		alertBackoff:          alertBackoff,
 		alertVacuumQuota:      alertVacuumQuota,
@@ -73,7 +95,7 @@ func newAlertsStorage(alertBackoff, alertVacuumQuota int, requiredConfirmations 
 	}
 }
 
-func (s *alertsStorage) PutAlert(alert entities.Alert) (needSendAlert bool) {
+func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	if s.alertVacuumQuota <= 1 { // no need to save alerts which can't outlive even one vacuum stage
 		return true
 	}
@@ -127,7 +149,7 @@ func (s *alertsStorage) Vacuum() []entities.Alert {
 	var alertsFixed []entities.Alert
 	for _, id := range s.internalStorage.ids() {
 		info := s.internalStorage[id]
-		info.vacuumQuota -= 1
+		info.vacuumQuota--
 		if info.vacuumQuota <= 0 {
 			if info.confirmed {
 				alertsFixed = append(alertsFixed, info.alert)

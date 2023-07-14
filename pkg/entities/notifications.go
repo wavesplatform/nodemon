@@ -1,15 +1,6 @@
 package entities
 
-const (
-	NodesGatheringCompleteNotificationType = "NodesGatheringComplete"
-)
-
-type Notification interface {
-	ShortDescription() string
-}
-
 type NodesGatheringNotification interface {
-	Notification
 	Timestamp() int64
 	Nodes() []string
 	NodesCount() int
@@ -22,10 +13,6 @@ type NodesGatheringComplete struct {
 
 func NewNodesGatheringComplete(nodes []string, ts int64) *NodesGatheringComplete {
 	return &NodesGatheringComplete{nodes: nodes, ts: ts}
-}
-
-func (n *NodesGatheringComplete) ShortDescription() string {
-	return NodesGatheringCompleteNotificationType
 }
 
 func (n *NodesGatheringComplete) Nodes() []string {

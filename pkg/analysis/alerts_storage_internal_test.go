@@ -4,22 +4,22 @@ import (
 	"log"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	zapLogger "go.uber.org/zap"
 	"nodemon/pkg/entities"
+
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 )
 
 func TestAlertsStorage(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	var (
 		alert1 = &entities.SimpleAlert{Description: "first simple alert"}
@@ -120,9 +120,10 @@ func TestAlertsStorage(t *testing.T) {
 			initialAlerts:       []entities.Alert{alert1, alert2, alert1},
 			alerts:              []entities.Alert{alert3, alert3, alert2, alert1, alert1, alert1, alert1, alert1},
 			sendAlertNowResults: []bool{false, true, false, false, true, false, true, false},
-			alertConfirmations: alertConfirmations{
-				entities.SimpleAlertType: 2,
-			},
+			alertConfirmations: newAlertConfirmations(alertConfirmationsValue{
+				alertType:     entities.SimpleAlertType,
+				confirmations: 2,
+			}),
 			expectedAlertsInfo: []alertInfo{
 				{
 					vacuumQuota:      2,
@@ -154,7 +155,7 @@ func TestAlertsStorage(t *testing.T) {
 			"failed constraint in test case#%d", tcNum,
 		)
 
-		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, test.alertConfirmations, zap)
+		storage := newAlertsStorage(test.alertBackoff, test.alertVacuumQuota, test.alertConfirmations, logger)
 		for _, alert := range test.initialAlerts {
 			storage.PutAlert(alert)
 		}

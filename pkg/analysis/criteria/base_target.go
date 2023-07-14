@@ -1,8 +1,9 @@
 package criteria
 
 import (
-	"github.com/pkg/errors"
 	"nodemon/pkg/entities"
+
+	"github.com/pkg/errors"
 )
 
 type BaseTargetCriterionOptions struct {
@@ -20,16 +21,23 @@ func NewBaseTargetCriterion(opts *BaseTargetCriterionOptions) (*BaseTargetCriter
 	return &BaseTargetCriterion{opts: opts}, nil
 }
 
-func (c *BaseTargetCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) {
+func (c *BaseTargetCriterion) Analyze(alerts chan<- entities.Alert, ts int64, statements entities.NodeStatements) {
 	baseTarget := mostFrequentBaseTarget(statements)
 	if baseTarget <= c.opts.Threshold {
 		return // it's ok, nothing to do
 	}
 	baseTargetValues := make([]entities.BaseTargetValue, 0, len(statements))
 	for _, nodeStatement := range statements {
-		baseTargetValues = append(baseTargetValues, entities.BaseTargetValue{Node: nodeStatement.Node, BaseTarget: nodeStatement.BaseTarget})
+		baseTargetValues = append(baseTargetValues, entities.BaseTargetValue{
+			Node:       nodeStatement.Node,
+			BaseTarget: nodeStatement.BaseTarget,
+		})
 	}
-	alerts <- &entities.BaseTargetAlert{Timestamp: timestamp, BaseTargetValues: baseTargetValues, Threshold: c.opts.Threshold}
+	alerts <- &entities.BaseTargetAlert{
+		Timestamp:        ts,
+		BaseTargetValues: baseTargetValues,
+		Threshold:        c.opts.Threshold,
+	}
 }
 
 func mostFrequentBaseTarget(statements entities.NodeStatements) int {

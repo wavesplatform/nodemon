@@ -57,13 +57,11 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 }
 
 func (c *nodeClient) baseTarget(ctx context.Context, height int) (int, error) {
-
 	headers, _, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
-
 	return int(headers.NxtConsensus.BaseTarget), nil
 }

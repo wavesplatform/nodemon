@@ -1,35 +1,34 @@
-package pubsub
+package messaging
 
 import (
 	"context"
 
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/sub"
-	_ "go.nanomsg.org/mangos/v3/transport/all"
+	_ "go.nanomsg.org/mangos/v3/transport/all" // registers all transports
 	"go.uber.org/zap"
-	"nodemon/cmd/bots/internal/common/messaging"
-	generalMessaging "nodemon/pkg/messaging"
+
+	"nodemon/pkg/messaging"
 )
 
-func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messaging.Bot, logger *zap.Logger) error {
-	subSocket, err := sub.NewSocket()
-	if err != nil {
-		return err
+func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot Bot, logger *zap.Logger) error {
+	subSocket, sockErr := sub.NewSocket()
+	if sockErr != nil {
+		return sockErr
 	}
 	defer func(subSocket protocol.Socket) {
-		if err := subSocket.Close(); err != nil {
-			logger.Error("failed to closed a sub socket", zap.Error(err))
+		if closeErr := subSocket.Close(); closeErr != nil {
+			logger.Error("failed to closed a sub socket", zap.Error(closeErr))
 		}
 	}(subSocket)
 
 	bot.SetSubSocket(subSocket)
 
-	if err := subSocket.Dial(nanomsgURL); err != nil {
-		return err
+	if dialErr := subSocket.Dial(nanomsgURL); dialErr != nil {
+		return dialErr
 	}
 
-	err = bot.SubscribeToAllAlerts()
-	if err != nil {
+	if err := bot.SubscribeToAllAlerts(); err != nil {
 		return err
 	}
 	go func() {
@@ -43,7 +42,7 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot messagi
 					logger.Error("failed to receive message", zap.Error(err))
 					return
 				}
-				alertMsg, err := generalMessaging.NewAlertMessageFromBytes(msg)
+				alertMsg, err := messaging.NewAlertMessageFromBytes(msg)
 				if err != nil {
 					logger.Error("failed to parse alert message from bytes", zap.Error(err))
 					return

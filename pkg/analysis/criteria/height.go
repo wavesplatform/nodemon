@@ -3,8 +3,9 @@ package criteria
 import (
 	"strings"
 
-	"go.uber.org/zap"
 	"nodemon/pkg/entities"
+
+	"go.uber.org/zap"
 )
 
 const (

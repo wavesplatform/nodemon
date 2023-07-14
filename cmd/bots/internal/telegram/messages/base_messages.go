@@ -1,11 +1,8 @@
 package messages
 
-import (
-	"nodemon/cmd/bots/internal/common/messages"
-)
-
 const (
-	HelpInfoText = messages.InfoMsg + " This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
+	HelpInfoText = "" +
+		"ℹ️ This is a bot for monitoring Waves nodes. The next commands are available:\n\n" +
 		"/ping -  the command to check whether the bot is available and what his current state is\n" +
 		"/start - the command to make the bot <b>start getting alerts</b>\n" +
 		"/mute -  the command to make the bot <b>stop listening to alerts</b>\n" +
@@ -21,9 +18,7 @@ const (
 		"/add_alias <b>node</b> <b>alias</b>" +
 		"/aliases - to see the matching list with aliases"
 
-	MuteText  = "Say no more..." + messages.SleepingMsg
-	PongText  = "Pong!" + messages.PongMsg
-	StartText = "Started monitoring..." + messages.MonitoringMsg
+	PongText = "Pong!🏓"
 
 	RemoveNode = `Please type the url of the node you want to remove
 Example: Remove <url>

@@ -1,10 +1,11 @@
 package criteria
 
 import (
-	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+
+	"github.com/pkg/errors"
+	"go.uber.org/zap"
 )
 
 type UnreachableCriterionOptions struct {
@@ -18,17 +19,30 @@ type UnreachableCriterion struct {
 	zap  *zap.Logger
 }
 
-func NewUnreachableCriterion(es *events.Storage, opts *UnreachableCriterionOptions, logger *zap.Logger) *UnreachableCriterion {
+const (
+	unreachableStreakDefault = 3
+	unreachableDepthDefault  = 5
+)
+
+func NewUnreachableCriterion(
+	es *events.Storage,
+	opts *UnreachableCriterionOptions,
+	logger *zap.Logger,
+) *UnreachableCriterion {
 	if opts == nil { // by default
 		opts = &UnreachableCriterionOptions{
-			Streak: 3,
-			Depth:  5,
+			Streak: unreachableStreakDefault,
+			Depth:  unreachableDepthDefault,
 		}
 	}
 	return &UnreachableCriterion{opts: opts, es: es, zap: logger}
 }
 
-func (c *UnreachableCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64, statements entities.NodeStatements) error {
+func (c *UnreachableCriterion) Analyze(
+	alerts chan<- entities.Alert,
+	timestamp int64,
+	statements entities.NodeStatements,
+) error {
 	for _, statement := range statements {
 		if err := c.analyzeNode(alerts, timestamp, statement.Node); err != nil {
 			return err
@@ -44,11 +58,11 @@ func (c *UnreachableCriterion) analyzeNode(alerts chan<- entities.Alert, timesta
 	)
 	err := c.es.ViewStatementsByNodeWithDescendKeys(node, func(statement *entities.NodeStatement) bool {
 		if statement.Status == entities.Unreachable {
-			streak += 1
+			streak++
 		} else {
 			streak = 0
 		}
-		depth += 1
+		depth++
 		if streak >= c.opts.Streak || depth >= c.opts.Depth {
 			return false
 		}
@@ -58,7 +72,9 @@ func (c *UnreachableCriterion) analyzeNode(alerts chan<- entities.Alert, timesta
 		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", node)
 	}
 	if streak > 0 {
-		c.zap.Info("UnreachableCriterion: unreachable statement", zap.String("node", node), zap.Int("streak", streak))
+		c.zap.Info("UnreachableCriterion: unreachable statement",
+			zap.String("node", node), zap.Int("streak", streak),
+		)
 	}
 	if streak >= c.opts.Streak {
 		alerts <- &entities.UnreachableAlert{

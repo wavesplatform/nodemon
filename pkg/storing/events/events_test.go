@@ -1,4 +1,4 @@
-package events
+package events_test
 
 import (
 	"errors"
@@ -7,32 +7,33 @@ import (
 	"testing"
 	"time"
 
+	"nodemon/pkg/entities"
+	"nodemon/pkg/storing/events"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	zapLogger "go.uber.org/zap"
-	"nodemon/pkg/entities"
+	"go.uber.org/zap"
 )
 
 type EventsStorageTestSuite struct {
 	suite.Suite
-	es *Storage
+	es *events.Storage
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
-	zap, err := zapLogger.NewDevelopment()
+	logger, err := zap.NewDevelopment()
 	if err != nil {
 		log.Fatalf("can't initialize zap logger: %v", err)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
-	es, err := NewStorage(time.Minute, zap)
+	}(logger)
+	es, err := events.NewStorage(time.Minute, logger)
 	s.Require().NoError(err)
 	s.es = es
 }
@@ -89,7 +90,7 @@ func (s *EventsStorageTestSuite) TestPutAndGetStatementRoundtrip() {
 
 func (s *EventsStorageTestSuite) TestGetStatementNotFound() {
 	_, err := s.es.GetStatement("some-url", 100500)
-	s.Assert().True(errors.Is(err, ErrNotFound))
+	s.Assert().True(errors.Is(err, events.ErrNotFound))
 }
 
 type dummyEvent struct {
@@ -313,16 +314,15 @@ func TestEventsStorage(t *testing.T) {
 }
 
 func TestEarliestHeight(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	logger, logErr := zap.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	for _, test := range []struct {
 		node     string
@@ -330,13 +330,36 @@ func TestEarliestHeight(t *testing.T) {
 		error    bool
 		expected int
 	}{
-		{"A", events(she("A", 1, 100), she("A", 1, 200), she("A", 2, 300), she("A", 3, 400)), false, 1},
-		{"A", events(she("B", 1, 100), she("B", 2, 200), she("B", 3, 300)), true, 0},
-		{"A", events(she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), she("A", 3, 310)), false, 2},
-		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
-		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 2},
+		{"A", genEvents(
+			she("A", 1, 100),
+			she("A", 1, 200),
+			she("A", 2, 300),
+			she("A", 3, 400)), false, 1},
+		{"A", genEvents(
+			she("B", 1, 100),
+			she("B", 2, 200),
+			she("B", 3, 300)), true, 0},
+		{"A", genEvents(
+			she("B", 1, 110),
+			she("A", 2, 200),
+			she("B", 2, 210),
+			she("B", 3, 300),
+			she("A", 3, 310)), false, 2},
+		{"B", genEvents(
+			he("B", 1, 100),
+			he("B", 1, 200),
+			he("B", 2, 300),
+			he("B", 3, 400)), true, 0},
+		{"A", genEvents(
+			he("A", 1, 100),
+			she("B", 1, 110),
+			she("A", 2, 200),
+			she("B", 2, 210),
+			she("B", 3, 300),
+			he("A", 3, 300),
+			she("A", 3, 310)), false, 2},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		h, err := storage.EarliestHeight(test.node)
@@ -350,16 +373,15 @@ func TestEarliestHeight(t *testing.T) {
 }
 
 func TestLatestHeight(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	logger, logErr := zap.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	for _, test := range []struct {
 		node     string
@@ -367,13 +389,41 @@ func TestLatestHeight(t *testing.T) {
 		error    bool
 		expected int
 	}{
-		{"A", events(she("A", 1, 100), she("A", 1, 200), she("A", 2, 300), she("A", 3, 400)), false, 3},
-		{"A", events(she("B", 1, 100), she("B", 2, 200), she("B", 3, 300)), true, 0},
-		{"A", events(she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), she("A", 3, 310)), false, 3},
-		{"A", events(he("A", 1, 100), he("A", 1, 200), he("A", 2, 300), he("A", 3, 400)), true, 0},
-		{"A", events(he("A", 1, 100), she("B", 1, 110), she("A", 2, 200), she("B", 2, 210), she("B", 3, 300), he("A", 3, 300), she("A", 3, 310)), false, 3},
+		{"A",
+			genEvents(
+				she("A", 1, 100),
+				she("A", 1, 200),
+				she("A", 2, 300),
+				she("A", 3, 400)), false, 3},
+		{"A",
+			genEvents(
+				she("B", 1, 100),
+				she("B", 2, 200),
+				she("B", 3, 300)), true, 0},
+		{"A",
+			genEvents(
+				she("B", 1, 110),
+				she("A", 2, 200),
+				she("B", 2, 210),
+				she("B", 3, 300),
+				she("A", 3, 310)), false, 3},
+		{"A",
+			genEvents(
+				he("A", 1, 100),
+				he("A", 1, 200),
+				he("A", 2, 300),
+				he("A", 3, 400)), true, 0},
+		{"A",
+			genEvents(
+				he("A", 1, 100),
+				she("B", 1, 110),
+				she("A", 2, 200),
+				she("B", 2, 210),
+				she("B", 3, 300),
+				he("A", 3, 300),
+				she("A", 3, 310)), false, 3},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		h, err := storage.LatestHeight(test.node)
@@ -387,16 +437,15 @@ func TestLatestHeight(t *testing.T) {
 }
 
 func TestLastStateHashAtHeight(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
+	logger, logErr := zap.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("can't initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	d1 := crypto.Digest([32]byte{0x01})
 	d2 := crypto.Digest([32]byte{0x02})
@@ -414,14 +463,44 @@ func TestLastStateHashAtHeight(t *testing.T) {
 		error    bool
 		expected proto.StateHash
 	}{
-		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 2, 200, sh2), fshe("A", 3, 300, sh3)), 3, false, *sh3},
-		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 2, 200, sh2), fshe("A", 2, 300, sh3)), 2, false, *sh3},
-		{"A", events(fshe("A", 1, 100, sh1), fshe("A", 1, 110, sh2), fshe("A", 2, 200, sh3)), 1, false, *sh2},
-		{"A", events(he("A", 1, 100), he("A", 1, 110), he("A", 2, 200)), 1, true, proto.StateHash{}},
-		{"A", events(he("A", 1, 100), he("A", 1, 110), he("A", 2, 200)), 2, true, proto.StateHash{}},
-		{"A", events(fshe("A", 1, 100, sh1), he("A", 1, 110), he("A", 2, 200)), 1, false, *sh1},
+		{"A",
+			genEvents(
+				fshe("A", 1, 100, sh1),
+				fshe("A", 2, 200, sh2),
+				fshe("A", 3, 300, sh3),
+			), 3, false, *sh3},
+		{"A",
+			genEvents(
+				fshe("A", 1, 100, sh1),
+				fshe("A", 2, 200, sh2),
+				fshe("A", 2, 300, sh3),
+			), 2, false, *sh3},
+		{"A",
+			genEvents(
+				fshe("A", 1, 100, sh1),
+				fshe("A", 1, 110, sh2),
+				fshe("A", 2, 200, sh3),
+			),
+			1, false, *sh2},
+		{"A",
+			genEvents(he("A", 1, 100),
+				he("A", 1, 110),
+				he("A", 2, 200),
+			), 1, true, proto.StateHash{}},
+		{"C",
+			genEvents(
+				he("C", 1, 100),
+				he("C", 1, 110),
+				he("C", 2, 200),
+			), 2, true, proto.StateHash{}},
+		{"A",
+			genEvents(
+				fshe("A", 1, 100, sh1),
+				he("A", 1, 110),
+				he("A", 2, 200),
+			), 1, false, *sh1},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		sh, err := storage.StateHashAtHeight(test.node, test.height)
@@ -434,7 +513,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 	}
 }
 
-func events(es ...entities.Event) []entities.Event {
+func genEvents(es ...entities.Event) []entities.Event {
 	return es
 }
 
@@ -450,7 +529,7 @@ func he(n string, h int, ts int64) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, nil, 1)
 }
 
-func putEvents(t *testing.T, st *Storage, events []entities.Event) {
+func putEvents(t *testing.T, st *events.Storage, events []entities.Event) {
 	for _, ev := range events {
 		err := st.PutEvent(ev)
 		require.NoError(t, err)
@@ -458,16 +537,15 @@ func putEvents(t *testing.T, st *Storage, events []entities.Event) {
 }
 
 func TestStatusSameHeightInStorage(t *testing.T) {
-	zap, err := zapLogger.NewDevelopment()
-	if err != nil {
-		log.Fatalf("failed to initialize zap logger: %v", err)
+	logger, logErr := zap.NewDevelopment()
+	if logErr != nil {
+		log.Fatalf("failed to initialize zap logger: %v", logErr)
 	}
-	defer func(zap *zapLogger.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
+	defer func(zap *zap.Logger) {
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
-	}(zap)
+	}(logger)
 
 	d1 := crypto.Digest([32]byte{0x01})
 	d2 := crypto.Digest([32]byte{0x02})
@@ -486,12 +564,27 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 		expectedSH     *proto.StateHash
 	}{
 		// node 1 - 1000; node 2 - 1000; node 3 - 1000, 1001. Expected height 1000
-		{"testcase 1", events(fshe("1", 1000, 100, sh1), fshe("2", 1000, 100, sh1), fshe("3", 1000, 100, sh1), fshe("3", 1001, 101, sh2)), false, 1000, sh1},
+		{"testcase 1",
+			genEvents(
+				fshe("1", 1000, 100, sh1),
+				fshe("2", 1000, 100, sh1),
+				fshe("3", 1000, 100, sh1),
+				fshe("3", 1001, 101, sh2),
+			), false, 1000, sh1},
 
 		// node 1 - 999,1000,1001; node 2 - 999, 1001; node 3 - 999, 1000. Expected height 999
-		{"testcase 2", events(fshe("1", 999, 99, sh1), fshe("1", 1000, 100, sh2), fshe("1", 1001, 101, sh3), fshe("2", 999, 99, sh1), fshe("2", 1001, 101, sh3), fshe("3", 999, 99, sh1), fshe("3", 1000, 100, sh2)), false, 999, sh1},
+		{"testcase 2",
+			genEvents(
+				fshe("1", 999, 99, sh1),
+				fshe("1", 1000, 100, sh2),
+				fshe("1", 1001, 101, sh3),
+				fshe("2", 999, 99, sh1),
+				fshe("2", 1001, 101, sh3),
+				fshe("3", 999, 99, sh1),
+				fshe("3", 1000, 100, sh2),
+			), false, 999, sh1},
 	} {
-		storage, err := NewStorage(time.Minute, zap)
+		storage, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
 		statements, err := storage.FindAllStateHashesOnCommonHeight([]string{"1", "2", "3"})

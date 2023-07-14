@@ -27,29 +27,94 @@ const (
 	InternalErrorAlertType
 )
 
-var AlertTypes = map[AlertType]string{
-	SimpleAlertType:        SimpleAlertNotification,
-	UnreachableAlertType:   UnreachableAlertNotification,
-	IncompleteAlertType:    IncompleteAlertNotification,
-	InvalidHeightAlertType: InvalidHeightAlertNotification,
-	HeightAlertType:        HeightAlertNotification,
-	StateHashAlertType:     StateHashAlertNotification,
-	AlertFixedType:         AlertFixedNotification,
-	BaseTargetAlertType:    BaseTargetAlertNotification,
-	InternalErrorAlertType: InternalErrorNotification,
+func GetAllAlertTypesAndNames() map[AlertType]AlertName {
+	return map[AlertType]AlertName{
+		SimpleAlertType:        SimpleAlertName,
+		UnreachableAlertType:   UnreachableAlertName,
+		IncompleteAlertType:    IncompleteAlertName,
+		InvalidHeightAlertType: InvalidHeightAlertName,
+		HeightAlertType:        HeightAlertName,
+		StateHashAlertType:     StateHashAlertName,
+		AlertFixedType:         AlertFixedName,
+		BaseTargetAlertType:    BaseTargetAlertName,
+		InternalErrorAlertType: InternalErrorName,
+	}
 }
 
+func (t AlertType) AlertName() (AlertName, bool) {
+	var alertName AlertName
+	switch t {
+	case SimpleAlertType:
+		alertName = SimpleAlertName
+	case UnreachableAlertType:
+		alertName = UnreachableAlertName
+	case IncompleteAlertType:
+		alertName = IncompleteAlertName
+	case InvalidHeightAlertType:
+		alertName = InvalidHeightAlertName
+	case HeightAlertType:
+		alertName = HeightAlertName
+	case StateHashAlertType:
+		alertName = StateHashAlertName
+	case AlertFixedType:
+		alertName = AlertFixedName
+	case BaseTargetAlertType:
+		alertName = BaseTargetAlertName
+	case InternalErrorAlertType:
+		alertName = InternalErrorName
+	default:
+		return alertName, false
+	}
+	return alertName, true
+}
+
+func (t AlertType) Exist() bool {
+	_, ok := t.AlertName()
+	return ok
+}
+
+type AlertName string
+
 const (
-	SimpleAlertNotification        = "SimpleAlert"
-	UnreachableAlertNotification   = "UnreachableAlert"
-	IncompleteAlertNotification    = "IncompleteAlert"
-	InvalidHeightAlertNotification = "InvalidHeightAlert"
-	HeightAlertNotification        = "HeightAlert"
-	StateHashAlertNotification     = "StateHashAlert"
-	AlertFixedNotification         = "Resolved"
-	BaseTargetAlertNotification    = "BaseTargetAlert"
-	InternalErrorNotification      = "InternalErrorAlert"
+	SimpleAlertName        AlertName = "SimpleAlert"
+	UnreachableAlertName   AlertName = "UnreachableAlert"
+	IncompleteAlertName    AlertName = "IncompleteAlert"
+	InvalidHeightAlertName AlertName = "InvalidHeightAlert"
+	HeightAlertName        AlertName = "HeightAlert"
+	StateHashAlertName     AlertName = "StateHashAlert"
+	AlertFixedName         AlertName = "Resolved"
+	BaseTargetAlertName    AlertName = "BaseTargetAlert"
+	InternalErrorName      AlertName = "InternalErrorAlert"
 )
+
+func (n AlertName) AlertType() (AlertType, bool) {
+	var alertType AlertType
+	switch n {
+	case SimpleAlertName:
+		alertType = SimpleAlertType
+	case UnreachableAlertName:
+		alertType = UnreachableAlertType
+	case IncompleteAlertName:
+		alertType = IncompleteAlertType
+	case InvalidHeightAlertName:
+		alertType = InvalidHeightAlertType
+	case HeightAlertName:
+		alertType = HeightAlertType
+	case StateHashAlertName:
+		alertType = StateHashAlertType
+	case AlertFixedName:
+		alertType = AlertFixedType
+	case BaseTargetAlertName:
+		alertType = BaseTargetAlertType
+	case InternalErrorName:
+		alertType = InternalErrorAlertType
+	default:
+		return alertType, false
+	}
+	return alertType, true
+}
+
+func (n AlertName) String() string { return string(n) }
 
 const (
 	InfoLevel  = "Info"
@@ -58,7 +123,7 @@ const (
 )
 
 type Alert interface {
-	Notification
+	Name() AlertName
 	ID() crypto.Digest // Digest 32 bytes
 	Message() string
 	Time() time.Time
@@ -72,8 +137,8 @@ type SimpleAlert struct {
 	Description string `json:"description"`
 }
 
-func (a *SimpleAlert) ShortDescription() string {
-	return SimpleAlertNotification
+func (a *SimpleAlert) Name() AlertName {
+	return SimpleAlertName
 }
 
 func (a *SimpleAlert) Message() string {
@@ -85,12 +150,12 @@ func (a *SimpleAlert) Time() time.Time {
 }
 
 func (a *SimpleAlert) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Description))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Description))
 	return digest
 }
 
 func (a *SimpleAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *SimpleAlert) Type() AlertType {
@@ -106,8 +171,8 @@ type UnreachableAlert struct {
 	Node      string `json:"node"`
 }
 
-func (a *UnreachableAlert) ShortDescription() string {
-	return UnreachableAlertNotification
+func (a *UnreachableAlert) Name() AlertName {
+	return UnreachableAlertName
 }
 
 func (a *UnreachableAlert) Message() string {
@@ -119,12 +184,12 @@ func (a *UnreachableAlert) Time() time.Time {
 }
 
 func (a *UnreachableAlert) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Node))
 	return digest
 }
 
 func (a *UnreachableAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *UnreachableAlert) Type() AlertType {
@@ -139,8 +204,8 @@ type IncompleteAlert struct {
 	NodeStatement
 }
 
-func (a *IncompleteAlert) ShortDescription() string {
-	return IncompleteAlertNotification
+func (a *IncompleteAlert) Name() AlertName {
+	return IncompleteAlertName
 }
 
 func (a *IncompleteAlert) Message() string {
@@ -152,11 +217,11 @@ func (a *IncompleteAlert) Time() time.Time {
 }
 
 func (a *IncompleteAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *IncompleteAlert) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Node))
 	return digest
 }
 
@@ -172,8 +237,8 @@ type InvalidHeightAlert struct {
 	NodeStatement
 }
 
-func (a *InvalidHeightAlert) ShortDescription() string {
-	return InvalidHeightAlertNotification
+func (a *InvalidHeightAlert) Name() AlertName {
+	return InvalidHeightAlertName
 }
 
 func (a *InvalidHeightAlert) Message() string {
@@ -185,11 +250,11 @@ func (a *InvalidHeightAlert) Time() time.Time {
 }
 
 func (a *InvalidHeightAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *InvalidHeightAlert) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Node))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Node))
 	return digest
 }
 
@@ -212,12 +277,13 @@ type HeightAlert struct {
 	OtherHeightGroup HeightGroup `json:"other_height_group"`
 }
 
-func (a *HeightAlert) ShortDescription() string {
-	return HeightAlertNotification
+func (a *HeightAlert) Name() AlertName {
+	return HeightAlertName
 }
 
 func (a *HeightAlert) Message() string {
-	return fmt.Sprintf("Some node(s) are %d blocks behind\n\nFirst group with height %d:\n%s\n\nSecond group with height %d:\n%s",
+	return fmt.Sprintf(
+		"Some node(s) are %d blocks behind\n\nFirst group with height %d:\n%s\n\nSecond group with height %d:\n%s",
 		a.MaxHeightGroup.Height-a.OtherHeightGroup.Height,
 		a.MaxHeightGroup.Height,
 		strings.Join(a.MaxHeightGroup.Nodes, "\n"),
@@ -231,12 +297,12 @@ func (a *HeightAlert) Time() time.Time {
 }
 
 func (a *HeightAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *HeightAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
-	buff.WriteString(a.ShortDescription())
+	buff.WriteString(a.Name().String())
 
 	for _, node := range a.OtherHeightGroup.Nodes {
 		buff.WriteString(node)
@@ -260,23 +326,28 @@ type StateHashGroup struct {
 }
 
 type StateHashAlert struct {
-	Timestamp                 int64           `json:"timestamp"`
-	CurrentGroupsBucketHeight int             `json:"current_groups_bucket_height"`
-	LastCommonStateHashExist  bool            `json:"last_common_state_hash_exist"`
-	LastCommonStateHashHeight int             `json:"last_common_state_hash_height"` // can be empty if LastCommonStateHashExist == false
-	LastCommonStateHash       proto.StateHash `json:"last_common_state_hash"`        // can be empty if LastCommonStateHashExist == false
-	FirstGroup                StateHashGroup  `json:"first_group"`
-	SecondGroup               StateHashGroup  `json:"second_group"`
+	Timestamp                 int64 `json:"timestamp"`
+	CurrentGroupsBucketHeight int   `json:"current_groups_bucket_height"`
+	LastCommonStateHashExist  bool  `json:"last_common_state_hash_exist"`
+	// LastCommonStateHashHeight can be empty if LastCommonStateHashExist == false
+	LastCommonStateHashHeight int `json:"last_common_state_hash_height"`
+	// LastCommonStateHash can be empty if LastCommonStateHashExist == false
+	LastCommonStateHash proto.StateHash `json:"last_common_state_hash"`
+	FirstGroup          StateHashGroup  `json:"first_group"`
+	SecondGroup         StateHashGroup  `json:"second_group"`
 }
 
-func (a *StateHashAlert) ShortDescription() string {
-	return StateHashAlertNotification
+func (a *StateHashAlert) Name() AlertName {
+	return StateHashAlertName
 }
 
 func (a *StateHashAlert) Message() string {
 	if a.LastCommonStateHashExist {
 		return fmt.Sprintf(
-			"Nodes have different statehashes at the same height %d\n\nFirst group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nSecond group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nFork occured after block %d\nBlock ID: %s\nStatehash: %s",
+			"Nodes have different statehashes at the same height %d\n\n"+
+				"First group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\n"+
+				"Second group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\n"+
+				"Fork occured after block %d\nBlock ID: %s\nStatehash: %s",
 			a.CurrentGroupsBucketHeight,
 			a.FirstGroup.StateHash.BlockID.String(),
 			a.FirstGroup.StateHash.SumHash.Hex(),
@@ -290,7 +361,9 @@ func (a *StateHashAlert) Message() string {
 		)
 	}
 	return fmt.Sprintf(
-		"Nodes have different statehashes at the same height %d\n\nFirst group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\nSecond group has\nBlockID: %s\nStateHash: %s\n\n%s",
+		"Nodes have different statehashes at the same height %d\n\n"+
+			"First group has\nBlockID: %s\nStateHash: %s\n\n%s\n\n\n"+
+			"Second group has\nBlockID: %s\nStateHash: %s\n\n%s",
 		a.CurrentGroupsBucketHeight,
 		a.FirstGroup.StateHash.BlockID.String(),
 		a.FirstGroup.StateHash.SumHash.Hex(),
@@ -306,12 +379,12 @@ func (a *StateHashAlert) Time() time.Time {
 }
 
 func (a *StateHashAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *StateHashAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
-	buff.WriteString(a.ShortDescription())
+	buff.WriteString(a.Name().String())
 
 	if a.LastCommonStateHashExist {
 		buff.WriteString(strconv.Itoa(a.LastCommonStateHashHeight))
@@ -377,6 +450,8 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 		out.Fixed = &BaseTargetAlert{}
 	case InternalErrorAlertType:
 		out.Fixed = &InternalErrorAlert{}
+	case AlertFixedType:
+		return errors.Errorf("nested fixed alerts (%d) are not allowed", t)
 	default:
 		return errors.Errorf("failed to unmarshal alert fixed, unknown internal alert type (%d)", t)
 	}
@@ -387,12 +462,12 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 	return nil
 }
 
-func (a *AlertFixed) ShortDescription() string {
-	return AlertFixedNotification
+func (a *AlertFixed) Name() AlertName {
+	return AlertFixedName
 }
 
 func (a *AlertFixed) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Fixed.ID().String()))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Fixed.ID().String()))
 	return digest
 }
 
@@ -405,7 +480,7 @@ func (a *AlertFixed) Time() time.Time {
 }
 
 func (a *AlertFixed) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *AlertFixed) Type() AlertType {
@@ -427,13 +502,13 @@ type BaseTargetAlert struct {
 	Threshold        int               `json:"default_value"`
 }
 
-func (a *BaseTargetAlert) ShortDescription() string {
-	return BaseTargetAlertNotification
+func (a *BaseTargetAlert) Name() AlertName {
+	return BaseTargetAlertName
 }
 
 func (a *BaseTargetAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
-	buff.WriteString(a.ShortDescription())
+	buff.WriteString(a.Name().String())
 
 	for _, baseTarget := range a.BaseTargetValues {
 		buff.WriteString(baseTarget.Node)
@@ -457,7 +532,7 @@ func (a *BaseTargetAlert) Time() time.Time {
 }
 
 func (a *BaseTargetAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
 func (a *BaseTargetAlert) Type() AlertType {
@@ -480,12 +555,12 @@ func NewInternalErrorAlert(timestamp int64, err error) *InternalErrorAlert {
 	}
 }
 
-func (a *InternalErrorAlert) ShortDescription() string {
-	return InternalErrorNotification
+func (a *InternalErrorAlert) Name() AlertName {
+	return InternalErrorName
 }
 
 func (a *InternalErrorAlert) ID() crypto.Digest {
-	digest := crypto.MustFastHash([]byte(a.ShortDescription() + a.Error))
+	digest := crypto.MustFastHash([]byte(a.Name().String() + a.Error))
 	return digest
 }
 
@@ -506,5 +581,5 @@ func (a *InternalErrorAlert) Level() string {
 }
 
 func (a *InternalErrorAlert) String() string {
-	return fmt.Sprintf("%s: %s", a.ShortDescription(), a.Message())
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }

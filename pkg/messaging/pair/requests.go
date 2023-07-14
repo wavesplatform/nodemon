@@ -1,42 +1,67 @@
 package pair
 
-type RequestPair interface{ requestMarker() }
+type Request interface {
+	requestMarker()
+	RequestType() RequestPairType
+}
 
 type NodesListRequest struct {
 	Specific bool
 }
 
-type NodesStatusRequest struct {
-	Urls []string
+func (*NodesListRequest) requestMarker() {}
+
+func (r *NodesListRequest) RequestType() RequestPairType {
+	if r.Specific {
+		return RequestSpecificNodeListType
+	}
+	return RequestNodeListType
 }
 
+type NodesStatusRequest struct {
+	URLs []string
+}
+
+func (*NodesStatusRequest) requestMarker() {}
+
+func (r *NodesStatusRequest) RequestType() RequestPairType { return RequestNodesStatusType }
+
 type InsertNewNodeRequest struct {
-	Url      string
+	URL      string
 	Specific bool
 }
 
+func (*InsertNewNodeRequest) requestMarker() {}
+
+func (r *InsertNewNodeRequest) RequestType() RequestPairType {
+	if r.Specific {
+		return RequestInsertSpecificNewNodeType
+	}
+	return RequestInsertNewNodeType
+}
+
 type UpdateNodeRequest struct {
-	Url   string
+	URL   string
 	Alias string
 }
 
+func (*UpdateNodeRequest) requestMarker() {}
+
+func (r *UpdateNodeRequest) RequestType() RequestPairType { return RequestUpdateNodeType }
+
 type DeleteNodeRequest struct {
-	Url string
+	URL string
 }
 
+func (*DeleteNodeRequest) requestMarker() {}
+
+func (r *DeleteNodeRequest) RequestType() RequestPairType { return RequestDeleteNodeType }
+
 type NodeStatementRequest struct {
-	Url    string
+	URL    string
 	Height int
 }
 
-func (nl *NodesListRequest) requestMarker() {}
+func (r *NodeStatementRequest) RequestType() RequestPairType { return RequestNodeStatementType }
 
-func (nl *InsertNewNodeRequest) requestMarker() {}
-
-func (nl *UpdateNodeRequest) requestMarker() {}
-
-func (nl *DeleteNodeRequest) requestMarker() {}
-
-func (nl *NodesStatusRequest) requestMarker() {}
-
-func (nl *NodeStatementRequest) requestMarker() {}
+func (*NodeStatementRequest) requestMarker() {}

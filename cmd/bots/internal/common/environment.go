@@ -13,6 +13,12 @@ import (
 	"sync"
 	textTemplate "text/template"
 
+	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/pkg/entities"
+	generalMessaging "nodemon/pkg/messaging"
+	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/storing/events"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
@@ -21,12 +27,6 @@ import (
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
-	commonMessages "nodemon/cmd/bots/internal/common/messages"
-	"nodemon/cmd/bots/internal/common/messaging"
-	"nodemon/pkg/entities"
-	generalMessaging "nodemon/pkg/messaging"
-	"nodemon/pkg/messaging/pair"
-	"nodemon/pkg/storing/events"
 )
 
 const (
@@ -41,7 +41,7 @@ var (
 type ExpectedExtension string
 
 const (
-	Html     ExpectedExtension = ".html"
+	HTML     ExpectedExtension = ".html"
 	Markdown ExpectedExtension = ".md"
 )
 
@@ -49,17 +49,17 @@ var errUnknownAlertType = errors.New("received unknown alert type")
 
 type subscriptions struct {
 	mu   *sync.RWMutex
-	subs map[entities.AlertType]string
+	subs map[entities.AlertType]entities.AlertName
 }
 
-func (s *subscriptions) Add(alertType entities.AlertType, alertName string) {
+func (s *subscriptions) Add(alertType entities.AlertType, alertName entities.AlertName) {
 	s.mu.Lock()
 	s.subs[alertType] = alertName
 	s.mu.Unlock()
 }
 
-// Read returns alert name
-func (s *subscriptions) Read(alertType entities.AlertType) (string, bool) {
+// Read returns alert name.
+func (s *subscriptions) Read(alertType entities.AlertType) (entities.AlertName, bool) {
 	s.mu.RLock()
 	elem, ok := s.subs[alertType]
 	s.mu.RUnlock()
@@ -84,16 +84,33 @@ type DiscordBotEnvironment struct {
 	subSocket              protocol.Socket
 	Subscriptions          subscriptions
 	zap                    *zap.Logger
-	requestType            chan<- pair.RequestPair
-	responsePairType       <-chan pair.ResponsePair
+	requestType            chan<- pair.Request
+	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
 }
 
-func NewDiscordBotEnvironment(bot *discordgo.Session, chatID string, zap *zap.Logger, requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair) *DiscordBotEnvironment {
-	return &DiscordBotEnvironment{Bot: bot, ChatID: chatID, Subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
-		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType, unhandledAlertMessages: newUnhandledAlertMessages()}
+func NewDiscordBotEnvironment(
+	bot *discordgo.Session,
+	chatID string,
+	zap *zap.Logger,
+	requestType chan<- pair.Request,
+	responsePairType <-chan pair.Response,
+) *DiscordBotEnvironment {
+	return &DiscordBotEnvironment{
+		Bot:    bot,
+		ChatID: chatID,
+		Subscriptions: subscriptions{
+			subs: make(map[entities.AlertType]entities.AlertName),
+			mu:   new(sync.RWMutex),
+		},
+		zap:                    zap,
+		requestType:            requestType,
+		responsePairType:       responsePairType,
+		unhandledAlertMessages: newUnhandledAlertMessages(),
+	}
 }
+
+func (dscBot *DiscordBotEnvironment) TemplatesExtension() ExpectedExtension { return Markdown }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
 	dscBot.zap.Info("Discord bot started")
@@ -118,9 +135,10 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	alertType := msg.AlertType()
-	_, ok := entities.AlertTypes[alertType]
-	if !ok {
-		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+	if !alertType.Exist() {
+		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
+			byte(alertType), errUnknownAlertType,
+		)
 		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
 
 		if err != nil {
@@ -134,8 +152,8 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		dscBot.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
-	alertJson := msg.Data()
-	messageToBot, err := constructMessage(alertType, alertJson, Markdown, nodes)
+	alertJSON := msg.Data()
+	messageToBot, err := constructMessage(alertType, alertJSON, dscBot.TemplatesExtension(), nodes)
 	if err != nil {
 		dscBot.zap.Error("failed to construct message", zap.Error(err))
 		return
@@ -145,10 +163,13 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	if alertType == entities.AlertFixedType {
 		messageID, ok := dscBot.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
 		if !ok {
-			dscBot.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found", zap.Stringer("alertID", alertID))
+			dscBot.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found",
+				zap.Stringer("alertID", alertID),
+			)
 			return
 		}
-		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)})
+		msgRef := &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)}
+		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, msgRef)
 		if err != nil {
 			dscBot.zap.Error("failed to send a message about fixed alert to discord", zap.Error(err))
 		}
@@ -167,12 +188,10 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		return
 	}
 	dscBot.unhandledAlertMessages.Add(alertID, messageID)
-
 }
 
 func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
-
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
@@ -183,7 +202,6 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 		dscBot.Subscriptions.Add(alertType, alertName)
 		dscBot.zap.Sugar().Infof("subscribed to %s", alertName)
 	}
-
 	return nil
 }
 
@@ -231,15 +249,35 @@ type TelegramBotEnvironment struct {
 	subSocket              protocol.Socket
 	subscriptions          subscriptions
 	zap                    *zap.Logger
-	requestType            chan<- pair.RequestPair
-	responsePairType       <-chan pair.ResponsePair
+	requestType            chan<- pair.Request
+	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
 }
 
-func NewTelegramBotEnvironment(bot *telebot.Bot, chatID int64, mute bool, zap *zap.Logger, requestType chan<- pair.RequestPair, responsePairType <-chan pair.ResponsePair) *TelegramBotEnvironment {
-	return &TelegramBotEnvironment{Bot: bot, ChatID: chatID, Mute: mute, subscriptions: subscriptions{subs: make(map[entities.AlertType]string),
-		mu: new(sync.RWMutex)}, zap: zap, requestType: requestType, responsePairType: responsePairType, unhandledAlertMessages: newUnhandledAlertMessages()}
+func NewTelegramBotEnvironment(
+	bot *telebot.Bot,
+	chatID int64,
+	mute bool,
+	zap *zap.Logger,
+	requestType chan<- pair.Request,
+	responsePairType <-chan pair.Response,
+) *TelegramBotEnvironment {
+	return &TelegramBotEnvironment{
+		Bot:    bot,
+		ChatID: chatID,
+		Mute:   mute,
+		subscriptions: subscriptions{
+			subs: make(map[entities.AlertType]entities.AlertName),
+			mu:   new(sync.RWMutex),
+		},
+		zap:                    zap,
+		requestType:            requestType,
+		responsePairType:       responsePairType,
+		unhandledAlertMessages: newUnhandledAlertMessages(),
+	}
 }
+
+func (tgEnv *TelegramBotEnvironment) TemplatesExtension() ExpectedExtension { return HTML }
 
 func (tgEnv *TelegramBotEnvironment) Start() error {
 	tgEnv.zap.Info("Telegram bot started")
@@ -261,9 +299,10 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	chat := &telebot.Chat{ID: tgEnv.ChatID}
 
 	alertType := msg.AlertType()
-	_, ok := entities.AlertTypes[alertType]
-	if !ok {
-		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v", byte(alertType), errUnknownAlertType)
+	if !alertType.Exist() {
+		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
+			byte(alertType), errUnknownAlertType,
+		)
 		_, err := tgEnv.Bot.Send(
 			chat,
 			errUnknownAlertType.Error(),
@@ -280,8 +319,8 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		tgEnv.zap.Error("failed to get nodes list", zap.Error(err))
 	}
 
-	alertJson := msg.Data()
-	messageToBot, err := constructMessage(alertType, alertJson, Html, nodes)
+	alertJSON := msg.Data()
+	messageToBot, err := constructMessage(alertType, alertJSON, tgEnv.TemplatesExtension(), nodes)
 	if err != nil {
 		tgEnv.zap.Error("failed to construct message", zap.Error(err))
 		return
@@ -291,12 +330,15 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	if alertType == entities.AlertFixedType {
 		messageID, ok := tgEnv.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
 		if !ok {
-			tgEnv.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found", zap.Stringer("alertID", alertID))
+			tgEnv.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found",
+				zap.Stringer("alertID", alertID),
+			)
 			return
 		}
-		_, err := tgEnv.Bot.Send(chat, messageToBot, &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML})
-		if err != nil {
-			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(err))
+		opts := &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML}
+		_, sendErr := tgEnv.Bot.Send(chat, messageToBot, opts)
+		if sendErr != nil {
+			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(sendErr))
 		}
 		tgEnv.unhandledAlertMessages.Delete(alertID)
 		return
@@ -337,28 +379,24 @@ func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == strconv.FormatInt(tgEnv.ChatID, 10)
 }
 
-func nodesToUrls(nodes []entities.Node) ([]string, error) {
+func nodesToUrls(nodes []entities.Node) []string {
 	urls := make([]string, 0, len(nodes))
 	for _, n := range nodes {
 		var host string
 		if n.Alias != "" {
 			host = n.Alias
 		} else {
-			n.URL = strings.ReplaceAll(n.URL, entities.HttpsScheme+"://", "")
-			n.URL = strings.ReplaceAll(n.URL, entities.HttpScheme+"://", "")
+			n.URL = strings.ReplaceAll(n.URL, entities.HTTPSScheme+"://", "")
+			n.URL = strings.ReplaceAll(n.URL, entities.HTTPScheme+"://", "")
 			host = n.URL
 		}
 		urls = append(urls, host)
 	}
-	return urls, nil
+	return urls
 }
 
 func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (string, error) {
-	urls, err := nodesToUrls(nodes)
-	if err != nil {
-		tgEnv.zap.Error("failed convert nodes to urls", zap.Error(err))
-		return "", err
-	}
+	urls := nodesToUrls(nodes)
 	tmpl, err := htmlTemplate.ParseFS(templateFiles, "templates/nodes_list.html")
 	if err != nil {
 		tgEnv.zap.Error("failed to parse nodes list template", zap.Error(err))
@@ -377,7 +415,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (st
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
@@ -393,7 +431,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertType) error {
-	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	alertName, ok := alertType.AlertName() // check if such an alert exists
 	if !ok {
 		return errors.New("failed to subscribe to alert, unknown alert type")
 	}
@@ -412,7 +450,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 }
 
 func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.AlertType) error {
-	alertName, ok := entities.AlertTypes[alertType] // check if such an alert exists
+	alertName, ok := alertType.AlertName() // check if such an alert exists
 	if !ok {
 		return errors.New("failed to unsubscribe from alert, unknown alert type")
 	}
@@ -457,24 +495,24 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	var subscribedTo []subscribed
 	tgEnv.subscriptions.MapR(func() {
 		for _, alertName := range tgEnv.subscriptions.subs {
-			s := subscribed{AlertName: alertName + "\n\n"}
+			s := subscribed{AlertName: string(alertName) + "\n\n"}
 			subscribedTo = append(subscribedTo, s)
 		}
 	})
 
 	var unsubscribedFrom []unsubscribed
-	for alertType, alertName := range entities.AlertTypes {
+	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
 		if !ok { // find those alerts that are not in the subscriptions list
-			u := unsubscribed{AlertName: alertName + "\n\n"}
+			u := unsubscribed{AlertName: string(alertName) + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
 	}
 
-	subscriptions := subscriptionsList{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
+	subsList := subscriptionsList{SubscribedTo: subscribedTo, UnsubscribedFrom: unsubscribedFrom}
 
 	w := &bytes.Buffer{}
-	err = tmpl.Execute(w, subscriptions)
+	err = tmpl.Execute(w, subsList)
 	if err != nil {
 		tgEnv.zap.Error("failed to construct a message", zap.Error(err))
 		return "", err
@@ -493,11 +531,18 @@ type shortOkNodes struct {
 	Height      string
 }
 
+type bot interface {
+	messaging.Bot
+	TemplatesExtension() ExpectedExtension
+}
+
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
-	requestType chan<- pair.RequestPair,
-	responsePairType <-chan pair.ResponsePair, bot messaging.Bot, zapLogger *zap.Logger) error {
-
+	requestType chan<- pair.Request,
+	responsePairType <-chan pair.Response,
+	bot bot,
+	zapLogger *zap.Logger,
+) error {
 	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
@@ -509,46 +554,21 @@ func ScheduleNodesStatus(
 		if err != nil {
 			zapLogger.Error("failed to get nodes status", zap.Error(err))
 		}
-
-		var handledNodesStatus string
-		statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
-		switch bot.(type) {
-		case *TelegramBotEnvironment:
-			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Html, nodes)
-			if err != nil {
-				zapLogger.Error("failed to handle nodes status", zap.Error(err))
-			}
-		case *DiscordBotEnvironment:
-			handledNodesStatus, statusCondition, err = HandleNodesStatus(nodesStatus, Markdown, nodes)
-			if err != nil {
-				zapLogger.Error("failed to handle nodes status", zap.Error(err))
-			}
-		default:
-			zapLogger.Error("failed to schedule nodes status, unknown bot type")
-			return
+		handledNodesStatus, statusCondition, err := HandleNodesStatus(nodesStatus, bot.TemplatesExtension(), nodes)
+		if err != nil {
+			zapLogger.Error("failed to handle nodes status", zap.Error(err))
 		}
 
 		if statusCondition.AllNodesAreOk {
 			var msg string
-			shortOkNodes := shortOkNodes{
-				TimeEmoji:   commonMessages.TimerMsg,
+			okNodes := shortOkNodes{
+				TimeEmoji:   messaging.TimerMsg,
 				NodesNumber: statusCondition.NodesNumber,
 				Height:      statusCondition.Height,
 			}
-			switch bot.(type) {
-			case *TelegramBotEnvironment:
-				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Html)
-				if err != nil {
-					zapLogger.Error("failed to construct a message", zap.Error(err))
-				}
-			case *DiscordBotEnvironment:
-				msg, err = executeTemplate("templates/nodes_status_ok_short", shortOkNodes, Markdown)
-				if err != nil {
-					zapLogger.Error("failed to construct a message", zap.Error(err))
-				}
-			default:
-				zapLogger.Error("failed to schedule nodes status, unknown bot type")
-				return
+			msg, err = executeTemplate("templates/nodes_status_ok_short", okNodes, bot.TemplatesExtension())
+			if err != nil {
+				zapLogger.Error("failed to construct a message", zap.Error(err))
 			}
 			bot.SendMessage(msg)
 			return
@@ -556,15 +576,14 @@ func ScheduleNodesStatus(
 		var msg string
 		switch bot.(type) {
 		case *TelegramBotEnvironment:
-			msg = fmt.Sprintf("Status %s\n\n%s", commonMessages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("Status %s\n\n%s", messaging.TimerMsg, handledNodesStatus)
 		case *DiscordBotEnvironment:
-			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", commonMessages.TimerMsg, handledNodesStatus)
+			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messaging.TimerMsg, handledNodesStatus)
 		default:
 			zapLogger.Error("failed to schedule nodes status, unknown bot type")
 			return
 		}
 		bot.SendMessage(msg)
-
 	}, scheduledTimeExpression)
 
 	if err != nil {
@@ -589,7 +608,7 @@ func sortNodesStatuses(statuses []NodeStatus) {
 
 func executeTemplate(template string, data any, extension ExpectedExtension) (string, error) {
 	switch extension {
-	case Html:
+	case HTML:
 		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
 			return "", err
@@ -620,12 +639,12 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	if alias, ok := nodesAlias[node]; ok {
 		return alias
 	}
-	node = strings.ReplaceAll(node, entities.HttpsScheme+"://", "")
-	node = strings.ReplaceAll(node, entities.HttpScheme+"://", "")
+	node = strings.ReplaceAll(node, entities.HTTPSScheme+"://", "")
+	node = strings.ReplaceAll(node, entities.HTTPScheme+"://", "")
 	return node
 }
 
-func GetNodeUrlByAlias(alias string, nodes []entities.Node) string {
+func GetNodeURLByAlias(alias string, nodes []entities.Node) string {
 	for _, n := range nodes {
 		if n.Alias == alias {
 			return n.URL
@@ -665,168 +684,252 @@ type fixedStatement struct {
 	PreviousAlert string
 }
 
-func executeAlertTemplate(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
+func executeAlertTemplate(
+	alertType entities.AlertType,
+	alertJSON []byte,
+	extension ExpectedExtension,
+	allNodes []entities.Node,
+) (string, error) {
 	nodesAliases := make(map[string]string)
 	for _, n := range allNodes {
 		if n.Alias != "" {
 			nodesAliases[n.URL] = n.Alias
 		}
 	}
-	var msg string
+	var (
+		msg string
+		err error
+	)
 	switch alertType {
+	case entities.SimpleAlertType:
+		msg, err = executeSimpleAlertTemplate(alertJSON, extension)
 	case entities.UnreachableAlertType:
-		var unreachableAlert entities.UnreachableAlert
-		err := json.Unmarshal(alertJson, &unreachableAlert)
-		if err != nil {
-			return "", err
-		}
-
-		unreachableAlert.Node = replaceNodeWithAlias(unreachableAlert.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeUnreachableTemplate(alertJSON, nodesAliases, extension)
 	case entities.IncompleteAlertType:
-		var incompleteAlert entities.IncompleteAlert
-		err := json.Unmarshal(alertJson, &incompleteAlert)
-		if err != nil {
-			return "", err
-		}
-		incompleteStatement := incompleteAlert.NodeStatement
-		incompleteStatement.Node = replaceNodeWithAlias(incompleteStatement.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/incomplete_alert", incompleteStatement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeIncompleteTemplate(alertJSON, nodesAliases, extension)
 	case entities.InvalidHeightAlertType:
-		var invalidHeightAlert entities.InvalidHeightAlert
-		err := json.Unmarshal(alertJson, &invalidHeightAlert)
-		if err != nil {
-			return "", err
-		}
-		invalidHeightStatement := invalidHeightAlert.NodeStatement
-
-		invalidHeightStatement.Node = replaceNodeWithAlias(invalidHeightStatement.Node, nodesAliases)
-
-		msg, err = executeTemplate("templates/alerts/invalid_height_alert", invalidHeightStatement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeInvalidHeightTemplate(alertJSON, nodesAliases, extension)
 	case entities.HeightAlertType:
-		var heightAlert entities.HeightAlert
-		err := json.Unmarshal(alertJson, &heightAlert)
-		if err != nil {
-			return "", err
-		}
-
-		for i := range heightAlert.MaxHeightGroup.Nodes {
-			heightAlert.MaxHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.MaxHeightGroup.Nodes[i], nodesAliases)
-		}
-		for i := range heightAlert.OtherHeightGroup.Nodes {
-			heightAlert.OtherHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.OtherHeightGroup.Nodes[i], nodesAliases)
-		}
-
-		heightStatement := heightStatement{
-			HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
-			FirstGroup: heightStatementGroup{
-				Nodes:  heightAlert.MaxHeightGroup.Nodes,
-				Height: heightAlert.MaxHeightGroup.Height,
-			},
-			SecondGroup: heightStatementGroup{
-				Nodes:  heightAlert.OtherHeightGroup.Nodes,
-				Height: heightAlert.OtherHeightGroup.Height,
-			},
-		}
-
-		msg, err = executeTemplate("templates/alerts/height_alert", heightStatement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeHeightTemplate(alertJSON, nodesAliases, extension)
 	case entities.StateHashAlertType:
-		var stateHashAlert entities.StateHashAlert
-		err := json.Unmarshal(alertJson, &stateHashAlert)
-		if err != nil {
-			return "", err
-		}
-
-		for i := range stateHashAlert.FirstGroup.Nodes {
-			stateHashAlert.FirstGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.FirstGroup.Nodes[i], nodesAliases)
-		}
-		for i := range stateHashAlert.SecondGroup.Nodes {
-			stateHashAlert.SecondGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.SecondGroup.Nodes[i], nodesAliases)
-		}
-
-		stateHashStatement := stateHashStatement{
-			SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
-			LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
-			ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
-			ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
-			ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
-
-			FirstGroup: stateHashStatementGroup{
-				BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
-				Nodes:     stateHashAlert.FirstGroup.Nodes,
-				StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
-			},
-			SecondGroup: stateHashStatementGroup{
-				BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
-				Nodes:     stateHashAlert.SecondGroup.Nodes,
-				StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
-			},
-		}
-
-		msg, err = executeTemplate("templates/alerts/state_hash_alert", stateHashStatement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeStateHashTemplate(alertJSON, nodesAliases, extension)
 	case entities.AlertFixedType:
-		var alertFixed entities.AlertFixed
-		err := json.Unmarshal(alertJson, &alertFixed)
-		if err != nil {
-			return "", err
-		}
-
-		fixedStatement := fixedStatement{
-			PreviousAlert: alertFixed.Fixed.ShortDescription(),
-		}
-		msg, err = executeTemplate("templates/alerts/alert_fixed", fixedStatement, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeAlertFixed(alertJSON, extension)
 	case entities.BaseTargetAlertType:
-		var baseTargetAlert entities.BaseTargetAlert
-		err := json.Unmarshal(alertJson, &baseTargetAlert)
-
-		for i := range baseTargetAlert.BaseTargetValues {
-			baseTargetAlert.BaseTargetValues[i].Node = replaceNodeWithAlias(baseTargetAlert.BaseTargetValues[i].Node, nodesAliases)
-		}
-
-		if err != nil {
-			return "", err
-		}
-
-		msg, err = executeTemplate("templates/alerts/base_target_alert", baseTargetAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeBaseTargetTemplate(alertJSON, nodesAliases, extension)
 	case entities.InternalErrorAlertType:
-		var internalErrorAlert entities.InternalErrorAlert
-		err := json.Unmarshal(alertJson, &internalErrorAlert)
-		if err != nil {
-			return "", err
-		}
-		msg, err = executeTemplate("templates/alerts/internal_error_alert", internalErrorAlert, extension)
-		if err != nil {
-			return "", err
-		}
+		msg, err = executeInternalErrorTemplate(alertJSON, extension)
 	default:
-		return "", errors.New("unknown alert type")
+		return "", errors.Errorf("unknown alert type (%d)", alertType)
+	}
+	if err != nil {
+		return "", err
 	}
 
 	return msg, nil
+}
 
+func executeSimpleAlertTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var simpleAlert entities.SimpleAlert
+	err := json.Unmarshal(alertJSON, &simpleAlert)
+	if err != nil {
+		return "", err
+	}
+	msg, err := executeTemplate("templates/alerts/simple_alert", simpleAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeInternalErrorTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var internalErrorAlert entities.InternalErrorAlert
+	err := json.Unmarshal(alertJSON, &internalErrorAlert)
+	if err != nil {
+		return "", err
+	}
+	msg, err := executeTemplate("templates/alerts/internal_error_alert", internalErrorAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeBaseTargetTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var btAlert entities.BaseTargetAlert
+	err := json.Unmarshal(alertJSON, &btAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range btAlert.BaseTargetValues {
+		btAlert.BaseTargetValues[i].Node = replaceNodeWithAlias(btAlert.BaseTargetValues[i].Node, nodesAliases)
+	}
+
+	msg, err := executeTemplate("templates/alerts/base_target_alert", btAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeAlertFixed(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var alertFixed entities.AlertFixed
+	err := json.Unmarshal(alertJSON, &alertFixed)
+	if err != nil {
+		return "", err
+	}
+
+	statement := fixedStatement{
+		PreviousAlert: alertFixed.Fixed.Name().String(),
+	}
+	msg, err := executeTemplate("templates/alerts/alert_fixed", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeStateHashTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var stateHashAlert entities.StateHashAlert
+	err := json.Unmarshal(alertJSON, &stateHashAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range stateHashAlert.FirstGroup.Nodes {
+		stateHashAlert.FirstGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.FirstGroup.Nodes[i], nodesAliases)
+	}
+	for i := range stateHashAlert.SecondGroup.Nodes {
+		stateHashAlert.SecondGroup.Nodes[i] = replaceNodeWithAlias(stateHashAlert.SecondGroup.Nodes[i], nodesAliases)
+	}
+
+	statement := stateHashStatement{
+		SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
+		LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
+		ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
+		ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
+		ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
+
+		FirstGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.FirstGroup.Nodes,
+			StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
+		},
+		SecondGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.SecondGroup.Nodes,
+			StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
+		},
+	}
+
+	msg, err := executeTemplate("templates/alerts/state_hash_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeHeightTemplate(alertJSON []byte, nodesAliases map[string]string, ext ExpectedExtension) (string, error) {
+	var heightAlert entities.HeightAlert
+	err := json.Unmarshal(alertJSON, &heightAlert)
+	if err != nil {
+		return "", err
+	}
+
+	for i := range heightAlert.MaxHeightGroup.Nodes {
+		heightAlert.MaxHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.MaxHeightGroup.Nodes[i], nodesAliases)
+	}
+	for i := range heightAlert.OtherHeightGroup.Nodes {
+		heightAlert.OtherHeightGroup.Nodes[i] = replaceNodeWithAlias(heightAlert.OtherHeightGroup.Nodes[i], nodesAliases)
+	}
+
+	statement := heightStatement{
+		HeightDifference: heightAlert.MaxHeightGroup.Height - heightAlert.OtherHeightGroup.Height,
+		FirstGroup: heightStatementGroup{
+			Nodes:  heightAlert.MaxHeightGroup.Nodes,
+			Height: heightAlert.MaxHeightGroup.Height,
+		},
+		SecondGroup: heightStatementGroup{
+			Nodes:  heightAlert.OtherHeightGroup.Nodes,
+			Height: heightAlert.OtherHeightGroup.Height,
+		},
+	}
+
+	msg, err := executeTemplate("templates/alerts/height_alert", statement, ext)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeInvalidHeightTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var invalidHeightAlert entities.InvalidHeightAlert
+	err := json.Unmarshal(alertJSON, &invalidHeightAlert)
+	if err != nil {
+		return "", err
+	}
+	statement := invalidHeightAlert.NodeStatement
+
+	statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/invalid_height_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeIncompleteTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var incompleteAlert entities.IncompleteAlert
+	err := json.Unmarshal(alertJSON, &incompleteAlert)
+	if err != nil {
+		return "", err
+	}
+	statement := incompleteAlert.NodeStatement
+	statement.Node = replaceNodeWithAlias(statement.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/incomplete_alert", statement, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeUnreachableTemplate(
+	alertJSON []byte,
+	nodesAliases map[string]string,
+	extension ExpectedExtension,
+) (string, error) {
+	var unreachableAlert entities.UnreachableAlert
+	err := json.Unmarshal(alertJSON, &unreachableAlert)
+	if err != nil {
+		return "", err
+	}
+
+	unreachableAlert.Node = replaceNodeWithAlias(unreachableAlert.Node, nodesAliases)
+
+	msg, err := executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
 }
 
 type StatusCondition struct {
@@ -835,110 +938,83 @@ type StatusCondition struct {
 	Height        string
 }
 
-func HandleNodesStatusError(nodesStatusResp *pair.NodesStatusResponse, extension ExpectedExtension) (string, StatusCondition, error) {
+func HandleNodesStatusError(resp *pair.NodesStatusResponse, ext ExpectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	var differentHeightsNodes []NodeStatus
 	var unavailableNodes []NodeStatus
 
-	if nodesStatusResp.ErrMessage == events.BigHeightDifference.Error() {
-		for _, stat := range nodesStatusResp.NodesStatus {
-			s := NodeStatus{}
-			if stat.Status != entities.OK {
-				s.URL = stat.Url
-				unavailableNodes = append(unavailableNodes, s)
-				continue
-			}
-			height := strconv.Itoa(stat.Height)
-			s.Height = height
-			s.URL = stat.Url
+	if resp.ErrMessage != events.ErrBigHeightDifference.Error() {
+		return resp.ErrMessage, statusCondition, nil
+	}
 
-			differentHeightsNodes = append(differentHeightsNodes, s)
+	for _, stat := range resp.NodesStatus {
+		if stat.Status != entities.OK {
+			unavailableNodes = append(unavailableNodes, NodeStatus{URL: stat.URL})
+			continue
 		}
-		var msg string
-		if len(unavailableNodes) != 0 {
-			sortNodesStatuses(unavailableNodes)
-			unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
-			if err != nil {
-				return "", statusCondition, err
-			}
-			msg = fmt.Sprintf(unavailableNodes + "\n")
+		height := strconv.Itoa(stat.Height)
+		s := NodeStatus{
+			URL:    stat.URL,
+			Height: height,
 		}
-		sortNodesStatuses(differentHeightsNodes)
-		differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, extension)
+		differentHeightsNodes = append(differentHeightsNodes, s)
+	}
+	var msg string
+	if len(unavailableNodes) != 0 {
+		sortNodesStatuses(unavailableNodes)
+		unavailableMsg, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, ext)
 		if err != nil {
 			return "", statusCondition, err
 		}
-		msg += fmt.Sprint(differentHeights)
-		return fmt.Sprintf("%s\n\n%s", nodesStatusResp.ErrMessage, msg), statusCondition, nil
+		msg = unavailableMsg + "\n"
 	}
-	return nodesStatusResp.ErrMessage, statusCondition, nil
-
+	sortNodesStatuses(differentHeightsNodes)
+	differentHeights, err := executeTemplate("templates/nodes_status_different_heights", differentHeightsNodes, ext)
+	if err != nil {
+		return "", statusCondition, err
+	}
+	msg += differentHeights
+	return fmt.Sprintf("%s\n\n%s", resp.ErrMessage, msg), statusCondition, nil
 }
 
-func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
-	extension ExpectedExtension, allNodes []entities.Node) (string, StatusCondition, error) {
+func HandleNodesStatus(
+	resp *pair.NodesStatusResponse,
+	ext ExpectedExtension,
+	nodes []entities.Node,
+) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
-	nodesAliases := make(map[string]string)
-	for _, n := range allNodes {
-		if n.Alias != "" {
-			nodesAliases[n.URL] = n.Alias
-		}
-	}
-	for i := range nodesStatusResp.NodesStatus {
-		nodesStatusResp.NodesStatus[i].Url = replaceNodeWithAlias(nodesStatusResp.NodesStatus[i].Url, nodesAliases)
+	nodesAliases := nodeURLToAlias(nodes)
+	for i := range resp.NodesStatus {
+		resp.NodesStatus[i].URL = replaceNodeWithAlias(resp.NodesStatus[i].URL, nodesAliases)
 	}
 
-	if nodesStatusResp.ErrMessage != "" {
-		return HandleNodesStatusError(nodesStatusResp, extension)
+	if resp.ErrMessage != "" {
+		return HandleNodesStatusError(resp, ext)
 	}
 
 	var msg string
-	var unavailableNodes []NodeStatus
-	var okNodes []NodeStatus
-	var height string
-	for _, stat := range nodesStatusResp.NodesStatus {
-		s := NodeStatus{}
-		if stat.Status != entities.OK {
-			s.URL = stat.Url
-			unavailableNodes = append(unavailableNodes, s)
-			continue
-		}
-		height = strconv.Itoa(stat.Height)
-		s.Sumhash = stat.StateHash.SumHash.Hex()
-		s.URL = stat.Url
-		s.Status = string(stat.Status)
-		s.BlockID = stat.StateHash.BlockID.String()
-		okNodes = append(okNodes, s)
-	}
+	unavailableNodes, okNodes, height := sortedNodesByStatusWithHeight(resp)
+
 	if len(unavailableNodes) != 0 {
-		sortNodesStatuses(unavailableNodes)
-		unavailableNodes, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, extension)
+		unavailableMsg, err := executeTemplate("templates/nodes_status_unavailable", unavailableNodes, ext)
 		if err != nil {
 			return "", statusCondition, err
 		}
-		msg = fmt.Sprintf(unavailableNodes + "\n")
-	}
-	areHashesEqual := true
-	previousHash := okNodes[0].Sumhash
-	for _, node := range okNodes {
-		if node.Sumhash != previousHash {
-			areHashesEqual = false
-		}
-		previousHash = node.Sumhash
+		msg = unavailableMsg + "\n"
 	}
 
-	sortNodesStatuses(okNodes)
+	areHashesEqual := areStateHashesEqual(okNodes)
 	if !areHashesEqual {
-		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, extension)
+		differentHashes, err := executeTemplate("templates/nodes_status_different_hashes", okNodes, ext)
 		if err != nil {
 			return "", statusCondition, err
 		}
 		msg += fmt.Sprintf("%s %s", differentHashes, height)
 		return msg, statusCondition, nil
 	}
-	equalHashes, err := executeTemplate("templates/nodes_status_ok", okNodes, extension)
+	equalHashes, err := executeTemplate("templates/nodes_status_ok", okNodes, ext)
 	if err != nil {
 		return "", statusCondition, err
 	}
@@ -953,6 +1029,54 @@ func HandleNodesStatus(nodesStatusResp *pair.NodesStatusResponse,
 	return msg, statusCondition, nil
 }
 
+func areStateHashesEqual(okNodes []NodeStatus) bool {
+	hashesEqual := true
+	previousHash := okNodes[0].Sumhash
+	for _, node := range okNodes {
+		if node.Sumhash != previousHash {
+			hashesEqual = false
+		}
+		previousHash = node.Sumhash
+	}
+	return hashesEqual
+}
+
+func nodeURLToAlias(allNodes []entities.Node) map[string]string {
+	nodesAliases := make(map[string]string)
+	for _, n := range allNodes {
+		if n.Alias != "" {
+			nodesAliases[n.URL] = n.Alias
+		}
+	}
+	return nodesAliases
+}
+
+func sortedNodesByStatusWithHeight(resp *pair.NodesStatusResponse) ([]NodeStatus, []NodeStatus, string) {
+	var (
+		unavailable []NodeStatus
+		okNodes     []NodeStatus
+		height      string
+	)
+	for _, stat := range resp.NodesStatus {
+		if stat.Status != entities.OK {
+			unavailable = append(unavailable, NodeStatus{URL: stat.URL})
+		} else {
+			height = strconv.Itoa(stat.Height)
+			s := NodeStatus{
+				URL:     stat.URL,
+				Sumhash: stat.StateHash.SumHash.Hex(),
+				Status:  string(stat.Status),
+				Height:  height,
+				BlockID: stat.StateHash.BlockID.String(),
+			}
+			okNodes = append(okNodes, s)
+		}
+	}
+	sortNodesStatuses(unavailable)
+	sortNodesStatuses(okNodes)
+	return unavailable, okNodes, height
+}
+
 type nodeStatement struct {
 	Node      string
 	Height    int
@@ -961,23 +1085,23 @@ type nodeStatement struct {
 	Version   string
 }
 
-func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
-	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpsScheme+"://", "")
-	nodeStatementResp.NodeStatement.Node = strings.ReplaceAll(nodeStatementResp.NodeStatement.Node, entities.HttpScheme+"://", "")
+func HandleNodeStatement(resp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
+	resp.NodeStatement.Node = strings.ReplaceAll(resp.NodeStatement.Node, entities.HTTPSScheme+"://", "")
+	resp.NodeStatement.Node = strings.ReplaceAll(resp.NodeStatement.Node, entities.HTTPScheme+"://", "")
 
-	if nodeStatementResp.ErrMessage != "" {
-		return nodeStatementResp.ErrMessage, nil
+	if resp.ErrMessage != "" {
+		return resp.ErrMessage, nil
 	}
 
-	nodeStatement := nodeStatement{
-		Node:      nodeStatementResp.NodeStatement.Node,
-		Height:    nodeStatementResp.NodeStatement.Height,
-		Timestamp: nodeStatementResp.NodeStatement.Timestamp,
-		StateHash: nodeStatementResp.NodeStatement.StateHash.SumHash.Hex(),
-		Version:   nodeStatementResp.NodeStatement.Version,
+	statement := nodeStatement{
+		Node:      resp.NodeStatement.Node,
+		Height:    resp.NodeStatement.Height,
+		Timestamp: resp.NodeStatement.Timestamp,
+		StateHash: resp.NodeStatement.StateHash.SumHash.Hex(),
+		Version:   resp.NodeStatement.Version,
 	}
 
-	msg, err := executeTemplate("templates/node_statement", nodeStatement, extension)
+	msg, err := executeTemplate("templates/node_statement", statement, extension)
 	if err != nil {
 		return "", err
 	}
@@ -985,20 +1109,15 @@ func HandleNodeStatement(nodeStatementResp *pair.NodeStatementResponse, extensio
 	return msg, nil
 }
 
-func constructMessage(alertType entities.AlertType, alertJson []byte, extension ExpectedExtension, allNodes []entities.Node) (string, error) {
-	msg, err := executeAlertTemplate(alertType, alertJson, extension, allNodes)
+func constructMessage(
+	alertType entities.AlertType,
+	alertJSON []byte,
+	extension ExpectedExtension,
+	allNodes []entities.Node,
+) (string, error) {
+	msg, err := executeAlertTemplate(alertType, alertJSON, extension, allNodes)
 	if err != nil {
-		return "", errors.Errorf("failed to execute an alert template, %v", err)
+		return "", errors.Wrap(err, "failed to execute an alert template")
 	}
 	return msg, nil
-}
-
-func FindAlertTypeByName(alertName string) (entities.AlertType, bool) {
-	for key, val := range entities.AlertTypes {
-		if val == alertName {
-			return key, true
-		}
-	}
-	return 0, false
-
 }

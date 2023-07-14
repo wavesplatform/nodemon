@@ -6,11 +6,12 @@ import (
 	"strconv"
 	"time"
 
+	"nodemon/pkg/entities"
+
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
 )
 
 var (
@@ -57,8 +58,8 @@ func (s *Storage) GetStatement(nodeURL string, timestamp int64) (entities.NodeSt
 	if err != nil {
 		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get node statement from db by key %q", key)
 	}
-	if err := json.Unmarshal([]byte(value), &statement); err != nil {
-		return entities.NodeStatement{}, errors.Wrap(err, "failed to unmarshal node statement")
+	if unmarshalErr := json.Unmarshal([]byte(value), &statement); unmarshalErr != nil {
+		return entities.NodeStatement{}, errors.Wrap(unmarshalErr, "failed to unmarshal node statement")
 	}
 	return statement, nil
 }
@@ -87,9 +88,9 @@ func (s *Storage) PutEvent(event entities.Event) error {
 	}
 	key := statementKey{event.Node(), event.Timestamp()}.String()
 	err = s.db.Update(func(tx *buntdb.Tx) error {
-		var err error
-		_, _, err = tx.Set(key, v, opts)
-		return err
+		var setErr error
+		_, _, setErr = tx.Set(key, v, opts)
+		return setErr
 	})
 	if err != nil {
 		return errors.Wrap(err, "failed to store event")
@@ -125,7 +126,7 @@ func (s *Storage) EarliestHeight(node string) (int, error) {
 		return 0, errors.Wrapf(err, "failed to get earliest height for node '%s'", node)
 	}
 	if h == 0 {
-		return 0, errors.Wrapf(NoFullStatementError, "no full statement at earliest height for node '%s'", node)
+		return 0, errors.Wrapf(ErrNoFullStatement, "no full statement at earliest height for node '%s'", node)
 	}
 	return h, nil
 }
@@ -144,7 +145,7 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 		return 0, errors.Wrapf(err, "failed to get latest height for node '%s'", node)
 	}
 	if h == 0 {
-		return 0, errors.Wrapf(NoFullStatementError, "no full statement at latest height for node '%s'", node)
+		return 0, errors.Wrapf(ErrNoFullStatement, "no full statement at latest height for node '%s'", node)
 	}
 	return h, nil
 }
@@ -164,16 +165,18 @@ func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.No
 		notFound = st.Height != height
 		notFoundFull = notFound || st.StateHash == nil
 		return notFoundFull
-
 	})
 	if err != nil {
-		return entities.NodeStatement{}, errors.Wrapf(err, "failed to get node statement at height %d for node '%s'", height, node)
+		return entities.NodeStatement{},
+			errors.Wrapf(err, "failed to get node statement at height %d for node '%s'", height, node)
 	}
 	if notFound {
-		return entities.NodeStatement{}, errors.Wrapf(NoFullStatementError, "no any statement at height %d for node '%s'", height, node)
+		return entities.NodeStatement{},
+			errors.Wrapf(ErrNoFullStatement, "no any statement at height %d for node '%s'", height, node)
 	}
 	if notFoundFull {
-		return entities.NodeStatement{}, errors.Wrapf(NoFullStatementError, "no full statement at height %d for node '%s'", height, node)
+		return entities.NodeStatement{},
+			errors.Wrapf(ErrNoFullStatement, "no full statement at height %d for node '%s'", height, node)
 	}
 	return st, nil
 }
@@ -181,24 +184,29 @@ func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.No
 func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
 	_, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
-		if errors.Is(err, NoFullStatementError) {
+		if errors.Is(err, ErrNoFullStatement) {
 			return false, nil
 		}
-		return false, errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
+		return false,
+			errors.Wrapf(err, "failed to get the last state hash at height %d for node '%s'", height, node)
 	}
 	return true, nil
 }
 
-var NoFullStatementError = errors.New("no full statement")
-var BigHeightDifference = errors.New("The height difference between nodes is more than 10")
-var StorageIsNotReady = errors.New("The storage has not collected enough statements for status")
+var ErrNoFullStatement = errors.New("no full statement")
+var ErrBigHeightDifference = errors.New("The height difference between nodes is more than 10")
+var ErrStorageIsNotReady = errors.New("The storage has not collected enough statements for status")
 
-func (s *Storage) findMinCommonLatestHeight(nodesList map[string]bool, minHeight int, maxHeight int) ([]entities.NodeStatement, map[string]bool, int, int, error) {
+func (s *Storage) findMinCommonLatestHeight(
+	nodesList map[string]bool,
+	minHeight int,
+	maxHeight int,
+) ([]entities.NodeStatement, map[string]bool, int, int, error) {
 	// looking for the min common height and the max height
 	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
 		h, err := s.LatestHeight(node)
-		if err != nil && !errors.Is(err, NoFullStatementError) {
+		if err != nil && !errors.Is(err, ErrNoFullStatement) {
 			return nil, nil, 0, 0, errors.Wrapf(err, "failed to get the latest height for node '%s'", node)
 		}
 		if err != nil || h == 0 {
@@ -219,26 +227,36 @@ func (s *Storage) findMinCommonLatestHeight(nodesList map[string]bool, minHeight
 	return nodesHeights, nodesList, minHeight, maxHeight, nil
 }
 
-func (s *Storage) findMinCommonSpecificHeight(nodesList map[string]bool, minHeight int) ([]entities.NodeStatement, error) {
+func (s *Storage) findMinCommonSpecificHeight(
+	nodesList map[string]bool,
+	minHeight int,
+) ([]entities.NodeStatement, error) {
 	// looking for the min common height and the max height
 	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
 		found, err := s.FoundStatementAtHeight(node, minHeight)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to find min common specific height %d for node '%s'", minHeight, node)
+			return nil, errors.Wrapf(err,
+				"failed to find min common specific height %d for node '%s'", minHeight, node,
+			)
 		}
 		if !found {
-			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			nodesHeights = append(nodesHeights, entities.NodeStatement{
+				Node:   node,
+				Status: entities.Unreachable,
+			})
 		} else {
-			nodesHeights = append(nodesHeights, entities.NodeStatement{Node: node, Height: minHeight, Status: entities.OK})
+			nodesHeights = append(nodesHeights, entities.NodeStatement{
+				Node:   node,
+				Height: minHeight,
+				Status: entities.OK,
+			})
 		}
 	}
-
 	return nodesHeights, nil
 }
 
 func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
-
 	minHeight, maxHeight := math.MaxInt, 0
 
 	nodesList := make(map[string]bool) // reachable or unreachable
@@ -252,7 +270,7 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 	}
 
 	if (maxHeight - minHeight) > heightDifference {
-		return nodesHeights, BigHeightDifference
+		return nodesHeights, ErrBigHeightDifference
 	}
 
 	for i := 0; i < depthCommonHeightSearch; i++ {
@@ -261,42 +279,57 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 			if node.Height != minHeight && nodesList[node.Node] {
 				sameHeight = false
 				if i > 0 {
-					minHeight = minHeight - 1
+					minHeight--
 					break
 				}
 			}
 		}
-		if !sameHeight {
-			nodesHeights, err = s.findMinCommonSpecificHeight(nodesList, minHeight)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to find min common specific height")
-			}
-		} else {
+		if sameHeight {
 			break
 		}
-
+		nodesHeights, err = s.findMinCommonSpecificHeight(nodesList, minHeight)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find min common specific height")
+		}
 	}
+	return s.findStatementsOnHeight(nodesList, minHeight)
+}
 
+func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height int) ([]entities.NodeStatement, error) {
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {
 		if !reachable {
-			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
+				Node:   node,
+				Status: entities.Unreachable,
+			})
 			continue
 		}
-		statement, err := s.GetFullStatementAtHeight(node, minHeight)
-		if err != nil {
-			if !errors.Is(err, NoFullStatementError) {
-				return nil, errors.Wrapf(err, "failed to find statement at height %d for node '%s'", minHeight, node)
+		statement, storErr := s.GetFullStatementAtHeight(node, height)
+		if storErr != nil {
+			if !errors.Is(storErr, ErrNoFullStatement) {
+				return nil,
+					errors.Wrapf(storErr, "failed to find statement at height %d for node '%s'", height, node)
 			}
-			s.zap.Error("failed to find statement at height", zap.Int("height", minHeight), zap.String("node", node), zap.Error(err))
-			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			s.zap.Error("failed to find statement at height",
+				zap.Int("height", height), zap.String("node", node), zap.Error(storErr),
+			)
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
+				Node:   node,
+				Status: entities.Unreachable,
+			})
 			continue
 		}
-		if statement.Height == minHeight {
+		if statement.Height == height {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d", node, minHeight, statement.Height)
-			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{Node: node, Status: entities.Unreachable})
+			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d",
+				node, height, statement.Height,
+			)
+			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
+				Node:   node,
+				Status: entities.Unreachable,
+			})
 		}
 	}
 
@@ -306,7 +339,8 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 func (s *Storage) StateHashAtHeight(node string, height int) (proto.StateHash, error) {
 	st, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
-		return proto.StateHash{}, errors.Wrapf(err, "failed to get state hash for node '%s' at height %d", node, height)
+		return proto.StateHash{},
+			errors.Wrapf(err, "failed to get state hash for node '%s' at height %d", node, height)
 	}
 	return *st.StateHash, nil
 }

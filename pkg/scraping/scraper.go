@@ -5,10 +5,11 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+
+	"go.uber.org/zap"
 )
 
 type Scraper struct {
@@ -19,7 +20,12 @@ type Scraper struct {
 	zap      *zap.Logger
 }
 
-func NewScraper(ns nodes.Storage, es *events.Storage, interval, timeout time.Duration, logger *zap.Logger) (*Scraper, error) {
+func NewScraper(
+	ns nodes.Storage,
+	es *events.Storage,
+	interval, timeout time.Duration,
+	logger *zap.Logger,
+) (*Scraper, error) {
 	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, zap: logger}, nil
 }
 
@@ -49,16 +55,17 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 
-	enabledNodes, err := s.ns.EnabledNodes()
-	if err != nil {
-		s.zap.Error("Failed to get nodes from storage", zap.Error(err))
+	enabledNodes, storageErr := s.ns.EnabledNodes()
+	if storageErr != nil {
+		s.zap.Error("Failed to get nodes from storage", zap.Error(storageErr))
 	}
 
 	ec := s.queryNodes(ctx, enabledNodes, now)
 	cnt := 0
 	for e := range ec {
 		if err := s.es.PutEvent(e); err != nil {
-			s.zap.Sugar().Errorf("Failed to collect event '%T' from node %s, statement=%+v: %v", e, e.Node(), e.Statement(), err)
+			s.zap.Sugar().Errorf("Failed to collect event '%T' from node %s, statement=%+v: %v",
+				e, e.Node(), e.Statement(), err)
 		} else {
 			cnt++
 		}
@@ -107,11 +114,12 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		s.zap.Sugar().Warnf("Failed to get height for node %s: %v", url, err)
 		return entities.NewVersionEvent(url, ts, v) // we know version, sending what we know about node
 	}
-	if h < 2 {
+	const minValidHeight = 2
+	if h < minValidHeight {
 		s.zap.Sugar().Warnf("Node %s has invalid height %d", url, h)
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}
-	h = h - 1 // Go to previous height to request base target and state hash
+	h-- // Go to previous height to request base target and state hash
 
 	bs, err := node.baseTarget(ctx, h)
 	if err != nil {

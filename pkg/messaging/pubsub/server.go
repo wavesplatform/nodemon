@@ -4,23 +4,29 @@ import (
 	"context"
 	"strings"
 
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
+
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
 	"go.nanomsg.org/mangos/v3/protocol/pub"
-	_ "go.nanomsg.org/mangos/v3/transport/all"
+	_ "go.nanomsg.org/mangos/v3/transport/all" // registers all transports
 	"go.uber.org/zap"
-	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
 )
 
-func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-chan entities.Alert, logger *zap.Logger) error {
+func StartPubMessagingServer(
+	ctx context.Context,
+	nanomsgURL string,
+	alerts <-chan entities.Alert,
+	logger *zap.Logger,
+) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
 		return errors.New("invalid nanomsg IPC URL for pub sub socket")
 	}
 
-	socketPub, err := pub.NewSocket()
-	if err != nil {
-		return err
+	socketPub, sockErr := pub.NewSocket()
+	if sockErr != nil {
+		return sockErr
 	}
 	defer func(socketPub protocol.Socket) {
 		if err := socketPub.Close(); err != nil {
@@ -32,6 +38,10 @@ func StartPubMessagingServer(ctx context.Context, nanomsgURL string, alerts <-ch
 		return err
 	}
 
+	return enterLoop(ctx, alerts, logger, socketPub)
+}
+
+func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, socketPub protocol.Socket) error {
 	for {
 		select {
 		case <-ctx.Done():
