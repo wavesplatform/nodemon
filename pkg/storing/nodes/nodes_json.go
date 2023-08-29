@@ -144,6 +144,9 @@ func NewJSONFileStorage(path string, nodes []string, logger *zap.Logger) (*JSONS
 		return nil, errors.Wrap(err, "failed to read nodes file")
 	}
 	db, err := newDBStructFromJSON(data)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to create new db struct from JSON data")
+	}
 	s := &JSONStorage{
 		mu:  new(sync.RWMutex),
 		db:  db,

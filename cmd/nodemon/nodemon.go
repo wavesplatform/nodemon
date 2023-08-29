@@ -199,25 +199,8 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	var ns nodes.Storage
-	if cfg.vault.present() {
-		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
-		if clErr != nil {
-			logger.Error("failed to create vault client", zap.Error(err))
-		}
-		ns, err = nodes.NewJSONVaultStorage(
-			ctx,
-			cl,
-			cfg.vault.mountPath,
-			cfg.vault.secretPath,
-			strings.Fields(cfg.nodes),
-			logger,
-		)
-	} else {
-		ns, err = nodes.NewJSONFileStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
-	}
+	ns, err := createNodesStorage(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to initialize nodes storage", zap.Error(err))
 		return err
 	}
 	defer func(cs nodes.Storage) {
@@ -272,6 +255,34 @@ func run() error {
 	a.Shutdown()
 	logger.Info("shutting down")
 	return nil
+}
+
+func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Logger) (nodes.Storage, error) {
+	var (
+		ns  nodes.Storage
+		err error
+	)
+	if cfg.vault.present() {
+		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
+		if clErr != nil {
+			logger.Error("failed to create vault client", zap.Error(err))
+		}
+		ns, err = nodes.NewJSONVaultStorage(
+			ctx,
+			cl,
+			cfg.vault.mountPath,
+			cfg.vault.secretPath,
+			strings.Fields(cfg.nodes),
+			logger,
+		)
+	} else {
+		ns, err = nodes.NewJSONFileStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
+	}
+	if err != nil {
+		logger.Error("failed to initialize nodes storage", zap.Error(err))
+		return nil, err
+	}
+	return ns, nil
 }
 
 func runAnalyzer(
