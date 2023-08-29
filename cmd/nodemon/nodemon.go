@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -16,6 +15,7 @@ import (
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/api"
+	"nodemon/pkg/clients"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/messaging/pubsub"
@@ -54,6 +54,53 @@ func main() {
 	}
 }
 
+type nodemonVaultConfig struct {
+	address    string
+	user       string
+	password   string
+	mountPath  string
+	secretPath string
+}
+
+func (n *nodemonVaultConfig) present() bool {
+	return n.address != ""
+}
+
+func newNodemonVaultConfig() *nodemonVaultConfig {
+	c := new(nodemonVaultConfig)
+	flag.StringVar(&c.address, "vault-address", "", "Vault server address.")
+	flag.StringVar(&c.user, "vault-user", "", "Vault user.")
+	flag.StringVar(&c.password, "vault-password", "", "Vault user's password.")
+	flag.StringVar(&c.mountPath, "vault-mount-path", "gonodemonitoring",
+		"Vault mount path for nodemon nodes storage.")
+	flag.StringVar(&c.secretPath, "vault-secret-path", "",
+		"Vault secret where nodemon nodes will be saved")
+	return c
+}
+
+func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
+	if n.address == "" { // skip further validation
+		return nil
+	}
+	if n.user == "" {
+		logger.Error("Empty vault user.")
+		return errInvalidParameters
+	}
+	if n.password == "" {
+		logger.Error("Empty vault password.")
+		return errInvalidParameters
+	}
+	if len(n.mountPath) == 0 {
+		logger.Error("Empty vault mount path")
+		return errInvalidParameters
+	}
+	if len(n.secretPath) == 0 {
+		logger.Error("Empty vault secret path")
+		return errInvalidParameters
+	}
+	return nil
+}
+
 type nodemonConfig struct {
 	storage                string
 	nodes                  string
@@ -67,6 +114,7 @@ type nodemonConfig struct {
 	apiReadTimeout         time.Duration
 	baseTargetThreshold    int
 	logLevel               string
+	vault                  *nodemonVaultConfig
 }
 
 func newNodemonConfig() *nodemonConfig {
@@ -95,31 +143,34 @@ func newNodemonConfig() *nodemonConfig {
 		"HTTP API read timeout. Default value is 30s.")
 	flag.StringVar(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	c.vault = newNodemonVaultConfig()
 	return c
 }
 
-func (c *nodemonConfig) validate(zap *zap.Logger) error {
-	if len(c.storage) == 0 || len(strings.Fields(c.storage)) > 1 {
-		zap.Error(fmt.Sprintf("Invalid storage path '%s'", c.storage))
-		return errInvalidParameters
+func (c *nodemonConfig) validate(logger *zap.Logger) error {
+	if !c.vault.present() {
+		if len(c.storage) == 0 || len(strings.Fields(c.storage)) > 1 {
+			logger.Error("Invalid storage path", zap.String("path", c.storage))
+			return errInvalidParameters
+		}
 	}
 	if c.interval <= 0 {
-		zap.Error(fmt.Sprintf("Invalid polling interval '%s'", c.interval.String()))
+		logger.Error("Invalid polling interval", zap.Stringer("interval", c.interval))
 		return errInvalidParameters
 	}
 	if c.timeout <= 0 {
-		zap.Error(fmt.Sprintf("Invalid network timeout '%s'", c.timeout.String()))
+		logger.Error("Invalid network timeout", zap.Stringer("timeout", c.timeout))
 		return errInvalidParameters
 	}
 	if c.retention <= 0 {
-		zap.Error(fmt.Sprintf("Invalid retention duration '%s'", c.retention.String()))
+		logger.Error("Invalid retention duration", zap.Stringer("retention", c.retention))
 		return errInvalidParameters
 	}
 	if c.baseTargetThreshold == 0 {
-		zap.Error(fmt.Sprintf("Invalid base target threshold '%d'", c.baseTargetThreshold))
+		logger.Error("Invalid base target threshold", zap.Int("threshold", c.baseTargetThreshold))
 		return errInvalidParameters
 	}
-	return nil
+	return c.vault.validate(logger)
 }
 
 func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscordURL != "" }
@@ -148,7 +199,23 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer done()
 
-	ns, err := nodes.NewJSONStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
+	var ns nodes.Storage
+	if cfg.vault.present() {
+		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
+		if clErr != nil {
+			logger.Error("failed to create vault client", zap.Error(err))
+		}
+		ns, err = nodes.NewJSONVaultStorage(
+			ctx,
+			cl,
+			cfg.vault.mountPath,
+			cfg.vault.secretPath,
+			strings.Fields(cfg.nodes),
+			logger,
+		)
+	} else {
+		ns, err = nodes.NewJSONFileStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
+	}
 	if err != nil {
 		logger.Error("failed to initialize nodes storage", zap.Error(err))
 		return err
@@ -226,7 +293,7 @@ func runMessagingServices(
 	cfg *nodemonConfig,
 	alerts <-chan entities.Alert,
 	logger *zap.Logger,
-	ns *nodes.JSONStorage,
+	ns nodes.Storage,
 	es *events.Storage,
 ) {
 	go func() {

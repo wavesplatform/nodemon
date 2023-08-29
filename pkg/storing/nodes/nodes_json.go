@@ -1,10 +1,13 @@
 package nodes
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
 	"sync"
+
+	vault "github.com/hashicorp/vault/api"
 
 	"nodemon/pkg/entities"
 
@@ -71,15 +74,33 @@ type dbStruct struct {
 	SpecificNodes nodes `json:"specific_nodes"`
 }
 
-func (db dbStruct) Nodes(specific bool) nodes {
+func newDBStructFromJSON(data []byte) (*dbStruct, error) {
+	db := new(dbStruct)
+	if unmarshalErr := db.unmarshalJSON(data); unmarshalErr != nil {
+		return nil, errors.Wrap(unmarshalErr, "failed to create nodes db")
+	}
+	return db, nil
+}
+
+func (db *dbStruct) marshalJSON() ([]byte, error) {
+	return json.MarshalIndent(db, "", " ")
+}
+
+func (db *dbStruct) unmarshalJSON(data []byte) error {
+	return json.Unmarshal(data, db)
+}
+
+func (db *dbStruct) Nodes(specific bool) nodes {
 	if specific {
 		return db.SpecificNodes
 	}
 	return db.CommonNodes
 }
 
-func (db dbStruct) SyncToFile(path string) error {
-	data, err := json.MarshalIndent(db, "", " ")
+type syncDBStructFn func(db *dbStruct) error
+
+func syncToFile(db *dbStruct, path string) error {
+	data, err := db.marshalJSON()
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal nodes db as json")
 	}
@@ -89,14 +110,30 @@ func (db dbStruct) SyncToFile(path string) error {
 	return nil
 }
 
-type JSONStorage struct {
-	mu     *sync.RWMutex
-	db     *dbStruct
-	dbFile string
-	zap    *zap.Logger
+func createDBFileIfNotExist(path string) error {
+	switch _, err := os.Stat(path); {
+	case err == nil:
+		return nil
+	case errors.Is(err, os.ErrNotExist):
+		var empty dbStruct
+		data, marshalErr := empty.marshalJSON()
+		if marshalErr != nil {
+			return errors.Wrap(marshalErr, "failed to marshal empty db struct to json")
+		}
+		return os.WriteFile(path, data, 0600)
+	default:
+		return errors.Wrap(err, "failed to get stat for file")
+	}
 }
 
-func NewJSONStorage(path string, nodes []string, logger *zap.Logger) (*JSONStorage, error) {
+type JSONStorage struct {
+	mu           *sync.RWMutex
+	db           *dbStruct
+	zap          *zap.Logger
+	syncDBStruct syncDBStructFn
+}
+
+func NewJSONFileStorage(path string, nodes []string, logger *zap.Logger) (*JSONStorage, error) {
 	path = filepath.Clean(path)
 	if err := createDBFileIfNotExist(path); err != nil {
 		return nil, errors.Wrapf(err, "failed to create and init nodes db file '%s'", path)
@@ -106,31 +143,48 @@ func NewJSONStorage(path string, nodes []string, logger *zap.Logger) (*JSONStora
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to read nodes file")
 	}
-	db := new(dbStruct)
-	if unmarshalErr := json.Unmarshal(data, db); unmarshalErr != nil {
-		return nil, errors.Wrapf(unmarshalErr, "failed to parse data as json from file '%s'", path)
+	db, err := newDBStructFromJSON(data)
+	s := &JSONStorage{
+		mu:  new(sync.RWMutex),
+		db:  db,
+		zap: logger,
+		syncDBStruct: func(db *dbStruct) error {
+			return syncToFile(db, path)
+		},
 	}
-	s := &JSONStorage{mu: new(sync.RWMutex), db: db, dbFile: path, zap: logger}
 	if populateErr := s.populate(nodes); populateErr != nil {
 		return nil, errors.Wrapf(populateErr, "failed to populate nodes storage")
 	}
 	return s, nil
 }
 
-func createDBFileIfNotExist(path string) error {
-	switch _, err := os.Stat(path); {
-	case err == nil:
-		return nil
-	case errors.Is(err, os.ErrNotExist):
-		var empty dbStruct
-		data, marshalErr := json.Marshal(empty)
-		if marshalErr != nil {
-			return errors.Wrap(marshalErr, "failed to marshal empty db struct to json")
-		}
-		return os.WriteFile(path, data, 0600)
-	default:
-		return errors.Wrap(err, "failed to get stat for file")
+func NewJSONVaultStorage(
+	ctx context.Context,
+	client *vault.Client, mountPath, secretPath string,
+	nodes []string,
+	logger *zap.Logger,
+) (*JSONStorage, error) {
+	vaultStor := newNodesJSONVaultStorage(client, mountPath, secretPath)
+	db, err := vaultStor.getNodes(ctx)
+	if err != nil {
+		return nil, err
 	}
+	s := &JSONStorage{
+		mu:  new(sync.RWMutex),
+		db:  db,
+		zap: logger,
+		syncDBStruct: func(db *dbStruct) error {
+			return vaultStor.putNodes(ctx, db)
+		},
+	}
+	if populateErr := s.populate(nodes); populateErr != nil {
+		return nil, errors.Wrapf(populateErr, "failed to populate nodes storage")
+	}
+	return s, nil
+}
+
+func (s *JSONStorage) syncDB() error {
+	return s.syncDBStruct(s.db)
 }
 
 func (s *JSONStorage) Close() error {
@@ -170,7 +224,7 @@ func (s *JSONStorage) Update(node entities.Node) error {
 		return nodeNotFoundErr(node.URL)
 	}
 
-	if err := s.db.SyncToFile(s.dbFile); err != nil {
+	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to update node '%s'", node.URL)
 	}
 	s.zap.Sugar().Infof("Node '%s' was updated to %+v", node.URL, node)
@@ -191,7 +245,7 @@ func (s *JSONStorage) InsertIfNew(url string, specific bool) error {
 		return nil
 	}
 
-	if err := s.db.SyncToFile(s.dbFile); err != nil {
+	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to insert new node '%s' (specific=%t)", url, specific)
 	}
 	s.zap.Sugar().Infof("New node '%s' (specific=%t) was stored", url, specific)
@@ -211,7 +265,7 @@ func (s *JSONStorage) Delete(url string) error {
 		return nodeNotFoundErr(url)
 	}
 
-	if err := s.db.SyncToFile(s.dbFile); err != nil {
+	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to delete node '%s'", url)
 	}
 	s.zap.Sugar().Infof("Node '%s' was deleted", url)
@@ -256,7 +310,7 @@ func (s *JSONStorage) populate(nodes []string) error {
 	if !needSync {
 		return nil
 	}
-	if err := s.db.SyncToFile(s.dbFile); err != nil {
+	if err := s.syncDB(); err != nil {
 		return errors.Wrap(err, "failed to populate nodes db")
 	}
 	return nil
