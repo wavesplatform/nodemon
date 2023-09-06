@@ -14,21 +14,21 @@ import (
 	"go.uber.org/zap"
 )
 
-func newTestJSONStorage(t *testing.T, nodes []string) *JSONStorage {
+func newTestJSONStorage(t *testing.T, nodes []string) (*JSONStorage, string) {
 	t.Helper()
-	path := filepath.Join(t.TempDir(), ".nodes")
-	storage, err := NewJSONStorage(path, nodes, zap.NewNop())
-	require.NoError(t, err, "failed to create json nodes storage with file '%s'", path)
-	return storage
+	dbFilePath := filepath.Join(t.TempDir(), ".nodes")
+	storage, err := NewJSONFileStorage(dbFilePath, nodes, zap.NewNop())
+	require.NoError(t, err, "failed to create json nodes storage with file '%s'", dbFilePath)
+	return storage, dbFilePath
 }
 
-func newTestJSONStorageWithDB(t *testing.T, db *dbStruct) *JSONStorage {
+func newTestJSONStorageWithDB(t *testing.T, db *dbStruct) (*JSONStorage, string) {
 	t.Helper()
-	storage := newTestJSONStorage(t, nil)
+	storage, path := newTestJSONStorage(t, nil)
 	storage.db = db
-	err := storage.db.SyncToFile(storage.dbFile)
+	err := storage.syncDB()
 	require.NoError(t, err)
-	return storage
+	return storage, path
 }
 
 func checkFileIsUpdated(t *testing.T, path string, expected *dbStruct) {
@@ -69,7 +69,7 @@ func TestNewJSONStorage(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), ".nodes")
-			storage, err := NewJSONStorage(path, test.nodes, zap.NewNop())
+			storage, err := NewJSONFileStorage(path, test.nodes, zap.NewNop())
 			if test.err != "" {
 				assert.EqualError(t, err, test.err)
 			} else {
@@ -113,7 +113,7 @@ func TestJSONStorage_Nodes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(fmt.Sprintf("specific=%t", test.specific), func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, _ := newTestJSONStorageWithDB(t, &test.db)
 			actual, err := storage.Nodes(test.specific)
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
@@ -152,7 +152,7 @@ func TestJSONStorage_EnabledNodes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, _ := newTestJSONStorageWithDB(t, &test.db)
 			actual, err := storage.EnabledNodes()
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
@@ -191,7 +191,7 @@ func TestJSONStorage_EnabledSpecificNodes(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, _ := newTestJSONStorageWithDB(t, &test.db)
 			actual, err := storage.EnabledSpecificNodes()
 			require.NoError(t, err)
 			assert.Equal(t, test.expected, actual)
@@ -261,14 +261,14 @@ func TestJSONStorage_Update(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, dbFilePath := newTestJSONStorageWithDB(t, &test.db)
 			err := storage.Update(test.update)
 			if test.err != "" {
 				assert.EqualError(t, err, test.err)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, &test.updatedDB, storage.db)
-				checkFileIsUpdated(t, storage.dbFile, &test.updatedDB)
+				checkFileIsUpdated(t, dbFilePath, &test.updatedDB)
 			}
 		})
 	}
@@ -363,11 +363,11 @@ func TestJSONStorage_InsertIfNew(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, dbFilePath := newTestJSONStorageWithDB(t, &test.db)
 			err := storage.InsertIfNew(test.nodeURL, test.specific)
 			require.NoError(t, err)
 			assert.Equal(t, &test.updatedDB, storage.db)
-			checkFileIsUpdated(t, storage.dbFile, &test.updatedDB)
+			checkFileIsUpdated(t, dbFilePath, &test.updatedDB)
 		})
 	}
 }
@@ -428,14 +428,14 @@ func TestJSONStorage_Delete(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, dbFilePath := newTestJSONStorageWithDB(t, &test.db)
 			err := storage.Delete(test.nodeToDelete)
 			if test.err != "" {
 				assert.EqualError(t, err, test.err)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, &test.db, storage.db)
-				checkFileIsUpdated(t, storage.dbFile, &test.db)
+				checkFileIsUpdated(t, dbFilePath, &test.db)
 			}
 		})
 	}
@@ -491,7 +491,7 @@ func TestJSONStorage_FindAlias(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			storage := newTestJSONStorageWithDB(t, &test.db)
+			storage, _ := newTestJSONStorageWithDB(t, &test.db)
 			alias, err := storage.FindAlias(test.nodeURL)
 			if test.err != "" {
 				assert.EqualError(t, err, test.err)
