@@ -1,0 +1,39 @@
+FROM golang:1.21.1-alpine3.18 as builder
+ARG APP=/app
+WORKDIR ${APP}
+
+RUN apk add --no-cache make
+# disable cgo for go build
+ENV CGO_ENABLED=0
+
+COPY go.mod .
+COPY go.sum .
+
+RUN go mod download
+
+COPY Makefile .
+COPY cmd cmd
+COPY pkg pkg
+
+RUN make build-nodemon-linux-amd64
+
+FROM alpine:3.18
+ARG APP=/app
+ENV TZ=Etc/UTC \
+    APP_USER=appuser
+
+STOPSIGNAL SIGINT
+
+RUN addgroup -S $APP_USER \
+    && adduser -S $APP_USER -G $APP_USER
+
+RUN apk add --no-cache bind-tools
+
+USER $APP_USER
+WORKDIR ${APP}
+# Considered as a default HTTP API Port
+EXPOSE 8080
+
+COPY --from=builder ${APP}/build/linux-amd64/nodemon ${APP}/nodemon
+
+ENTRYPOINT ["./nodemon"]
