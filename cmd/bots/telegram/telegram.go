@@ -14,6 +14,7 @@ import (
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/tools"
 
 	"github.com/procyon-projects/chrono"
 	gow "github.com/wavesplatform/gowaves/pkg/util/common"
@@ -46,21 +47,21 @@ type telegramBotConfig struct {
 
 func newTelegramBotConfig() *telegramBotConfig {
 	c := new(telegramBotConfig)
-	flag.StringVar(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
+	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
 		"ipc:///tmp/telegram/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	flag.StringVar(&c.nanomsgPairURL, "nano-msg-pair-telegram-url",
+	tools.StringVarFlagWithEnv(&c.nanomsgPairURL, "nano-msg-pair-telegram-url",
 		"ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
-	flag.StringVar(&c.behavior, "behavior", "webhook",
+	tools.StringVarFlagWithEnv(&c.behavior, "behavior", "webhook",
 		"Behavior is either webhook or polling")
-	flag.StringVar(&c.webhookLocalAddress, "webhook-local-address",
+	tools.StringVarFlagWithEnv(&c.webhookLocalAddress, "webhook-local-address",
 		":8081", "The application's webhook address is :8081 by default")
-	flag.StringVar(&c.tgBotToken, "tg-bot-token", "",
+	tools.StringVarFlagWithEnv(&c.tgBotToken, "tg-bot-token", "",
 		"The secret token used to authenticate the bot")
-	flag.StringVar(&c.publicURL, "public-url", "",
+	tools.StringVarFlagWithEnv(&c.publicURL, "public-url", "",
 		"The public url for websocket only")
-	flag.Int64Var(&c.tgChatID, "telegram-chat-id",
+	tools.Int64VarFlagWithEnv(&c.tgChatID, "telegram-chat-id",
 		0, "telegram chat ID to send alerts through")
-	flag.StringVar(&c.logLevel, "log-level", "INFO",
+	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	return c
 }

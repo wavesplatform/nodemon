@@ -68,12 +68,12 @@ func (n *nodemonVaultConfig) present() bool {
 
 func newNodemonVaultConfig() *nodemonVaultConfig {
 	c := new(nodemonVaultConfig)
-	flag.StringVar(&c.address, "vault-address", "", "Vault server address.")
-	flag.StringVar(&c.user, "vault-user", "", "Vault user.")
-	flag.StringVar(&c.password, "vault-password", "", "Vault user's password.")
-	flag.StringVar(&c.mountPath, "vault-mount-path", "gonodemonitoring",
+	tools.StringVarFlagWithEnv(&c.address, "vault-address", "", "Vault server address.")
+	tools.StringVarFlagWithEnv(&c.user, "vault-user", "", "Vault user.")
+	tools.StringVarFlagWithEnv(&c.password, "vault-password", "", "Vault user's password.")
+	tools.StringVarFlagWithEnv(&c.mountPath, "vault-mount-path", "gonodemonitoring",
 		"Vault mount path for nodemon nodes storage.")
-	flag.StringVar(&c.secretPath, "vault-secret-path", "",
+	tools.StringVarFlagWithEnv(&c.secretPath, "vault-secret-path", "",
 		"Vault secret where nodemon nodes will be saved")
 	return c
 }
@@ -119,29 +119,29 @@ type nodemonConfig struct {
 
 func newNodemonConfig() *nodemonConfig {
 	c := new(nodemonConfig)
-	flag.StringVar(&c.storage, "storage",
+	tools.StringVarFlagWithEnv(&c.storage, "storage",
 		".nodes.json", "Path to storage. Default value is \".nodes.json\"")
-	flag.StringVar(&c.nodes, "nodes", "",
+	tools.StringVarFlagWithEnv(&c.nodes, "nodes", "",
 		"Initial list of Waves Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
-	flag.StringVar(&c.bindAddress, "bind", ":8080",
+	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", ":8080",
 		"Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
-	flag.DurationVar(&c.interval, "interval",
+	tools.DurationVarFlagWithEnv(&c.interval, "interval",
 		defaultPollingInterval, "Polling interval, seconds. Default value is 60")
-	flag.DurationVar(&c.timeout, "timeout",
+	tools.DurationVarFlagWithEnv(&c.timeout, "timeout",
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	flag.IntVar(&c.baseTargetThreshold, "base-target-threshold",
+	tools.IntVarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
-	flag.StringVar(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
+	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
 		"ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	flag.StringVar(&c.nanomsgPairTelegramURL, "nano-msg-pair-telegram-url",
+	tools.StringVarFlagWithEnv(&c.nanomsgPairTelegramURL, "nano-msg-pair-telegram-url",
 		"", "Nanomsg IPC URL for pair socket")
-	flag.StringVar(&c.nanomsgPairDiscordURL, "nano-msg-pair-discord-url",
+	tools.StringVarFlagWithEnv(&c.nanomsgPairDiscordURL, "nano-msg-pair-discord-url",
 		"", "Nanomsg IPC URL for pair socket")
-	flag.DurationVar(&c.retention, "retention", defaultRetentionDuration,
+	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
-	flag.DurationVar(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
+	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
 		"HTTP API read timeout. Default value is 30s.")
-	flag.StringVar(&c.logLevel, "log-level", "INFO",
+	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	c.vault = newNodemonVaultConfig()
 	return c
