@@ -1,6 +1,7 @@
 package messaging
 
 import (
+	"context"
 	"fmt"
 
 	"nodemon/pkg/entities"
@@ -94,13 +95,26 @@ func RequestNodes(
 	responseChan <-chan pair.Response,
 	specific bool,
 ) ([]entities.Node, error) {
+	return RequestNodesWithCtx(context.Background(), requestChan, responseChan, specific)
+}
+
+func RequestNodesWithCtx(
+	ctx context.Context,
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+	specific bool,
+) ([]entities.Node, error) {
 	requestChan <- &pair.NodesListRequest{Specific: specific}
-	response := <-responseChan
-	nodesList, ok := response.(*pair.NodesListResponse)
-	if !ok {
-		return nil, errors.New("failed to convert response interface to the node list type")
+	select {
+	case response := <-responseChan:
+		nodesList, ok := response.(*pair.NodesListResponse)
+		if !ok {
+			return nil, errors.New("failed to convert response interface to the node list type")
+		}
+		return nodesList.Nodes, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-	return nodesList.Nodes, nil
 }
 
 func RequestAllNodes(requestChan chan<- pair.Request, responseChan <-chan pair.Response) ([]entities.Node, error) {

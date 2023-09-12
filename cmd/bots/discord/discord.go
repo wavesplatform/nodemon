@@ -7,8 +7,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"nodemon/cmd/bots/internal/common"
+	"nodemon/cmd/bots/internal/common/api"
 	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
@@ -17,9 +19,10 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/procyon-projects/chrono"
-	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	"go.uber.org/zap"
 )
+
+const defaultAPIReadTimeout = 30 * time.Second
 
 func main() {
 	const contextCanceledExitCode = 130
@@ -39,6 +42,7 @@ type discordBotConfig struct {
 	discordBotToken  string
 	discordChatID    string
 	logLevel         string
+	bindAddress      string
 }
 
 func newDiscordBotConfigConfig() *discordBotConfig {
@@ -53,6 +57,8 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 		"", "discord chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", ":8080",
+		"Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
 	return c
 }
 
@@ -72,16 +78,20 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	logger, _ := gow.SetupLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	if err != nil {
+		log.Printf("Failed to setup zap logger: %v", err)
+		return common.ErrInvalidParameters
+	}
 
 	defer func(zap *zap.Logger) {
-		if err := zap.Sync(); err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(logger)
 
-	if err := cfg.validate(logger); err != nil {
-		return err
+	if validationErr := cfg.validate(logger); validationErr != nil {
+		return validationErr
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -102,24 +112,20 @@ func runDiscordBot() error {
 	}
 	handlers.InitDscHandlers(discordBotEnv, requestChan, responseChan, logger)
 
-	go func() {
-		clientErr := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, discordBotEnv, logger)
-		if clientErr != nil {
-			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
-			return
-		}
-	}()
+	runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
 
-	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, requestChan, responseChan, logger)
-		if err != nil {
-			logger.Fatal("failed to start pair messaging client", zap.Error(err))
-			return
-		}
-	}()
+	botAPI, err := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout, logger, atom)
+	if err != nil {
+		logger.Error("Failed to initialize bot API", zap.Error(err))
+		return err
+	}
+	if apiErr := botAPI.Start(); apiErr != nil {
+		logger.Error("Failed to start API", zap.Error(apiErr))
+		return apiErr
+	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err := common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
+	err = common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
 		logger.Fatal("failed to schedule nodes status", zap.Error(err))
@@ -147,4 +153,29 @@ func runDiscordBot() error {
 		logger.Info("scheduler finished")
 	}
 	return nil
+}
+
+func runMessagingClients(
+	ctx context.Context,
+	cfg *discordBotConfig,
+	discordBotEnv *common.DiscordBotEnvironment,
+	logger *zap.Logger,
+	requestChan chan pair.Request,
+	responseChan chan pair.Response,
+) {
+	go func() {
+		clientErr := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, discordBotEnv, logger)
+		if clientErr != nil {
+			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
+			return
+		}
+	}()
+
+	go func() {
+		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, requestChan, responseChan, logger)
+		if err != nil {
+			logger.Fatal("failed to start pair messaging client", zap.Error(err))
+			return
+		}
+	}()
 }

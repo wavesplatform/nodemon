@@ -96,8 +96,29 @@ func (a *API) routes() chi.Router {
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
+	r.Get("/health", a.health)
 	r.Handle("/log/level", a.atom)
 	return r
+}
+
+func (a *API) health(w http.ResponseWriter, r *http.Request) {
+	enabledNodes, enErr := a.nodesStorage.EnabledNodes()
+	if enErr != nil {
+		a.zap.Error("Healthcheck failed: failed get non specific nodes",
+			zap.Error(enErr), zap.String("request-id", middleware.GetReqID(r.Context())),
+		)
+		http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", enErr), http.StatusInternalServerError)
+	}
+	for _, node := range enabledNodes {
+		_, lhErr := a.eventsStorage.LatestHeight(node.URL)
+		if lhErr != nil && !errors.Is(lhErr, events.ErrNoFullStatement) {
+			a.zap.Error("Healthcheck failed: failed to get latest height for node", zap.String("node", node.URL),
+				zap.Error(lhErr), zap.String("request-id", middleware.GetReqID(r.Context())),
+			)
+			http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", lhErr), http.StatusInternalServerError)
+		}
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 type nodeShortStatement struct {
