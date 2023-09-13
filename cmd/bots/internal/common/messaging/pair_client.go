@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
@@ -14,6 +15,8 @@ import (
 	pairProtocol "go.nanomsg.org/mangos/v3/protocol/pair"
 	"go.uber.org/zap"
 )
+
+const defaultResponseTimeout = 5 * time.Second
 
 func StartPairMessagingClient(
 	ctx context.Context,
@@ -50,7 +53,7 @@ func StartPairMessagingClient(
 
 				switch r := request.(type) {
 				case *pair.NodesListRequest:
-					handleNodesListRequest(pairSocket, message, logger, responsePair)
+					handleNodesListRequest(ctx, pairSocket, message, logger, responsePair)
 				case *pair.InsertNewNodeRequest:
 					handleInsertNewNodeRequest(r.URL, message, pairSocket, logger)
 				case *pair.UpdateNodeRequest:
@@ -62,9 +65,9 @@ func StartPairMessagingClient(
 						logger.Error("failed to send a request to pair socket", zap.Error(err))
 					}
 				case *pair.NodesStatusRequest:
-					handleNodesStatusRequest(r.URLs, message, pairSocket, logger, responsePair)
+					handleNodesStatusRequest(ctx, r.URLs, message, pairSocket, logger, responsePair)
 				case *pair.NodeStatementRequest:
-					handleNodesStatementRequest(r.URL, r.Height, logger, message, pairSocket, responsePair)
+					handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, pairSocket, responsePair)
 				default:
 					logger.Error("unknown request type to pair socket")
 				}
@@ -78,6 +81,7 @@ func StartPairMessagingClient(
 }
 
 func handleNodesStatementRequest(
+	ctx context.Context,
 	url string,
 	height int,
 	logger *zap.Logger,
@@ -85,6 +89,9 @@ func handleNodesStatementRequest(
 	pairSocket protocol.Socket,
 	responsePair chan<- pair.Response,
 ) {
+	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
+	defer cancel()
+
 	req, err := json.Marshal(entities.NodeHeight{URL: url, Height: height})
 	if err != nil {
 		logger.Error("failed to marshal message to pair socket", zap.Error(err))
@@ -105,16 +112,27 @@ func handleNodesStatementRequest(
 	if err != nil {
 		logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
 	}
-	responsePair <- &nodeStatementResp
+	select {
+	case responsePair <- &nodeStatementResp:
+	case <-ctx.Done():
+		logger.Error("failed to send node statement response, timeout exceeded",
+			zap.Duration("timeout", defaultResponseTimeout),
+			zap.ByteString("node-statement-response", response),
+		)
+	}
 }
 
 func handleNodesStatusRequest(
+	ctx context.Context,
 	urls []string,
 	message *bytes.Buffer,
 	pairSocket protocol.Socket,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
 ) {
+	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
+	defer cancel()
+
 	message.WriteString(strings.Join(urls, ","))
 	err := pairSocket.Send(message.Bytes())
 	if err != nil {
@@ -130,7 +148,14 @@ func handleNodesStatusRequest(
 	if err != nil {
 		logger.Error("failed to unmarshal message from pair socket", zap.Error(err))
 	}
-	responsePair <- &nodesStatusResp
+	select {
+	case responsePair <- &nodesStatusResp:
+	case <-ctx.Done():
+		logger.Error("failed to send nodes status response, timeout exceeded",
+			zap.Duration("timeout", defaultResponseTimeout),
+			zap.ByteString("nodes-status-response", response),
+		)
+	}
 }
 
 func handleUpdateNodeRequest(url, alias string, logger *zap.Logger, message *bytes.Buffer, pairSocket protocol.Socket) {
@@ -155,11 +180,15 @@ func handleInsertNewNodeRequest(url string, message *bytes.Buffer, pairSocket pr
 }
 
 func handleNodesListRequest(
+	ctx context.Context,
 	pairSocket protocol.Socket,
 	message *bytes.Buffer,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
 ) {
+	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
+	defer cancel()
+
 	err := pairSocket.Send(message.Bytes())
 	if err != nil {
 		logger.Error("failed to send message", zap.Error(err))
@@ -174,5 +203,12 @@ func handleNodesListRequest(
 	if err != nil {
 		logger.Error("failed to unmarshal message", zap.Error(err))
 	}
-	responsePair <- &nodeList
+	select {
+	case responsePair <- &nodeList:
+	case <-ctx.Done():
+		logger.Error("failed to send nodes list response, timeout exceeded",
+			zap.Duration("timeout", defaultResponseTimeout),
+			zap.ByteString("nodes-status-response", response),
+		)
+	}
 }
