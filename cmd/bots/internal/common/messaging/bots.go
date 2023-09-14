@@ -9,7 +9,6 @@ import (
 type Bot interface {
 	SendAlertMessage(msg messaging.AlertMessage)
 	SendMessage(msg string)
-	Start() error
 	SubscribeToAllAlerts() error
 	SetSubSocket(subSocket protocol.Socket)
 	IsEligibleForAction(chatID string) bool

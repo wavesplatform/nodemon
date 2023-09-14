@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/initial"
@@ -83,7 +84,7 @@ func runDiscordBot() error {
 		return err
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 
 	requestChan := make(chan pair.Request)
@@ -133,9 +134,9 @@ func runDiscordBot() error {
 		return err
 	}
 	defer func() {
-		err = discordBotEnv.Bot.Close()
+		closeErr := discordBotEnv.Bot.Close()
 		if err != nil {
-			logger.Error("failed to close discord bot web socket", zap.Error(err))
+			logger.Error("failed to close discord bot web socket", zap.Error(closeErr))
 		}
 	}()
 	<-ctx.Done()

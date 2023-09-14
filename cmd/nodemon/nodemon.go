@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"go.uber.org/zap"
@@ -196,7 +197,7 @@ func run() error {
 		return validateErr
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 
 	ns, err := createNodesStorage(ctx, cfg, logger)
