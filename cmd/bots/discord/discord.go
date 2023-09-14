@@ -57,8 +57,8 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 		"", "discord chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
-	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", ":8080",
-		"Local network address to bind the HTTP API of the service on. Default value is \":8080\".")
+	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
+		"Local network address to bind the HTTP API of the service on.")
 	return c
 }
 
@@ -114,14 +114,16 @@ func runDiscordBot() error {
 
 	runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
 
-	botAPI, err := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout, logger, atom)
-	if err != nil {
-		logger.Error("Failed to initialize bot API", zap.Error(err))
-		return err
-	}
-	if apiErr := botAPI.Start(); apiErr != nil {
-		logger.Error("Failed to start API", zap.Error(apiErr))
-		return apiErr
+	if cfg.bindAddress != "" {
+		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout, logger, atom)
+		if apiErr != nil {
+			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
+			return apiErr
+		}
+		if startErr := botAPI.Start(); startErr != nil {
+			logger.Error("Failed to start API", zap.Error(startErr))
+			return startErr
+		}
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
