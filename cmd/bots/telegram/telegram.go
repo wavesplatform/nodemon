@@ -135,7 +135,7 @@ func runTelegramBot() error {
 	}
 	logger.Info("Nodes status alert has been scheduled successfully")
 
-	err = tgBotEnv.Start()
+	err = tgBotEnv.Start(ctx)
 	if err != nil {
 		logger.Fatal("failed to start telegram bot", zap.Error(err))
 		return err

@@ -279,9 +279,13 @@ func NewTelegramBotEnvironment(
 
 func (tgEnv *TelegramBotEnvironment) TemplatesExtension() ExpectedExtension { return HTML }
 
-func (tgEnv *TelegramBotEnvironment) Start() error {
+func (tgEnv *TelegramBotEnvironment) Start(ctx context.Context) error {
 	tgEnv.zap.Info("Telegram bot started")
-	tgEnv.Bot.Start()
+	go func() {
+		<-ctx.Done()
+		tgEnv.Bot.Stop()
+	}()
+	tgEnv.Bot.Start() // the call is blocking
 	tgEnv.zap.Info("Telegram bot finished")
 	return nil
 }
