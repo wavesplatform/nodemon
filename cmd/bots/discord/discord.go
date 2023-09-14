@@ -150,11 +150,11 @@ func runDiscordBot() error {
 	}()
 	<-ctx.Done()
 
-	logger.Info("Discord bot finished")
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
-		logger.Info("scheduler finished")
+		logger.Info("Task scheduler has been shutdown successfully")
 	}
+	logger.Info("Discord bot finished")
 	return nil
 }
 
