@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/initial"
@@ -98,7 +99,7 @@ func runTelegramBot() error {
 		return err
 	}
 
-	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt)
+	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 
 	pairRequest := make(chan pair.Request)
