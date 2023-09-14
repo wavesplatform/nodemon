@@ -136,6 +136,7 @@ func runTelegramBot() error {
 			logger.Error("Failed to start API", zap.Error(startErr))
 			return startErr
 		}
+		defer botAPI.Shutdown()
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
