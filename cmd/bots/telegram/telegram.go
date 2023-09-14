@@ -155,7 +155,7 @@ func runTelegramBot() error {
 	<-ctx.Done()
 
 	if !taskScheduler.IsShutdown() {
-		taskScheduler.Shutdown()
+		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
 	return nil

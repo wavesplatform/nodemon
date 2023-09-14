@@ -152,7 +152,7 @@ func runDiscordBot() error {
 
 	logger.Info("Discord bot finished")
 	if !taskScheduler.IsShutdown() {
-		taskScheduler.Shutdown()
+		<-taskScheduler.Shutdown()
 		logger.Info("scheduler finished")
 	}
 	return nil
