@@ -1031,6 +1031,9 @@ func HandleNodesStatus(
 
 func areStateHashesEqual(okNodes []NodeStatus) bool {
 	hashesEqual := true
+	if len(okNodes) == 0 {
+		return hashesEqual
+	}
 	previousHash := okNodes[0].Sumhash
 	for _, node := range okNodes {
 		if node.Sumhash != previousHash {
