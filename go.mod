@@ -14,7 +14,7 @@ require (
 	github.com/tidwall/buntdb v1.3.0
 	github.com/wavesplatform/gowaves v0.10.6
 	go.nanomsg.org/mangos/v3 v3.4.2
-	go.uber.org/zap v1.25.0
+	go.uber.org/zap v1.26.0
 	gopkg.in/telebot.v3 v3.1.3
 )
 
