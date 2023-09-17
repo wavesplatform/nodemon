@@ -115,6 +115,7 @@ type nodemonConfig struct {
 	apiReadTimeout         time.Duration
 	baseTargetThreshold    int
 	logLevel               string
+	development            bool
 	vault                  *nodemonVaultConfig
 }
 
@@ -142,6 +143,7 @@ func newNodemonConfig() *nodemonConfig {
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
 		"HTTP API read timeout. Default value is 30s.")
+	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	c.vault = newNodemonVaultConfig()
@@ -182,7 +184,7 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return errInvalidParameters

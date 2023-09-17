@@ -42,6 +42,7 @@ type discordBotConfig struct {
 	discordBotToken  string
 	discordChatID    string
 	logLevel         string
+	development      bool
 	bindAddress      string
 }
 
@@ -57,6 +58,7 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 		"", "discord chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
 	return c
@@ -78,7 +80,7 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return common.ErrInvalidParameters
