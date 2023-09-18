@@ -41,6 +41,10 @@ func lookupEnvOrDuration(envKey string, defaultVal time.Duration) time.Duration 
 	return lookupEnvOrValue(envKey, defaultVal, time.ParseDuration)
 }
 
+func lookupEnvOrBool(envKey string, defaultVal bool) bool {
+	return lookupEnvOrValue(envKey, defaultVal, strconv.ParseBool)
+}
+
 // StringVarFlagWithEnv allows to define string flag which default value
 // is overridable when corresponding upper snake case environment variable is set.
 func StringVarFlagWithEnv(p *string, name, value, usage string) {
@@ -63,4 +67,10 @@ func Int64VarFlagWithEnv(p *int64, name string, value int64, usage string) {
 // is overridable when corresponding upper snake case environment variable is set.
 func DurationVarFlagWithEnv(p *time.Duration, name string, value time.Duration, usage string) {
 	flag.DurationVar(p, name, lookupEnvOrDuration(strcase.UpperSnakeCase(name), value), usage)
+}
+
+// BoolVarFlagWithEnv allows to define bool flag which default value
+// is overridable when corresponding upper snake case environment variable is set.
+func BoolVarFlagWithEnv(p *bool, name string, value bool, usage string) {
+	flag.BoolVar(p, name, lookupEnvOrBool(strcase.UpperSnakeCase(name), value), usage)
 }

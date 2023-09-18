@@ -47,6 +47,7 @@ type telegramBotConfig struct {
 	tgBotToken          string
 	tgChatID            int64
 	logLevel            string
+	development         bool
 	bindAddress         string
 }
 
@@ -68,6 +69,7 @@ func newTelegramBotConfig() *telegramBotConfig {
 		0, "telegram chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
 	return c
@@ -93,7 +95,7 @@ func runTelegramBot() error {
 	cfg := newTelegramBotConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return common.ErrInvalidParameters
