@@ -8,8 +8,10 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"nodemon/cmd/bots/internal/common"
+	"nodemon/cmd/bots/internal/common/api"
 	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/config"
@@ -18,9 +20,10 @@ import (
 	"nodemon/pkg/tools"
 
 	"github.com/procyon-projects/chrono"
-	gow "github.com/wavesplatform/gowaves/pkg/util/common"
 	"go.uber.org/zap"
 )
+
+const defaultAPIReadTimeout = 30 * time.Second
 
 func main() {
 	const contextCanceledExitCode = 130
@@ -44,6 +47,7 @@ type telegramBotConfig struct {
 	tgBotToken          string
 	tgChatID            int64
 	logLevel            string
+	bindAddress         string
 }
 
 func newTelegramBotConfig() *telegramBotConfig {
@@ -64,6 +68,8 @@ func newTelegramBotConfig() *telegramBotConfig {
 		0, "telegram chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
+		"Local network address to bind the HTTP API of the service on.")
 	return c
 }
 
@@ -87,49 +93,54 @@ func runTelegramBot() error {
 	cfg := newTelegramBotConfig()
 	flag.Parse()
 
-	logger, _ := gow.SetupLogger(cfg.logLevel)
+	logger, atom, err := tools.SetupZapLogger(cfg.logLevel)
+	if err != nil {
+		log.Printf("Failed to setup zap logger: %v", err)
+		return common.ErrInvalidParameters
+	}
 
 	defer func(zap *zap.Logger) {
-		if err := zap.Sync(); err != nil {
-			log.Println(err)
+		if syncErr := zap.Sync(); syncErr != nil {
+			log.Println(syncErr)
 		}
 	}(logger)
 
-	if err := cfg.validate(logger); err != nil {
-		return err
+	if validationErr := cfg.validate(logger); validationErr != nil {
+		return validationErr
 	}
 
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 
-	pairRequest := make(chan pair.Request)
-	pairResponse := make(chan pair.Response)
+	requestChan := make(chan pair.Request)
+	responseChan := make(chan pair.Response)
 
 	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
-		cfg.tgBotToken, cfg.tgChatID, logger, pairRequest, pairResponse,
+		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan,
 	)
 	if initErr != nil {
 		logger.Fatal("failed to initialize telegram bot", zap.Error(initErr))
 	}
 
-	handlers.InitTgHandlers(tgBotEnv, logger, pairRequest, pairResponse)
+	handlers.InitTgHandlers(tgBotEnv, logger, requestChan, responseChan)
 
-	go func() {
-		err := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, tgBotEnv, logger)
-		if err != nil {
-			logger.Fatal("failed to start sub messaging service", zap.Error(err))
-		}
-	}()
+	runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
 
-	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, pairRequest, pairResponse, logger)
-		if err != nil {
-			logger.Fatal("failed to start pair messaging service", zap.Error(err))
+	if cfg.bindAddress != "" {
+		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout, logger, atom)
+		if apiErr != nil {
+			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
+			return apiErr
 		}
-	}()
+		if startErr := botAPI.Start(); startErr != nil {
+			logger.Error("Failed to start API", zap.Error(startErr))
+			return startErr
+		}
+		defer botAPI.Shutdown()
+	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err := common.ScheduleNodesStatus(taskScheduler, pairRequest, pairResponse, tgBotEnv, logger)
+	err = common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
 		logger.Fatal("failed to schedule nodes status alert", zap.Error(err))
@@ -144,8 +155,32 @@ func runTelegramBot() error {
 	<-ctx.Done()
 
 	if !taskScheduler.IsShutdown() {
-		taskScheduler.Shutdown()
+		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
+	logger.Info("Telegram bot finished")
 	return nil
+}
+
+func runMessagingClients(
+	ctx context.Context,
+	cfg *telegramBotConfig,
+	tgBotEnv *common.TelegramBotEnvironment,
+	logger *zap.Logger,
+	pairRequest <-chan pair.Request,
+	pairResponse chan<- pair.Response,
+) {
+	go func() {
+		err := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, tgBotEnv, logger)
+		if err != nil {
+			logger.Fatal("failed to start sub messaging service", zap.Error(err))
+		}
+	}()
+
+	go func() {
+		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, pairRequest, pairResponse, logger)
+		if err != nil {
+			logger.Fatal("failed to start pair messaging service", zap.Error(err))
+		}
+	}()
 }
