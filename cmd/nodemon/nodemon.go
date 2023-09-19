@@ -268,7 +268,8 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Log
 	if cfg.vault.present() {
 		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
 		if clErr != nil {
-			logger.Error("failed to create vault client", zap.Error(err))
+			logger.Error("failed to create vault client", zap.Error(clErr))
+			return nil, clErr
 		}
 		ns, err = nodes.NewJSONVaultStorage(
 			ctx,
