@@ -64,7 +64,7 @@ func newTelegramBotConfig() *telegramBotConfig {
 	tools.StringVarFlagWithEnv(&c.tgBotToken, "tg-bot-token", "",
 		"The secret token used to authenticate the bot")
 	tools.StringVarFlagWithEnv(&c.publicURL, "public-url", "",
-		"The public url for websocket only")
+		"The public url for webhook only")
 	tools.Int64VarFlagWithEnv(&c.tgChatID, "telegram-chat-id",
 		0, "telegram chat ID to send alerts through")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
