@@ -49,6 +49,7 @@ func NewAPI(
 	logger *zap.Logger,
 	privateNodesEvents specific.PrivateNodesEventsWriter,
 	atom *zap.AtomicLevel,
+	development bool,
 ) (*API, error) {
 	a := &API{
 		nodesStorage:       nodesStorage,
@@ -60,7 +61,10 @@ func NewAPI(
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: mwLog{logger}}))
+	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger:  mwLog{logger},
+		NoColor: !development,
+	}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Mount("/", a.routes())

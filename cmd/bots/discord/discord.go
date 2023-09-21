@@ -117,7 +117,9 @@ func runDiscordBot() error {
 	runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
 
 	if cfg.bindAddress != "" {
-		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout, logger, atom)
+		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
+			logger, atom, cfg.development,
+		)
 		if apiErr != nil {
 			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
 			return apiErr

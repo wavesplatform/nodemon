@@ -239,7 +239,7 @@ func run() error {
 	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
 
 	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger,
-		privateNodesHandler.PrivateNodesEventsWriter(), atom,
+		privateNodesHandler.PrivateNodesEventsWriter(), atom, cfg.development,
 	)
 	if err != nil {
 		logger.Error("failed to initialize API", zap.Error(err))

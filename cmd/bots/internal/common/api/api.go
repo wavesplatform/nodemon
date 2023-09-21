@@ -40,6 +40,7 @@ func NewBotAPI(
 	apiReadTimeout time.Duration,
 	logger *zap.Logger,
 	atom *zap.AtomicLevel,
+	development bool,
 ) (*BotAPI, error) {
 	a := &BotAPI{
 		zap:          logger,
@@ -50,7 +51,10 @@ func NewBotAPI(
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
-	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{Logger: mwLog{logger}}))
+	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
+		Logger:  mwLog{logger},
+		NoColor: !development,
+	}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
 	r.Mount("/", a.routes())
