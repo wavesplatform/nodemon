@@ -20,7 +20,7 @@ func InitTgBot(behavior string,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 ) (*common.TelegramBotEnvironment, error) {
-	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
+	botSettings, err := config.NewTgBotSettings(logger, behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up bot configuration")
 	}

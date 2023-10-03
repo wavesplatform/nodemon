@@ -24,11 +24,11 @@ func StartSubMessagingClient(ctx context.Context, nanomsgURL string, bot Bot, lo
 	bot.SetSubSocket(subSocket)
 
 	if dialErr := subSocket.Dial(nanomsgURL); dialErr != nil {
-		return dialErr
+		return errors.Wrapf(dialErr, "failed to dial '%s on sub socket'", nanomsgURL)
 	}
 
 	if err := bot.SubscribeToAllAlerts(); err != nil {
-		return err
+		return errors.Wrap(err, "failed to subscribe to all alerts")
 	}
 
 	done := runSubLoop(ctx, subSocket, logger, bot)

@@ -428,7 +428,8 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		}
 		err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failed to set mangos option '%s' for alert type (%d)",
+				mangos.OptionSubscribe, alertType)
 		}
 		tgEnv.subscriptions.Add(alertType, alertName)
 		tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)

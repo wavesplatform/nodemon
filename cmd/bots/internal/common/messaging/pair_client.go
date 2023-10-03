@@ -81,7 +81,7 @@ func StartPairMessagingClient(
 	}()
 
 	if err := pairSocket.Dial(nanomsgURL); err != nil {
-		return errors.Wrap(err, "failed to dial on pair socket")
+		return errors.Wrapf(err, "failed to dial '%s' on pair socket", nanomsgURL)
 	}
 
 	done := runPairLoop(ctx, requestPair, sendRecvDeadlineSocketWrapper{pairSocket}, logger, responsePair)
