@@ -11,8 +11,8 @@ import (
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/api"
-	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/discord"
 	"nodemon/cmd/bots/internal/discord/handlers"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
@@ -102,7 +102,7 @@ func runDiscordBot() error {
 	requestChan := make(chan pair.Request)
 	responseChan := make(chan pair.Response)
 
-	discordBotEnv, initErr := initial.InitDiscordBot(
+	discordBotEnv, initErr := discord.InitBot(
 		cfg.discordBotToken,
 		cfg.discordChatID,
 		logger,

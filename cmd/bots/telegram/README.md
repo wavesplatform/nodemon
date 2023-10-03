@@ -9,8 +9,9 @@ To do the same as environment variable form use _**UPPER_SNAKE_CASE**_ option na
 
 ### List of supported options in kebab-case form
 
-- _-behavior_ (string) — Behavior is either webhook or polling (default "webhook"). Communication used between 
+- _-behavior_ (string) — Behavior is either webhook or polling (default "webhook"). Communication used between
   Telegarm and the bot
+- _-delete-webhook_ (bool) — Deletes existing webhook if it exists.
 - _-bind_ (string) — Local network address to bind the HTTP API of the service on.
 - _-development_ (bool) — Development mode. It is used for zap logger.
 - _-log-level_ (string) — Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level
@@ -23,7 +24,8 @@ To do the same as environment variable form use _**UPPER_SNAKE_CASE**_ option na
 - _-public-url_ (string) — The public url (**for webhook only**) for Telegram to send events to the bot service.
 - _-telegram-chat-id_ (int) — Telegram chat ID to send alerts through a specific chat.
 - _-tg-bot-token_ (string) — The secret token used to authenticate the bot in Telegram.
-- _-webhook-local-address_ (string) — The port (**for webhook only**) used for the webhook internal server (default ":8081")
+- _-webhook-local-address_ (string) — The port (**for webhook only**) used for the webhook internal server (default ":
+  8081")
 
 ## Build requirements
 

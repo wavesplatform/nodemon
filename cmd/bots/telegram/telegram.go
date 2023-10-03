@@ -12,9 +12,8 @@ import (
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/api"
-	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
-	"nodemon/cmd/bots/internal/telegram/config"
+	"nodemon/cmd/bots/internal/telegram"
 	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
@@ -42,6 +41,7 @@ type telegramBotConfig struct {
 	nanomsgPubSubURL    string
 	nanomsgPairURL      string
 	behavior            string
+	deleteWebhook       bool
 	webhookLocalAddress string // only for webhook method
 	publicURL           string // only for webhook method
 	tgBotToken          string
@@ -59,6 +59,8 @@ func newTelegramBotConfig() *telegramBotConfig {
 		"ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
 	tools.StringVarFlagWithEnv(&c.behavior, "behavior", "webhook",
 		"Behavior is either webhook or polling")
+	tools.BoolVarFlagWithEnv(&c.deleteWebhook, "delete-webhook", false,
+		"Deletes existing webhook if it exists")
 	tools.StringVarFlagWithEnv(&c.webhookLocalAddress, "webhook-local-address",
 		":8081", "The application's webhook address is :8081 by default")
 	tools.StringVarFlagWithEnv(&c.tgBotToken, "tg-bot-token", "",
@@ -80,7 +82,11 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 		logger.Error("telegram bot token is required")
 		return common.ErrInvalidParameters
 	}
-	if c.behavior == config.WebhookMethod && c.publicURL == "" {
+	if c.behavior != telegram.WebhookMethod && c.behavior != telegram.PollingMethod {
+		logger.Error("invalid telegram bot behavior", zap.String("behavior", c.behavior))
+		return common.ErrInvalidParameters
+	}
+	if c.behavior == telegram.WebhookMethod && c.publicURL == "" {
 		logger.Error("public url is required for webhook method")
 		return common.ErrInvalidParameters
 	}
@@ -117,7 +123,7 @@ func runTelegramBot() error {
 	requestChan := make(chan pair.Request)
 	responseChan := make(chan pair.Response)
 
-	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
+	tgBotEnv, initErr := telegram.InitBot(cfg.behavior, cfg.deleteWebhook, cfg.webhookLocalAddress, cfg.publicURL,
 		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan,
 	)
 	if initErr != nil {
