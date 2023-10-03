@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -97,6 +98,20 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 	return nil
 }
 
+func handleRecover(logger *zap.Logger) {
+	if r := recover(); r != nil {
+		if rErr, ok := r.(error); ok {
+			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
+				zap.Error(rErr),
+			)
+		} else {
+			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
+				zap.Any("recovered-data", r),
+			)
+		}
+	}
+}
+
 func runTelegramBot() error {
 	cfg := newTelegramBotConfig()
 	flag.Parse()
@@ -108,6 +123,7 @@ func runTelegramBot() error {
 	}
 	defer func() {
 		_ = logger.Sync() // intentionally ignore error
+		handleRecover(logger)
 	}()
 
 	if validationErr := cfg.validate(logger); validationErr != nil {

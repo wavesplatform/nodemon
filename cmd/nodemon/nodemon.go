@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
@@ -180,6 +181,20 @@ func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscor
 
 func (c *nodemonConfig) runTelegramPairServer() bool { return c.nanomsgPairTelegramURL != "" }
 
+func handleRecover(logger *zap.Logger) {
+	if r := recover(); r != nil {
+		if rErr, ok := r.(error); ok {
+			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
+				zap.Error(rErr),
+			)
+		} else {
+			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
+				zap.Any("recovered-data", r),
+			)
+		}
+	}
+}
+
 func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
@@ -191,6 +206,7 @@ func run() error {
 	}
 	defer func() {
 		_ = logger.Sync() // intentionally ignore error
+		handleRecover(logger)
 	}()
 
 	if validateErr := cfg.validate(logger); validateErr != nil {
