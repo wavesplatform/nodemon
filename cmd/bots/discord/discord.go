@@ -85,12 +85,9 @@ func runDiscordBot() error {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return common.ErrInvalidParameters
 	}
-
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	defer func() {
+		_ = logger.Sync() // intentionally ignore error
+	}()
 
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr

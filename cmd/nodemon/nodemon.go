@@ -189,11 +189,9 @@ func run() error {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return errInvalidParameters
 	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	defer func() {
+		_ = logger.Sync() // intentionally ignore error
+	}()
 
 	if validateErr := cfg.validate(logger); validateErr != nil {
 		return validateErr
