@@ -7,7 +7,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -101,13 +100,9 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 func handleRecover(logger *zap.Logger) {
 	if r := recover(); r != nil {
 		if rErr, ok := r.(error); ok {
-			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
-				zap.Error(rErr),
-			)
+			logger.Fatal("Panic has been occurred", zap.Stack("stacktrace"), zap.Error(rErr))
 		} else {
-			logger.Fatal("Panic has been occurred", zap.ByteString("stacktrace", debug.Stack()),
-				zap.Any("recovered-data", r),
-			)
+			logger.Fatal("Panic has been occurred", zap.Stack("stacktrace"), zap.Any("recovered-data", r))
 		}
 	}
 }
