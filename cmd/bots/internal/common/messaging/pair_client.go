@@ -74,35 +74,44 @@ func StartPairMessagingClient(
 ) error {
 	pairSocket, sockErr := pairProtocol.NewSocket()
 	if sockErr != nil {
-		return errors.Wrap(sockErr, "failed to get new pair socket")
+		return errors.Wrap(sockErr, "failed to create new pair socket")
 	}
 	defer func() {
 		_ = pairSocket.Close() // can be ignored, only possible error is protocol.ErrClosed
 	}()
 
+	logger.Debug("Dialing the pair socket", zap.String("url", nanomsgURL))
 	if err := pairSocket.Dial(nanomsgURL); err != nil {
 		return errors.Wrapf(err, "failed to dial '%s' on pair socket", nanomsgURL)
 	}
 
-	done := runPairLoop(ctx, requestPair, sendRecvDeadlineSocketWrapper{pairSocket}, logger, responsePair)
+	logger.Info("Staring pair messaging service loop...")
+	done := runPairLoop(ctx, nanomsgURL, sendRecvDeadlineSocketWrapper{pairSocket}, requestPair, responsePair, logger)
 
 	<-ctx.Done()
-	logger.Info("stopping pair messaging service...")
+	logger.Info("Stopping pair messaging service...")
 	<-done
-	logger.Info("pair messaging service finished")
+	logger.Info("Sair messaging service finished")
 	return nil
 }
 
 func runPairLoop(
 	ctx context.Context,
-	requestPair <-chan pair.Request,
+	destinationURL string,
 	pairSocket protocol.Socket,
-	logger *zap.Logger,
+	requestPair <-chan pair.Request,
 	responsePair chan<- pair.Response,
+	logger *zap.Logger,
 ) <-chan struct{} {
 	ch := make(chan struct{})
 	go func(done chan<- struct{}) {
 		defer close(done)
+		if ctx.Err() != nil {
+			return
+		}
+		logger.Info("Pair messaging service is ready to receive and send messages to/from other side",
+			zap.String("destination-endpoint", destinationURL),
+		)
 		for {
 			if ctx.Err() != nil {
 				return
@@ -113,7 +122,9 @@ func runPairLoop(
 			case request := <-requestPair:
 				message := &bytes.Buffer{}
 				message.WriteByte(byte(request.RequestType()))
-
+				logger.Debug("Pair service received request message",
+					zap.Int("request-type", int(request.RequestType())),
+				)
 				err := handlePairRequest(ctx, request, pairSocket, message, logger, responsePair)
 				if err != nil {
 					logger.Error("failed to handle pair request",

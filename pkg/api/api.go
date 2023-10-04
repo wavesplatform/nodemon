@@ -78,6 +78,7 @@ func (a *API) Start() error {
 		return errors.Errorf("Failed to start REST API at '%s': %v", a.srv.Addr, listenErr)
 	}
 	go func() {
+		a.zap.Info("HTTP API is ready to serve requests", zap.String("addr", a.srv.Addr))
 		err := a.srv.Serve(l)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.zap.Sugar().Fatalf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
@@ -89,7 +90,7 @@ func (a *API) Start() error {
 func (a *API) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), apiShutdownTimeout)
 	defer cancel()
-
+	a.zap.Info("Shutting down HTTP API")
 	if err := a.srv.Shutdown(ctx); err != nil {
 		a.zap.Error("Failed to shutdown REST API", zap.Error(err))
 	}

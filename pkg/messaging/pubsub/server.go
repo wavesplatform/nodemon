@@ -26,7 +26,7 @@ func StartPubMessagingServer(
 
 	socketPub, sockErr := pub.NewSocket()
 	if sockErr != nil {
-		return sockErr
+		return errors.Wrap(sockErr, "failed to create new publisher socket")
 	}
 	defer func(socketPub protocol.Socket) {
 		if err := socketPub.Close(); err != nil {
@@ -34,14 +34,25 @@ func StartPubMessagingServer(
 		}
 	}(socketPub)
 
+	logger.Debug("Publisher messaging service start listening", zap.String("listen", nanomsgURL))
 	if err := socketPub.Listen(nanomsgURL); err != nil {
-		return err
+		return errors.Wrapf(err, "publisher socket failed to start listening on '%s'", nanomsgURL)
 	}
 
-	return enterLoop(ctx, alerts, logger, socketPub)
+	logger.Info("Staring publisher messaging service loop...")
+	return enterLoop(ctx, alerts, logger, nanomsgURL, socketPub)
 }
 
-func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, socketPub protocol.Socket) error {
+func enterLoop(
+	ctx context.Context,
+	alerts <-chan entities.Alert,
+	logger *zap.Logger,
+	listen string,
+	socketPub protocol.Socket,
+) error {
+	logger.Info("Publisher messaging service is ready to send messages to subscribers",
+		zap.String("listen", listen),
+	)
 	for {
 		select {
 		case <-ctx.Done():

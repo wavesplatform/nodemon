@@ -27,7 +27,7 @@ func StartPairMessagingServer(
 	}
 	socket, sockErr := pair.NewSocket()
 	if sockErr != nil {
-		return sockErr
+		return errors.Wrap(sockErr, "failed to create new pair socket")
 	}
 	defer func(socketPair protocol.Socket) {
 		if err := socketPair.Close(); err != nil {
@@ -35,23 +35,29 @@ func StartPairMessagingServer(
 		}
 	}(socket)
 
+	logger.Debug("Pair messaging service start listening", zap.String("listen", nanomsgURL))
 	if err := socket.Listen(nanomsgURL); err != nil {
-		return err
+		return errors.Wrapf(err, "pair socket failed to start listening on '%s'", nanomsgURL)
 	}
 
+	logger.Info("Pair messaging service is ready to receive and send messages to/from other side",
+		zap.String("listen", nanomsgURL),
+	)
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
 		default:
+			logger.Debug("Pair service waiting for a new message...")
 			rawMsg, recvErr := socket.Recv()
 			if recvErr != nil {
 				logger.Error("Failed to receive a message from pair socket", zap.Error(recvErr))
 				return recvErr
 			}
+			logger.Debug("Pair service received a new message")
 			err := handleMessage(rawMsg, ns, logger, socket, es)
 			if err != nil {
-				return err
+				return errors.Wrap(err, "failed to handle message")
 			}
 		}
 	}
@@ -72,6 +78,7 @@ func handleMessage(
 		t   = RequestPairType(rawMsg[0])
 		msg = rawMsg[1:] // cut first byte, which is request type
 	)
+	logger.Debug("Pair service received request message", zap.Int("request-type", int(t)))
 	switch t {
 	case RequestNodeListType:
 		if err := handleNodesRequest(ns, false, logger, socket); err != nil {
