@@ -383,6 +383,11 @@ func (tgEnv *TelegramBotEnvironment) IsEligibleForAction(chatID string) bool {
 	return chatID == strconv.FormatInt(tgEnv.ChatID, 10)
 }
 
+func removeHTTPOrHTTPSScheme(s string) string {
+	s = strings.ReplaceAll(s, entities.HTTPSScheme+"://", "")
+	return strings.ReplaceAll(s, entities.HTTPScheme+"://", "")
+}
+
 func nodesToUrls(nodes []entities.Node) []string {
 	urls := make([]string, 0, len(nodes))
 	for _, n := range nodes {
@@ -390,9 +395,7 @@ func nodesToUrls(nodes []entities.Node) []string {
 		if n.Alias != "" {
 			host = n.Alias
 		} else {
-			n.URL = strings.ReplaceAll(n.URL, entities.HTTPSScheme+"://", "")
-			n.URL = strings.ReplaceAll(n.URL, entities.HTTPScheme+"://", "")
-			host = n.URL
+			host = removeHTTPOrHTTPSScheme(n.URL)
 		}
 		urls = append(urls, host)
 	}
@@ -643,9 +646,7 @@ func replaceNodeWithAlias(node string, nodesAlias map[string]string) string {
 	if alias, ok := nodesAlias[node]; ok {
 		return alias
 	}
-	node = strings.ReplaceAll(node, entities.HTTPSScheme+"://", "")
-	node = strings.ReplaceAll(node, entities.HTTPScheme+"://", "")
-	return node
+	return removeHTTPOrHTTPSScheme(node)
 }
 
 func GetNodeURLByAlias(alias string, nodes []entities.Node) string {
@@ -1093,8 +1094,7 @@ type nodeStatement struct {
 }
 
 func HandleNodeStatement(resp *pair.NodeStatementResponse, extension ExpectedExtension) (string, error) {
-	resp.NodeStatement.Node = strings.ReplaceAll(resp.NodeStatement.Node, entities.HTTPSScheme+"://", "")
-	resp.NodeStatement.Node = strings.ReplaceAll(resp.NodeStatement.Node, entities.HTTPScheme+"://", "")
+	resp.NodeStatement.Node = removeHTTPOrHTTPSScheme(resp.NodeStatement.Node)
 
 	if resp.ErrMessage != "" {
 		return resp.ErrMessage, nil
