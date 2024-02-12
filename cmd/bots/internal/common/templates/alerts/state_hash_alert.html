@@ -1,7 +1,4 @@
 <b>Alert type:</b> State Hash ❌
-
-<b>Level:</b> Error ❌
-
 <b>Details:</b> Nodes have different state hashes at the same height {{ .SameHeight}}
 {{ with .FirstGroup }}
 <u>First group</u>:
@@ -9,8 +6,7 @@
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
 <i>Nodes:</i>
 {{range .Nodes}}
-<code>{{.}}</code>
-{{end}}
+<code>{{.}}</code>{{end}}
 {{end}}
 {{ with .SecondGroup }}
 <u>Second group</u>:
@@ -18,8 +14,7 @@
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
 <i>Nodes:</i>
 {{range .Nodes}}
-<code>{{.}}</code>
-{{end}}
+<code>{{.}}</code>{{end}}
 {{end}}
 {{ if .LastCommonStateHashExist }}
 <u>Fork</u> occurred after block <code>{{ .ForkHeight}}</code>

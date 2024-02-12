@@ -6,7 +6,7 @@ Level: Error ❌
 Details: Nodes have different state hashes at the same height {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}
-State Hash (First group): <code>{{ .StateHash}}</code>
+State Hash (First group): {{ .StateHash}}
 {{range .Nodes}}
 {{.}}
 {{end}}
