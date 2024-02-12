@@ -38,8 +38,6 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, 
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, statements entities.NodeStatements) error {
-	statements[0].Height = statements[1].Height
-	statements[2].Height = statements[1].Height
 	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
 		var statementsAtBucketHeight entities.NodeStatements
