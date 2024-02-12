@@ -1,7 +1,7 @@
 {
  "common_nodes": [
   {
-   "url": "http://stagenet-statehash-htz-fsn1-1.wavesnodes.com",
+   "url": "http://mainnet-htz-fsn1-3.wavesnodes.com",
    "enabled": true,
    "alias": ""
   },
@@ -11,17 +11,7 @@
    "alias": ""
   },
   {
-   "url": "http://mainnet-htz-fsn1-3.wavesnodes.com",
-   "enabled": true,
-   "alias": ""
-  },
-  {
-   "url": "http://mainnet-htz-fsn1-5.wavesnodes.com",
-   "enabled": true,
-   "alias": ""
-  },
-  {
-   "url": "http://stagenet-statehash-go-htz-fsn1-1.wavesnodes.com",
+   "url": "http://mainnet-statehash-htz-hel1-1.wavesnodes.com",
    "enabled": true,
    "alias": ""
   }

@@ -1,12 +1,9 @@
 <b>Alert type:</b> Height ❌
 <b>Details:</b> Some node(s) are {{ .HeightDifference}} blocks behind
 {{ with .FirstGroup }}
-First group with height <code>{{ .Height}}</code>:
-{{range .Nodes}}
-<code>{{.}}</code>{{end}}
-{{end}}
+First group with height <code>{{ .Height}}</code>:{{range .Nodes}}
+<code>{{.}}</code>{{end}}{{end}}
 {{ with .SecondGroup }}
-Second group with height <code>{{ .Height}}</code>:
-{{range .Nodes}}
+Second group with height <code>{{ .Height}}</code>:{{range .Nodes}}
 <code>{{.}}</code>{{end}}
 {{end}}
