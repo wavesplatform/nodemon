@@ -1,22 +1,11 @@
-<b>Alert type:</b> Height ❌
-
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Some node(s) are 1 blocks behind
-
+❌<b>Height Alert</b>
+Some node(s) are 1 blocks behind
 
 First group with height <code>2</code>:
-
 <code>node 3</code>
-
 <code>node 4</code>
 
-
-
 Second group with height <code>1</code>:
-
 <code>node 1</code>
-
 <code>node 2</code>
-
 

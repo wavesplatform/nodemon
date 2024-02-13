@@ -1,0 +1,12 @@
+```yaml
+Alert type: Several Chains Detected ❌
+Details: Nodes have different state hashes at the same height 100
+
+BlockID (First group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
+a
+
+BlockID (Second group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
+b
+
+Last common Block: 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh at 1
+```

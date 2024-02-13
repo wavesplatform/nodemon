@@ -1,26 +1,15 @@
-<b>Alert type:</b> State Hash ❌
+❌<b>Diverging State Hashes</b>
+Nodes on the same chain have diverging state hashes at 100
 
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Nodes have different state hashes at the same height 100
-
-<u>First group</u>:
 <i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 <i>Nodes:</i>
-
 <code>a</code>
 
-
-
-<u>Second group</u>:
 <i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 <i>Nodes:</i>
-
 <code>b</code>
-
-
 
 <u>Fork</u> occurred after block <code>1</code>
 <i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
