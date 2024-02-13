@@ -1,8 +1,5 @@
 ```yaml
 Alert type: State Hash ❌
-
-Level: Error ❌
-
 Details: Nodes have different state hashes at the same height {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}

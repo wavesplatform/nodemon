@@ -1,8 +1,5 @@
-<b>Alert type:</b> Base Target
-
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Base target is greater than the threshold value. The threshold value is 101
+<b>Base Target Alert</b>
+Base target is greater than the threshold value. The threshold value is 101
 
 
 Node: <code>test1</code>

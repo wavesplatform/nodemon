@@ -1,8 +1,5 @@
 ```yaml
 Alert type: Height ❌
-
-Level: Error ❌
-
 Details: Some node(s) are {{ .HeightDifference}} blocks behind
 
 {{ with .FirstGroup }}
