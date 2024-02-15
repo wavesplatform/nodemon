@@ -550,7 +550,7 @@ func ScheduleNodesStatus(
 	bot bot,
 	zapLogger *zap.Logger,
 ) error {
-	_, err := taskScheduler.ScheduleWithCron(func(ctx context.Context) {
+	_, err := taskScheduler.ScheduleWithCron(func(_ context.Context) {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
 			zapLogger.Error("failed to get nodes list", zap.Error(err))
