@@ -1,4 +1,4 @@
 ```yaml
-Alert type: Unreachable ❌
-Details: Node {{ .Node}} is unreachable
+❌ Unreachable Alert
+Node {{ .Node}} is unreachable
 ```

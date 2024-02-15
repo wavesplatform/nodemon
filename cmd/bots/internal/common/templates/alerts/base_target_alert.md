@@ -1,6 +1,6 @@
 ```yaml
-Alert type: Base Target
-Details: Base target is greater than the threshold value. The threshold value is {{ .Threshold }}
+❌ Base Target Alert
+Base target is greater than the threshold value. The threshold value is {{ .Threshold }}
 {{ with .BaseTargetValues }}{{ range . }}
 Node: {{ .Node}}
 Base Target: {{ .BaseTarget}}

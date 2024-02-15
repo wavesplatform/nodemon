@@ -1,6 +1,6 @@
 ```yaml
-Alert type: State Hash ❌
-Details: Nodes on the same chain have diverging state hashes at 100
+❌ State Hash Alert
+Nodes on the same chain have diverging state hashes at 100
 
 BlockID (First group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
 State Hash (First group): 0000000000000066000000000000000000000000000000000000000000000000

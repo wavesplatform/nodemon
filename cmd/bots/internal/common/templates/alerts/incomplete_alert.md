@@ -1,4 +1,4 @@
 ```yaml
-Alert type: Incomplete❗️
-Details: Incomplete statement for node {{ .Node}} {{ .Version}} at height {{ .Height}}
+❗️Incomplete Alert
+Incomplete statement for node {{ .Node}} {{ .Version}} at height {{ .Height}}
 ```

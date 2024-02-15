@@ -1,4 +1,4 @@
 ```yaml
-Alert type: Unreachable ❌
-Details: Node node is unreachable
+❌ Unreachable Alert
+Node node is unreachable
 ```

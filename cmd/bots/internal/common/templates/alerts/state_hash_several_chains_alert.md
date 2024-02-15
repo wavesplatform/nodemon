@@ -1,6 +1,6 @@
 ```yaml
-Alert type: Several Chains Detected ❌
-Details: Nodes have different state hashes at the same height {{ .SameHeight}}
+❌ Several Chains Detected
+Nodes have different state hashes at the same height {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}{{range .Nodes}}
 {{.}}{{end}}{{end}}

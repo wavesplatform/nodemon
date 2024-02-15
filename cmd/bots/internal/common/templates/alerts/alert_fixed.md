@@ -1,3 +1,3 @@
 ```yaml
-{{ .PreviousAlert}} issue has been resolved ✅
+✅ {{ .PreviousAlert}} issue has been resolved
 ```

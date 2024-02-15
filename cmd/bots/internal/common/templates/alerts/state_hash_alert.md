@@ -1,6 +1,6 @@
 ```yaml
-Alert type: State Hash ❌
-Details: Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
+❌ State Hash Alert
+Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}
 State Hash (First group): {{ .StateHash}}{{range .Nodes}}
