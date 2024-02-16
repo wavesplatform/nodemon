@@ -12,9 +12,9 @@ type NodesListResponse struct {
 	Nodes []entities.Node `json:"nodes"`
 }
 
-type NodesStatusResponse struct {
-	NodesStatus []NodeStatement `json:"nodes_status"`
-	ErrMessage  string          `json:"err_message"`
+type NodesStatementsResponse struct {
+	NodesStatements []NodeStatement `json:"nodes_status"`
+	ErrMessage      string          `json:"err_message"`
 }
 
 type NodeStatementResponse struct {
@@ -24,7 +24,7 @@ type NodeStatementResponse struct {
 
 func (nl *NodesListResponse) responseMarker() {}
 
-func (nl *NodesStatusResponse) responseMarker() {}
+func (nl *NodesStatementsResponse) responseMarker() {}
 
 func (nl *NodeStatementResponse) responseMarker() {}
 
@@ -33,4 +33,6 @@ type NodeStatement struct {
 	StateHash *proto.StateHash    `json:"statehash"`
 	Height    int                 `json:"height"`
 	Status    entities.NodeStatus `json:"status"`
+	BlockID   proto.BlockID       `json:"block_id"`
+	Generator proto.WavesAddress  `json:"generator"`
 }

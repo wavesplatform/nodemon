@@ -173,22 +173,20 @@ func viewChains(
 		}
 		urls := messaging.NodesToUrls(nodes)
 
-		blockId, err := messaging.
-
-		nodesStatus, err := messaging.RequestNodesStatus(requestChan, responsePairType, urls)
+		nodesStatements, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
 			zapLogger.Error("failed to request status of nodes", zap.Error(err))
 			return err
 		}
 
-		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, ext, nodes)
+		if nodesStatements.ErrMessage != "" {
+			return c.Send(nodesStatements.ErrMessage, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+		}
+
+		msg, err := common.HandleNodesChains(nodesStatements, ext)
 		if err != nil {
 			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
-		}
-
-		if statusCondition.AllNodesAreOk {
-			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
 		}
 
 		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
@@ -208,7 +206,7 @@ func statusCmd(
 		}
 		urls := messaging.NodesToUrls(nodes)
 
-		nodesStatus, err := messaging.RequestNodesStatus(requestChan, responsePairType, urls)
+		nodesStatus, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
 			zapLogger.Error("failed to request status of nodes", zap.Error(err))
 			return err

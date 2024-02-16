@@ -557,7 +557,7 @@ func ScheduleNodesStatus(
 		}
 		urls := messaging.NodesToUrls(nodes)
 
-		nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
+		nodesStatus, err := messaging.RequestNodesStatements(requestType, responsePairType, urls)
 		if err != nil {
 			zapLogger.Error("failed to get nodes status", zap.Error(err))
 		}
@@ -943,7 +943,8 @@ type StatusCondition struct {
 	Height        string
 }
 
-func HandleNodesStatusError(resp *pair.NodesStatusResponse, ext ExpectedExtension) (string, StatusCondition, error) {
+func HandleNodesStatusError(resp *pair.NodesStatementsResponse,
+	ext ExpectedExtension) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	var differentHeightsNodes []NodeStatus
@@ -953,7 +954,7 @@ func HandleNodesStatusError(resp *pair.NodesStatusResponse, ext ExpectedExtensio
 		return resp.ErrMessage, statusCondition, nil
 	}
 
-	for _, stat := range resp.NodesStatus {
+	for _, stat := range resp.NodesStatements {
 		if stat.Status != entities.OK {
 			unavailableNodes = append(unavailableNodes, NodeStatus{URL: stat.URL})
 			continue
@@ -984,15 +985,15 @@ func HandleNodesStatusError(resp *pair.NodesStatusResponse, ext ExpectedExtensio
 }
 
 func HandleNodesStatus(
-	resp *pair.NodesStatusResponse,
+	resp *pair.NodesStatementsResponse,
 	ext ExpectedExtension,
 	nodes []entities.Node,
 ) (string, StatusCondition, error) {
 	statusCondition := StatusCondition{AllNodesAreOk: false, NodesNumber: 0, Height: ""}
 
 	nodesAliases := nodeURLToAlias(nodes)
-	for i := range resp.NodesStatus {
-		resp.NodesStatus[i].URL = replaceNodeWithAlias(resp.NodesStatus[i].URL, nodesAliases)
+	for i := range resp.NodesStatements {
+		resp.NodesStatements[i].URL = replaceNodeWithAlias(resp.NodesStatements[i].URL, nodesAliases)
 	}
 
 	if resp.ErrMessage != "" {
@@ -1034,6 +1035,76 @@ func HandleNodesStatus(
 	return msg, statusCondition, nil
 }
 
+type NodesSingleChain struct {
+	NodesNumber      int
+	Height           string
+	BlockID          string
+	GeneratorAddress string
+}
+
+type NodesChains struct {
+	Height string
+	Chains []Chain
+}
+
+type Chain struct {
+	BlockID          string
+	GeneratorAddress string
+}
+
+func HandleNodesChains(
+	resp *pair.NodesStatementsResponse,
+	ext ExpectedExtension,
+) (string, error) {
+	if len(resp.NodesStatements) < 1 {
+		return "", errors.New("failed to collect enough statements (< 1)")
+	}
+
+	sample := resp.NodesStatements[0]
+	var chains []Chain
+	chains = append(chains, Chain{
+		BlockID:          sample.BlockID.String(),
+		GeneratorAddress: sample.BlockID.String(),
+	})
+	height := sample.Height
+	for i := 1; i < len(resp.NodesStatements); i++ {
+		statement := resp.NodesStatements[i]
+		if statement.BlockID != sample.BlockID && statement.Height == sample.Height {
+			chains = append(chains, Chain{
+				BlockID:          statement.BlockID.String(),
+				GeneratorAddress: statement.Generator.String(),
+			})
+		}
+	}
+
+	/* we have more than one chain */
+	if len(chains) > 1 {
+		nodesChainsMsg := NodesChains{
+			Height: strconv.Itoa(height),
+			Chains: chains,
+		}
+		msg, err := executeTemplate("templates/nodes_chains_different", nodesChainsMsg, ext)
+		if err != nil {
+			return "", err
+		}
+		return msg, nil
+	}
+
+	nodeChainOk := NodesSingleChain{
+		NodesNumber:      len(resp.NodesStatements),
+		Height:           strconv.Itoa(height),
+		BlockID:          sample.BlockID.String(),
+		GeneratorAddress: sample.Generator.String(),
+	}
+
+	okMsg, err := executeTemplate("templates/nodes_chains_ok", nodeChainOk, ext)
+	if err != nil {
+		return "", err
+	}
+
+	return okMsg, nil
+}
+
 func areStateHashesEqual(okNodes []NodeStatus) bool {
 	hashesEqual := true
 	if len(okNodes) == 0 {
@@ -1059,13 +1130,13 @@ func nodeURLToAlias(allNodes []entities.Node) map[string]string {
 	return nodesAliases
 }
 
-func sortedNodesByStatusWithHeight(resp *pair.NodesStatusResponse) ([]NodeStatus, []NodeStatus, string) {
+func sortedNodesByStatusWithHeight(resp *pair.NodesStatementsResponse) ([]NodeStatus, []NodeStatus, string) {
 	var (
 		unavailable []NodeStatus
 		okNodes     []NodeStatus
 		height      string
 	)
-	for _, stat := range resp.NodesStatus {
+	for _, stat := range resp.NodesStatements {
 		if stat.Status != entities.OK {
 			unavailable = append(unavailable, NodeStatus{URL: stat.URL})
 		} else {

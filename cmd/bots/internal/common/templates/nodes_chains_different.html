@@ -1,0 +1,7 @@
+❌Nodes are on different chains at height <code>{{.Height}}</code>
+{{ with .Chains }}
+{{range .}}
+BlockID: <code>{{.BlockID}}</code>
+Generator: <code>{{.GeneratorAddress}}</code>
+{{end}}
+{{end}}

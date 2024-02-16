@@ -149,7 +149,7 @@ func handlePairRequest(
 		}
 		return nil
 	case *pair.NodesStatusRequest:
-		return handleNodesStatusRequest(ctx, r.URLs, message, pairSocket, logger, responsePair)
+		return handleNodesStatementsRequest(ctx, r.URLs, message, pairSocket, logger, responsePair)
 	case *pair.NodeStatementRequest:
 		return handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, pairSocket, responsePair)
 	default:
@@ -202,7 +202,7 @@ func handleNodesStatementRequest(
 	}
 }
 
-func handleNodesStatusRequest(
+func handleNodesStatementsRequest(
 	ctx context.Context,
 	urls []string,
 	message *bytes.Buffer,
@@ -223,7 +223,7 @@ func handleNodesStatusRequest(
 	if err != nil {
 		return errors.Wrap(err, "failed to receive message from pair socket")
 	}
-	nodesStatusResp := pair.NodesStatusResponse{}
+	nodesStatusResp := pair.NodesStatementsResponse{}
 	err = json.Unmarshal(response, &nodesStatusResp)
 	if err != nil {
 		return errors.Wrap(err, "failed to unmarshal message from pair socket")
