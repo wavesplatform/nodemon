@@ -197,7 +197,7 @@ var ErrNoFullStatement = errors.New("no full statement")
 var ErrBigHeightDifference = errors.New("The height difference between nodes is more than 10")
 var ErrStorageIsNotReady = errors.New("The storage has not collected enough statements for status")
 
-func (s *Storage) findMinCommonLatestHeight(
+func (s *Storage) FindMinCommonLatestHeight(
 	nodesList map[string]bool,
 	minHeight int,
 	maxHeight int,
@@ -264,7 +264,7 @@ func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.N
 		nodesList[node] = true
 	}
 
-	nodesHeights, nodesList, minHeight, maxHeight, err := s.findMinCommonLatestHeight(nodesList, minHeight, maxHeight)
+	nodesHeights, nodesList, minHeight, maxHeight, err := s.FindMinCommonLatestHeight(nodesList, minHeight, maxHeight)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find min common latest height for nodes")
 	}

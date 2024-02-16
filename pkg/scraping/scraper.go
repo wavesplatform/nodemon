@@ -127,10 +127,15 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
 	}
 
+	blockID, generator, err := node.blockGenerator(ctx, h)
+	if err != nil {
+		s.zap.Sugar().Warnf("Failed to get block id and generator for node %s: %v", url, err)
+		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
+	}
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
 		s.zap.Sugar().Warnf("Failed to get state hash for node %s: %v", url, err)
 		return entities.NewBaseTargetEvent(url, ts, v, h, bs) // we know version, height and base target, sending it
 	}
-	return entities.NewStateHashEvent(url, ts, v, h, sh, bs) // sending full info about node
+	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, blockID, generator) // sending full info about node
 }

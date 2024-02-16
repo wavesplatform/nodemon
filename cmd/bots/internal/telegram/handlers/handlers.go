@@ -76,6 +76,8 @@ func InitTgHandlers(
 	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh))
 
 	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
+
+	env.Bot.Handle("/viewchains", viewChains(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 }
 
 func removeCmd(
@@ -155,6 +157,41 @@ func onTextMsgHandler(
 		default:
 			return nil // do nothing
 		}
+	}
+}
+
+func viewChains(
+	requestChan chan<- pair.Request,
+	responsePairType <-chan pair.Response,
+	ext common.ExpectedExtension,
+	zapLogger *zap.Logger,
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
+		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
+		if err != nil {
+			zapLogger.Error("failed to get nodes list", zap.Error(err))
+		}
+		urls := messaging.NodesToUrls(nodes)
+
+		blockId, err := messaging.
+
+		nodesStatus, err := messaging.RequestNodesStatus(requestChan, responsePairType, urls)
+		if err != nil {
+			zapLogger.Error("failed to request status of nodes", zap.Error(err))
+			return err
+		}
+
+		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, ext, nodes)
+		if err != nil {
+			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
+			return err
+		}
+
+		if statusCondition.AllNodesAreOk {
+			msg = fmt.Sprintf("<b>%d</b> %s", statusCondition.NodesNumber, msg)
+		}
+
+		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
 

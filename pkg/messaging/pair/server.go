@@ -3,6 +3,7 @@ package pair
 import (
 	"context"
 	"encoding/json"
+	"math"
 	"strings"
 
 	"nodemon/pkg/entities"
@@ -93,6 +94,8 @@ func handleMessage(
 		handleNodeStatusRequest(msg, es, logger, socket)
 	case RequestNodeStatementType:
 		handleNodeStatementRequest(msg, logger, es, socket)
+	case RequestNodesLastGeneratorsType:
+
 	default:
 		logger.Error("Unknown request type", zap.Int("type", int(t)), zap.Binary("message", msg))
 	}
@@ -186,6 +189,39 @@ func handleNodeStatusRequest(msg []byte, es *events.Storage, logger *zap.Logger,
 		if err != nil {
 			logger.Error("failed to find all statehashes by last height", zap.Error(err))
 		}
+	}
+
+	for _, statement := range statements {
+		nodeStat := NodeStatement{
+			Height:    statement.Height,
+			StateHash: statement.StateHash,
+			URL:       statement.Node,
+			Status:    statement.Status,
+		}
+		nodesStatusResp.NodesStatus = append(nodesStatusResp.NodesStatus, nodeStat)
+	}
+	response, err := json.Marshal(nodesStatusResp)
+	if err != nil {
+		logger.Error("Failed to marshal node status to json", zap.Error(err))
+	}
+	err = socketPair.Send(response)
+	if err != nil {
+		logger.Error("Failed to send a response from pair socket", zap.Error(err))
+	}
+}
+
+func handleNodesLastGeneratorsRequest(msg []byte, es *events.Storage, logger *zap.Logger, socketPair protocol.Socket) {
+	listOfNodes := strings.Split(string(msg), ",")
+	var nodesStatusResp NodesStatusResponse
+
+	minHeight, maxHeight := math.MaxInt, 0
+	nodesList := make(map[string]bool) // reachable or unreachable
+	for _, node := range listOfNodes {
+		nodesList[node] = true
+	}
+	nodesStatements, nodesList, minHeight, maxHeight, err := es.FindMinCommonLatestHeight(nodesList, minHeight, maxHeight)
+	if err != nil {
+		logger.Error("failed to find all statehashes by last height", zap.Error(err))
 	}
 
 	for _, statement := range statements {

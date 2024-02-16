@@ -90,6 +90,20 @@ func RequestNodesStatus(
 	return nodesStatus, nil
 }
 
+func RequestNodesBlockGenerators(
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+	urls []string,
+) (*pair.NodesStatusResponse, error) {
+	requestChan <- &pair.NodesStatusRequest{URLs: urls}
+	response := <-responseChan
+	nodesStatus, ok := response.(*pair.NodesStatusResponse)
+	if !ok {
+		return nil, errors.New("failed to convert response interface to the nodes status type")
+	}
+	return nodesStatus, nil
+}
+
 func RequestNodes(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
