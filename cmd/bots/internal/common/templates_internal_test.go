@@ -231,6 +231,50 @@ func TestStateHashTemplate(t *testing.T) {
 	}
 }
 
+func TestDifferentChainsTemplate(t *testing.T) {
+	stateHashInfo := generateStateHashes(1, 5)
+	stateHashAlert := &entities.StateHashAlert{
+		CurrentGroupsBucketHeight: 100,
+		LastCommonStateHashExist:  true,
+		LastCommonStateHashHeight: 1,
+		LastCommonStateHash:       stateHashInfo[0].sh,
+		FirstGroup: entities.StateHashGroup{
+			Nodes:     entities.Nodes{"a"},
+			StateHash: stateHashInfo[0].sh,
+		},
+		SecondGroup: entities.StateHashGroup{
+			Nodes:     entities.Nodes{"b"},
+			StateHash: stateHashInfo[0].sh,
+		},
+	}
+
+	statement := stateHashStatement{
+		SameHeight:               stateHashAlert.CurrentGroupsBucketHeight,
+		LastCommonStateHashExist: stateHashAlert.LastCommonStateHashExist,
+		ForkHeight:               stateHashAlert.LastCommonStateHashHeight,
+		ForkBlockID:              stateHashAlert.LastCommonStateHash.BlockID.String(),
+		ForkStateHash:            stateHashAlert.LastCommonStateHash.SumHash.Hex(),
+
+		FirstGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.FirstGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.FirstGroup.Nodes,
+			StateHash: stateHashAlert.FirstGroup.StateHash.SumHash.Hex(),
+		},
+		SecondGroup: stateHashStatementGroup{
+			BlockID:   stateHashAlert.SecondGroup.StateHash.BlockID.String(),
+			Nodes:     stateHashAlert.SecondGroup.Nodes,
+			StateHash: stateHashAlert.SecondGroup.StateHash.SumHash.Hex(),
+		},
+	}
+	for _, f := range expectedFormats() {
+		const template = "templates/alerts/state_hash_several_chains_alert"
+		actual, err := executeTemplate(template, statement, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
 func TestIncompleteTemplate(t *testing.T) {
 	data := &entities.IncompleteAlert{
 		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},

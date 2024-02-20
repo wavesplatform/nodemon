@@ -1,5 +1,2 @@
-<b>Alert type:</b> Unreachable ❌
-
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Node node is unreachable
+❌ <b>Unreachable Alert</b>
+Node node is unreachable

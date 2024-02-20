@@ -1,26 +1,15 @@
-<b>Alert type:</b> State Hash ❌
-
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Nodes have different state hashes at the same height {{ .SameHeight}}
+❌ <b>Diverging State Hashes</b>
+Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
 {{ with .FirstGroup }}
-<u>First group</u>:
 <i>BlockID:</i> <code>{{ .BlockID}}</code>
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
-<i>Nodes:</i>
-{{range .Nodes}}
-<code>{{.}}</code>
-{{end}}
-{{end}}
+<i>Nodes:</i>{{range .Nodes}}
+<code>{{.}}</code>{{end}}{{end}}
 {{ with .SecondGroup }}
-<u>Second group</u>:
 <i>BlockID:</i> <code>{{ .BlockID}}</code>
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
-<i>Nodes:</i>
-{{range .Nodes}}
-<code>{{.}}</code>
-{{end}}
-{{end}}
+<i>Nodes:</i>{{range .Nodes}}
+<code>{{.}}</code>{{end}}{{end}}
 {{ if .LastCommonStateHashExist }}
 <u>Fork</u> occurred after block <code>{{ .ForkHeight}}</code>
 <i>BlockID:</i> <code>{{ .ForkBlockID}}</code>

@@ -836,9 +836,17 @@ func executeStateHashTemplate(
 		},
 	}
 
-	msg, err := executeTemplate("templates/alerts/state_hash_alert", statement, extension)
-	if err != nil {
-		return "", err
+	if statement.FirstGroup.BlockID != statement.SecondGroup.BlockID {
+		msg, tmplErr := executeTemplate("templates/alerts/state_hash_several_chains_alert", statement, extension)
+		if tmplErr != nil {
+			return "", tmplErr
+		}
+		return msg, nil
+	}
+
+	msg, tmplErr := executeTemplate("templates/alerts/state_hash_alert", statement, extension)
+	if tmplErr != nil {
+		return "", tmplErr
 	}
 	return msg, nil
 }

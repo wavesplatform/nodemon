@@ -1,23 +1,14 @@
 ```yaml
-Alert type: State Hash ❌
-
-Level: Error ❌
-
-Details: Nodes have different state hashes at the same height {{ .SameHeight}}
+❌ State Hash Alert
+Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}
-State Hash (First group): <code>{{ .StateHash}}</code>
-{{range .Nodes}}
-{{.}}
-{{end}}
-{{end}}
+State Hash (First group): {{ .StateHash}}{{range .Nodes}}
+{{.}}{{end}}{{end}}
 {{ with .SecondGroup }}
 BlockID (Second group): {{ .BlockID}}
-State Hash (Second group): {{ .StateHash}}
-{{range .Nodes}}
-{{.}}
-{{end}}
-{{end}}
+State Hash (Second group): {{ .StateHash}}{{range .Nodes}}
+{{.}}{{end}}{{end}}
 {{ if .LastCommonStateHashExist }}
 Fork occurred after block {{ .ForkHeight}}
 BlockID: {{ .ForkBlockID}}

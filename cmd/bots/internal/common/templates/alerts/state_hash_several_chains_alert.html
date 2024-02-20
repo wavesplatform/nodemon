@@ -1,0 +1,10 @@
+❌ <b>Several Chains Detected</b>
+{{ with .FirstGroup }}
+<i>BlockID:</i> <code>{{ .BlockID}}</code>{{range .Nodes}}
+<code>{{.}}</code>{{end}}{{end}}
+{{ with .SecondGroup }}
+<i>BlockID:</i> <code>{{ .BlockID}}</code>{{range .Nodes}}
+<code>{{.}}</code>{{end}}{{end}}
+{{ if .LastCommonStateHashExist }}
+<i>Last common Block:</i> <code>{{ .ForkBlockID}}</code> at <code>{{ .ForkHeight}}</code>
+{{ end }}
