@@ -13,7 +13,7 @@ type NodesListResponse struct {
 }
 
 type NodesStatementsResponse struct {
-	NodesStatements []NodeStatement `json:"nodes_status"`
+	NodesStatements []NodeStatement `json:"nodes_statements"`
 	ErrMessage      string          `json:"err_message"`
 }
 

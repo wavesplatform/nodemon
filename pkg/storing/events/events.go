@@ -19,8 +19,8 @@ var (
 )
 
 const (
-	depthCommonHeightSearch = 10
-	heightDifference        = 10
+	depthCommonHeightSearch = 50
+	heightDifference        = 50
 )
 
 type Storage struct {
