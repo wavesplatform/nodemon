@@ -1,11 +1,5 @@
-<b>Alert type:</b> Base Target
-
-<b>Level:</b> Error ❌
-
-<b>Details:</b> Base target is greater than the threshold value. The threshold value is {{ .Threshold}}
-{{ with .BaseTargetValues }}
-{{range .}}
-Node: <code>{{ .Node }}</code>
-Base Target: <code>{{ .BaseTarget }}</code>
-{{end}}
-{{end}}
+❌ <b>Base Target Alert</b>
+Base target is greater than the threshold value. The threshold value is {{ .Threshold}}
+{{ with .BaseTargetValues }}{{range .}}
+<code>{{ .Node }}</code>
+Base Target: <code>{{ .BaseTarget }}</code>{{end}}{{end}}

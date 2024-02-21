@@ -1,7 +1,4 @@
 ```yaml
-Alert type: Invalid Height ❌
-
-Level: Warning ❗
-
-Details: Node a 1 has an invalid height 1
+❌ Invalid Height Alert
+Node a 1 has an invalid height 1
 ```

@@ -1,23 +1,14 @@
 ```yaml
-Alert type: State Hash ❌
-
-Level: Error ❌
-
-Details: Nodes have different state hashes at the same height 100
+❌ State Hash Alert
+Nodes on the same chain have diverging state hashes at 100
 
 BlockID (First group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
-State Hash (First group): <code>0000000000000066000000000000000000000000000000000000000000000000</code>
-
+State Hash (First group): 0000000000000066000000000000000000000000000000000000000000000000
 a
-
-
 
 BlockID (Second group): 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
 State Hash (Second group): 0000000000000066000000000000000000000000000000000000000000000000
-
 b
-
-
 
 Fork occurred after block 1
 BlockID: 1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh
