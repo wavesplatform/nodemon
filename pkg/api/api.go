@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	stderrs "errors"
 	"fmt"
 	"io"
 	"net"
@@ -80,7 +81,7 @@ func (a *API) Start() error {
 	go func() {
 		err := a.srv.Serve(l)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.zap.Sugar().Fatalf("Failed to serve REST API at '%s': %v", a.srv.Addr, err)
+			a.zap.Sugar().Fatalf("[API] Failed to serve REST API at '%s': %v", a.srv.Addr, err)
 		}
 	}()
 	return nil
@@ -91,7 +92,7 @@ func (a *API) Shutdown() {
 	defer cancel()
 
 	if err := a.srv.Shutdown(ctx); err != nil {
-		a.zap.Error("Failed to shutdown REST API", zap.Error(err))
+		a.zap.Error("[API] Failed to shutdown REST API", zap.Error(err))
 	}
 }
 
@@ -108,7 +109,7 @@ func (a *API) routes() chi.Router {
 func (a *API) health(w http.ResponseWriter, r *http.Request) {
 	enabledNodes, enErr := a.nodesStorage.EnabledNodes()
 	if enErr != nil {
-		a.zap.Error("Healthcheck failed: failed get non specific nodes",
+		a.zap.Error("[API] Healthcheck failed: failed get non specific nodes",
 			zap.Error(enErr), zap.String("request-id", middleware.GetReqID(r.Context())),
 		)
 		http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", enErr), http.StatusInternalServerError)
@@ -116,7 +117,7 @@ func (a *API) health(w http.ResponseWriter, r *http.Request) {
 	for _, node := range enabledNodes {
 		_, lhErr := a.eventsStorage.LatestHeight(node.URL)
 		if lhErr != nil && !errors.Is(lhErr, events.ErrNoFullStatement) {
-			a.zap.Error("Healthcheck failed: failed to get latest height for node", zap.String("node", node.URL),
+			a.zap.Error("[API] Healthcheck failed: failed to get latest height for node", zap.String("node", node.URL),
 				zap.Error(lhErr), zap.String("request-id", middleware.GetReqID(r.Context())),
 			)
 			http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", lhErr), http.StatusInternalServerError)
@@ -131,10 +132,29 @@ type nodeShortStatement struct {
 	Height  int    `json:"height,omitempty"`
 }
 
+type statementLogWrapper struct {
+	nodeShortStatement
+}
+
+func (s statementLogWrapper) String() string {
+	data, err := json.Marshal(s)
+	if err != nil {
+		type jsonErr struct {
+			Error string `json:"error"`
+		}
+		errData, mErr := json.Marshal(jsonErr{Error: err.Error()})
+		if mErr != nil { // must never happen
+			panic(stderrs.Join(err, mErr))
+		}
+		return string(errData)
+	}
+	return string(data)
+}
+
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, megabyte))
 	if err != nil {
-		a.zap.Error("Failed to read request body", zap.Error(err))
+		a.zap.Error("[API] Failed to read request body", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -145,7 +165,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	statehash := &proto.StateHash{}
 	err = json.NewDecoder(stateHashReader).Decode(statehash)
 	if err != nil {
-		a.zap.Error("Failed to decode statehash", zap.Error(err))
+		a.zap.Error("[API] Failed to decode statehash", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusInternalServerError)
 		return
 	}
@@ -153,28 +173,29 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	statement := nodeShortStatement{}
 	err = json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
-		a.zap.Error("Failed to decode a specific nodes statement", zap.Error(err))
+		a.zap.Error("[API] Failed to decode a specific nodes statement", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusInternalServerError)
 		return
 	}
 	escapedNodeName := cleanCRLF(r.Header.Get("node-name"))
 	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
-		a.zap.Error("Failed to check and update node's url", zap.Error(err))
+		a.zap.Error("[API] Failed to check and update node's url", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusInternalServerError)
 		return
 	}
 	statement.Node = updatedURL
+	a.zap.Sugar().Debugf("[API] Received statement %s", fmt.Stringer(statementLogWrapper{statement}))
 
 	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
 	if err != nil {
-		a.zap.Error("Failed to fetch specific nodes from storage", zap.Error(err))
+		a.zap.Error("[API] Failed to fetch specific nodes from storage", zap.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to fetch specific nodes from storage: %v", err), http.StatusInternalServerError)
 		return
 	}
 
 	if !specificNodeFoundInStorage(enabledSpecificNodes, statement) {
-		a.zap.Info("Received a statements from the private node but it's not being monitored by the nodemon",
+		a.zap.Info("[API] Received a statements from the private node but it's not being monitored by the nodemon",
 			zap.String("node", statement.Node),
 		)
 		w.WriteHeader(http.StatusForbidden)
