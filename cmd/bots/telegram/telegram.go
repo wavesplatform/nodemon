@@ -19,7 +19,7 @@ import (
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
-	"github.com/procyon-projects/chrono"
+	"codnect.io/chrono"
 	"go.uber.org/zap"
 )
 
