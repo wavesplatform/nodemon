@@ -1,6 +1,5 @@
 ```yaml
-❌ State Hash Alert
-Nodes on the same chain have diverging state hashes at 100
+❌ 📊 Nodes on the same chain have diverging state hashes at 100
 
 State Hash (First group): 0000000000000066000000000000000000000000000000000000000000000000
 a

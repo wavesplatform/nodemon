@@ -1,6 +1,5 @@
 ```yaml
-❌ State Hash Alert
-Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
+❌ 📊 Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
 {{ with .FirstGroup }}
 State Hash (First group): {{ .StateHash}}{{range .Nodes}}
 {{.}}{{end}}{{end}}

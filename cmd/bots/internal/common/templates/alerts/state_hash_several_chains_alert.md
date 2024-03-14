@@ -1,6 +1,5 @@
 ```yaml
-❌ Several Chains Detected
-Nodes have different state hashes at the same height {{ .SameHeight}}
+❌ 🔱 Nodes are on different chains at height {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}{{range .Nodes}}
 {{.}}{{end}}{{end}}
