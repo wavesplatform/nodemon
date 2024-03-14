@@ -5,7 +5,7 @@ go 1.20
 require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/hashicorp/vault/api v1.12.0
+	github.com/hashicorp/vault/api v1.12.1
 	github.com/hashicorp/vault/api/auth/userpass v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/procyon-projects/chrono v1.1.2
@@ -47,7 +47,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.19 // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
