@@ -65,11 +65,3 @@ type NodeStatementRequest struct {
 func (r *NodeStatementRequest) RequestType() RequestPairType { return RequestNodeStatementType }
 
 func (*NodeStatementRequest) requestMarker() {}
-
-type NodesGeneratorsRequest struct {
-	URLs []string
-}
-
-func (r *NodesGeneratorsRequest) RequestType() RequestPairType { return RequestNodesLastGeneratorsType }
-
-func (*NodesGeneratorsRequest) requestMarker() {}
