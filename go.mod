@@ -5,16 +5,16 @@ go 1.20
 require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/hashicorp/vault/api v1.10.0
-	github.com/hashicorp/vault/api/auth/userpass v0.5.0
+	github.com/hashicorp/vault/api v1.12.0
+	github.com/hashicorp/vault/api/auth/userpass v0.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/procyon-projects/chrono v1.1.2
 	github.com/stoewer/go-strcase v1.3.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/buntdb v1.3.0
 	github.com/wavesplatform/gowaves v0.10.7-0.20231024124300-2311fff477ae
 	go.nanomsg.org/mangos/v3 v3.4.2
-	go.uber.org/zap v1.26.0
+	go.uber.org/zap v1.27.0
 	gopkg.in/telebot.v3 v3.2.1
 )
 
@@ -31,7 +31,7 @@ require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.5.0 // indirect
-	github.com/go-jose/go-jose/v3 v3.0.0 // indirect
+	github.com/go-jose/go-jose/v3 v3.0.1 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20230817174616-7a8ec2ada47b // indirect
