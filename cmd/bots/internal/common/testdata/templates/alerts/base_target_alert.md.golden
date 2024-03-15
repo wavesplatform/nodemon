@@ -1,5 +1,5 @@
 ```yaml
-❌ 🎯 Base target is greater than the threshold value. The threshold value is 101
+🎯 Base target is greater than the threshold value. The threshold value is 101
 
 Node: test1
 Base Target: 150

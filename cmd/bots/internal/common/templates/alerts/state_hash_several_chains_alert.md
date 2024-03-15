@@ -1,5 +1,5 @@
 ```yaml
-❌ 🔱 Nodes are on different chains at height {{ .SameHeight}}
+🔱 Nodes are on different chains at height {{ .SameHeight}}
 {{ with .FirstGroup }}
 BlockID (First group): {{ .BlockID}}{{range .Nodes}}
 {{.}}{{end}}{{end}}

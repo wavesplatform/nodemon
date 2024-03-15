@@ -1,3 +1,3 @@
 ```yaml
-❌ 💀 Node {{ .Node}} is unreachable
+💀 Node {{ .Node}} is unreachable
 ```
