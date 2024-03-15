@@ -18,13 +18,15 @@ const (
 )
 
 type NodeStatement struct {
-	Node       string           `json:"node"`
-	Timestamp  int64            `json:"timestamp"`
-	Status     NodeStatus       `json:"status"`
-	Version    string           `json:"version,omitempty"`
-	Height     int              `json:"height,omitempty"`
-	StateHash  *proto.StateHash `json:"state_hash,omitempty"`
-	BaseTarget int              `json:"base_target,omitempty"`
+	Node       string             `json:"node"`
+	Timestamp  int64              `json:"timestamp"`
+	Status     NodeStatus         `json:"status"`
+	Version    string             `json:"version,omitempty"`
+	Height     int                `json:"height,omitempty"`
+	StateHash  *proto.StateHash   `json:"state_hash,omitempty"`
+	BaseTarget int                `json:"base_target,omitempty"`
+	BlockID    proto.BlockID      `json:"block_id,omitempty"`
+	Generator  proto.WavesAddress `json:"generator,omitempty"`
 }
 
 type Nodes []string

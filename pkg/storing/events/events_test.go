@@ -522,11 +522,11 @@ func she(n string, h int, ts int64) entities.Event {
 }
 
 func fshe(n string, h int, ts int64, sh *proto.StateHash) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, sh, 1)
+	return entities.NewStateHashEvent(n, ts, "", h, sh, 1, sh.BlockID, proto.WavesAddress{})
 }
 
 func he(n string, h int, ts int64) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, nil, 1)
+	return entities.NewStateHashEvent(n, ts, "", h, nil, 1, proto.BlockID{}, proto.WavesAddress{})
 }
 
 func putEvents(t *testing.T, st *events.Storage, events []entities.Event) {
@@ -587,7 +587,7 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 		storage, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		putEvents(t, storage, test.events)
-		statements, err := storage.FindAllStateHashesOnCommonHeight([]string{"1", "2", "3"})
+		statements, err := storage.FindAllStatementsOnCommonHeight([]string{"1", "2", "3"})
 		if test.expectedError {
 			assert.Error(t, err)
 		} else {

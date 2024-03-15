@@ -23,7 +23,8 @@ type baseTargetInfo struct {
 func mkBaseTargetStatements(baseTargetInfo []baseTargetInfo) entities.NodeStatements {
 	var statements entities.NodeStatements
 	for _, info := range baseTargetInfo {
-		statement := entities.NewStateHashEvent(info.node, info.ts, info.v, info.h, nil, info.baseTarget).Statement()
+		statement := entities.NewStateHashEvent(info.node, info.ts, info.v,
+			info.h, nil, info.baseTarget, proto.BlockID{}, proto.WavesAddress{}).Statement()
 		statements = append(statements, statement)
 	}
 	return statements

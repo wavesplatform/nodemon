@@ -99,7 +99,7 @@ func handleStatusCmd(
 	}
 	urls := messaging.NodesToUrls(nodes)
 
-	nodesStatus, err := messaging.RequestNodesStatus(requestType, responsePairType, urls)
+	nodesStatus, err := messaging.RequestNodesStatements(requestType, responsePairType, urls)
 	if err != nil {
 		logger.Error("failed to request nodes status", zap.Error(err))
 	}

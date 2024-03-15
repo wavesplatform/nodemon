@@ -196,6 +196,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// TODO: these nodes don't send base target value at the moment
+	// TODO: these nodes don't send a generator at the moment
 	stateHashEvent := entities.NewStateHashEvent(
 		statement.Node,
 		zeroTS,
@@ -203,6 +204,8 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		statement.Height,
 		statehash,
 		zeroBT,
+		statehash.BlockID,
+		proto.WavesAddress{},
 	)
 	a.privateNodesEvents.Write(stateHashEvent)
 

@@ -1,4 +1,3 @@
 ```yaml
-❌ Unreachable Alert
-Node {{ .Node}} is unreachable
+💀 Node {{ .Node}} is unreachable
 ```

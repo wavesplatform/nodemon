@@ -1,0 +1,8 @@
+❌ Nodes are on different chains at height <code>5</code>
+
+BlockID: <code>some-block-id</code>
+Generator: <code>some-generator</code>
+
+BlockID: <code>another-block-id</code>
+Generator: <code>another-generator</code>
+
