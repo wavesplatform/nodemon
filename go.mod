@@ -2,8 +2,6 @@ module nodemon
 
 go 1.21
 
-toolchain go1.22.2
-
 require (
 	github.com/bwmarrin/discordgo v0.27.1
 	github.com/go-chi/chi v4.1.2+incompatible
