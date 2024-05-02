@@ -33,6 +33,6 @@ type NodeStatement struct {
 	StateHash *proto.StateHash    `json:"statehash"`
 	Height    int                 `json:"height"`
 	Status    entities.NodeStatus `json:"status"`
-	BlockID   proto.BlockID       `json:"block_id"`
-	Generator proto.WavesAddress  `json:"generator"`
+	BlockID   *proto.BlockID      `json:"block_id"`
+	Generator *proto.WavesAddress `json:"generator"`
 }

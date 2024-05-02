@@ -18,15 +18,15 @@ const (
 )
 
 type NodeStatement struct {
-	Node       string             `json:"node"`
-	Timestamp  int64              `json:"timestamp"`
-	Status     NodeStatus         `json:"status"`
-	Version    string             `json:"version,omitempty"`
-	Height     int                `json:"height,omitempty"`
-	StateHash  *proto.StateHash   `json:"state_hash,omitempty"`
-	BaseTarget int                `json:"base_target,omitempty"`
-	BlockID    proto.BlockID      `json:"block_id,omitempty"`
-	Generator  proto.WavesAddress `json:"generator,omitempty"`
+	Node       string              `json:"node"`
+	Timestamp  int64               `json:"timestamp"`
+	Status     NodeStatus          `json:"status"`
+	Version    string              `json:"version,omitempty"`
+	Height     int                 `json:"height,omitempty"`
+	StateHash  *proto.StateHash    `json:"state_hash,omitempty"`
+	BaseTarget int                 `json:"base_target,omitempty"`
+	BlockID    *proto.BlockID      `json:"block_id,omitempty"`
+	Generator  *proto.WavesAddress `json:"generator,omitempty"`
 }
 
 type Nodes []string
@@ -129,16 +129,16 @@ func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
 		return 0, 0
 	}
 	var (
-		min = math.MaxInt
-		max = math.MinInt
+		mih = math.MaxInt
+		mah = math.MinInt
 	)
 	for height := range s {
-		if max < height {
-			max = height
+		if mah < height {
+			mah = height
 		}
-		if min > height {
-			min = height
+		if mih > height {
+			mih = height
 		}
 	}
-	return min, max
+	return mih, mah
 }

@@ -191,12 +191,12 @@ type StateHashEvent struct {
 	h          int
 	sh         *proto.StateHash
 	baseTarget int
-	blockID    proto.BlockID
-	generator  proto.WavesAddress
+	blockID    *proto.BlockID
+	generator  *proto.WavesAddress
 }
 
 func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int,
-	blockID proto.BlockID, generator proto.WavesAddress) *StateHashEvent {
+	blockID *proto.BlockID, generator *proto.WavesAddress) *StateHashEvent {
 	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt, blockID: blockID, generator: generator}
 }
 
@@ -224,11 +224,11 @@ func (e *StateHashEvent) BaseTarget() int {
 	return e.baseTarget
 }
 
-func (e *StateHashEvent) BlockID() proto.BlockID {
+func (e *StateHashEvent) BlockID() *proto.BlockID {
 	return e.blockID
 }
 
-func (e *StateHashEvent) Generator() proto.WavesAddress {
+func (e *StateHashEvent) Generator() *proto.WavesAddress {
 	return e.generator
 }
 
@@ -307,12 +307,12 @@ type BlockGeneratorEvent struct {
 	v         string
 	h         int
 	bs        int
-	blockID   proto.BlockID
-	generator proto.WavesAddress
+	blockID   *proto.BlockID
+	generator *proto.WavesAddress
 }
 
 func NewBlockGeneratorEvent(node string, ts int64, v string, h int, bs int,
-	blockID proto.BlockID, generator proto.WavesAddress) *BlockGeneratorEvent {
+	blockID *proto.BlockID, generator *proto.WavesAddress) *BlockGeneratorEvent {
 	return &BlockGeneratorEvent{node: node, ts: ts, v: v, h: h, bs: bs, blockID: blockID, generator: generator}
 }
 
@@ -336,11 +336,11 @@ func (e *BlockGeneratorEvent) BaseTarget() int {
 	return e.bs
 }
 
-func (e *BlockGeneratorEvent) BlockID() proto.BlockID {
+func (e *BlockGeneratorEvent) BlockID() *proto.BlockID {
 	return e.blockID
 }
 
-func (e *BlockGeneratorEvent) Generator() proto.WavesAddress {
+func (e *BlockGeneratorEvent) Generator() *proto.WavesAddress {
 	return e.generator
 }
 
