@@ -19,9 +19,9 @@ import (
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
 
+	"codnect.io/chrono"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/procyon-projects/chrono"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.nanomsg.org/mangos/v3"
 	"go.nanomsg.org/mangos/v3/protocol"
