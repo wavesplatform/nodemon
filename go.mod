@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	codnect.io/chrono v1.1.3
-	github.com/bwmarrin/discordgo v0.27.1
+	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/hashicorp/vault/api v1.12.0
 	github.com/hashicorp/vault/api/auth/userpass v0.6.0
