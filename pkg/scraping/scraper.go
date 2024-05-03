@@ -136,7 +136,7 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 	if err != nil {
 		s.zap.Sugar().Warnf("Failed to get state hash for node %s: %v", url, err)
 		return entities.NewBlockGeneratorEvent(url, ts, v, h,
-			bs, blockID, generator) // we know version, height and base target, block generator, sending it
+			bs, &blockID, &generator) // we know version, height and base target, block generator, sending it
 	}
-	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, blockID, generator) // sending full info about node
+	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, &blockID, &generator) // sending full info about node
 }

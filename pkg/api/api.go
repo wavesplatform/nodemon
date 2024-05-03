@@ -204,8 +204,8 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		statement.Height,
 		statehash,
 		zeroBT,
-		statehash.BlockID,
-		proto.WavesAddress{},
+		&statehash.BlockID,
+		nil,
 	)
 	a.privateNodesEvents.Write(stateHashEvent)
 
