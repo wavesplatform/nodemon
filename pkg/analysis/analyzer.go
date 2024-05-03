@@ -159,7 +159,7 @@ func (a *Analyzer) criteriaRoutines(
 	}
 }
 
-func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotification) <-chan entities.Alert {
+func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotification) chan entities.Alert {
 	out := make(chan entities.Alert)
 	go func(alerts chan<- entities.Alert) {
 		defer close(alerts)

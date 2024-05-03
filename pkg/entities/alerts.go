@@ -25,6 +25,9 @@ const (
 	AlertFixedType
 	BaseTargetAlertType
 	InternalErrorAlertType
+
+	// L2 related
+	L2StuckAlertType
 )
 
 func GetAllAlertTypesAndNames() map[AlertType]AlertName {
@@ -38,6 +41,7 @@ func GetAllAlertTypesAndNames() map[AlertType]AlertName {
 		AlertFixedType:         AlertFixedName,
 		BaseTargetAlertType:    BaseTargetAlertName,
 		InternalErrorAlertType: InternalErrorName,
+		L2StuckAlertType:       L2StuckAlertName,
 	}
 }
 
@@ -62,6 +66,8 @@ func (t AlertType) AlertName() (AlertName, bool) {
 		alertName = BaseTargetAlertName
 	case InternalErrorAlertType:
 		alertName = InternalErrorName
+	case L2StuckAlertType:
+		alertName = L2StuckAlertName
 	default:
 		return alertName, false
 	}
@@ -85,6 +91,9 @@ const (
 	AlertFixedName         AlertName = "Resolved"
 	BaseTargetAlertName    AlertName = "BaseTargetAlert"
 	InternalErrorName      AlertName = "InternalErrorAlert"
+
+	// L2 related
+	L2StuckAlertName AlertName = "L2StuckAlert"
 )
 
 func (n AlertName) AlertType() (AlertType, bool) {
@@ -108,6 +117,8 @@ func (n AlertName) AlertType() (AlertType, bool) {
 		alertType = BaseTargetAlertType
 	case InternalErrorName:
 		alertType = InternalErrorAlertType
+	case L2StuckAlertName:
+		alertType = L2StuckAlertType
 	default:
 		return alertType, false
 	}
@@ -582,4 +593,53 @@ func (a *InternalErrorAlert) Level() string {
 
 func (a *InternalErrorAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
+}
+
+func NewL2StuckAlert(timestamp int64, L2Height int, L2Node string) *L2StuckAlert {
+	return &L2StuckAlert{
+		L2Height:  L2Height,
+		L2Node:    L2Node,
+		Timestamp: timestamp,
+	}
+}
+
+type L2StuckAlert struct {
+	L2Height  int    `json:"l2_height"`
+	L2Node    string `json:"l2_node"`
+	Timestamp int64  `json:"timestamp"`
+}
+
+func (a *L2StuckAlert) Name() AlertName {
+	return L2StuckAlertName
+}
+
+func (a *L2StuckAlert) Message() string {
+	return fmt.Sprintf(
+		"Node %s is at the same height for more than 5 minutes", a.L2Node,
+	)
+}
+
+func (a *L2StuckAlert) Time() time.Time {
+	return time.Unix(a.Timestamp, 0)
+}
+
+func (a *L2StuckAlert) String() string {
+	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
+}
+
+func (a *L2StuckAlert) ID() crypto.Digest {
+	var buff bytes.Buffer
+	buff.WriteString(a.Name().String())
+	buff.WriteString(a.L2Node)
+	buff.WriteString(strconv.Itoa(a.L2Height))
+	digest := crypto.MustFastHash(buff.Bytes())
+	return digest
+}
+
+func (a *L2StuckAlert) Type() AlertType {
+	return L2StuckAlertType
+}
+
+func (a *L2StuckAlert) Level() string {
+	return ErrorLevel
 }

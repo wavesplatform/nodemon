@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"nodemon/pkg/analysis/L2"
 	"os"
 	"os/signal"
 	"strings"
@@ -105,6 +106,8 @@ func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
 type nodemonConfig struct {
 	storage                string
 	nodes                  string
+	L2nodeName             string
+	L2nodeURL              string
 	bindAddress            string
 	interval               time.Duration
 	timeout                time.Duration
@@ -146,6 +149,11 @@ func newNodemonConfig() *nodemonConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.L2nodeURL, "L2-node-url", "",
+		"")
+	tools.StringVarFlagWithEnv(&c.L2nodeName, "L2-node-name", "",
+		"")
+
 	c.vault = newNodemonVaultConfig()
 	return c
 }
@@ -254,6 +262,8 @@ func run() error {
 
 	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
 
+	go L2.RunL2Analyzer(logger, alerts, cfg.L2nodeURL, cfg.L2nodeName)
+
 	<-ctx.Done()
 	a.Shutdown()
 	logger.Info("shutting down")
@@ -294,7 +304,7 @@ func runAnalyzer(
 	es *events.Storage,
 	zap *zap.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
-) <-chan entities.Alert {
+) chan entities.Alert {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: cfg.baseTargetThreshold},
 	}

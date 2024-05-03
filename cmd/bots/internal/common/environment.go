@@ -543,6 +543,10 @@ type bot interface {
 	TemplatesExtension() ExpectedExtension
 }
 
+func RunL2Monitoring() {
+
+}
+
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.Request,
@@ -724,6 +728,8 @@ func executeAlertTemplate(
 		msg, err = executeBaseTargetTemplate(alertJSON, nodesAliases, extension)
 	case entities.InternalErrorAlertType:
 		msg, err = executeInternalErrorTemplate(alertJSON, extension)
+	case entities.L2StuckAlertType:
+		msg, err = executeL2StuckAlertTemplate(alertJSON, extension)
 	default:
 		return "", errors.Errorf("unknown alert type (%d)", alertType)
 	}
@@ -939,6 +945,19 @@ func executeUnreachableTemplate(
 	unreachableAlert.Node = replaceNodeWithAlias(unreachableAlert.Node, nodesAliases)
 
 	msg, err := executeTemplate("templates/alerts/unreachable_alert", unreachableAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeL2StuckAlertTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var l2StuckAlert entities.L2StuckAlert
+	err := json.Unmarshal(alertJSON, &l2StuckAlert)
+	if err != nil {
+		return "", err
+	}
+	msg, err := executeTemplate("templates/alerts/L2/l2_stuck_alert", l2StuckAlert, extension)
 	if err != nil {
 		return "", err
 	}
