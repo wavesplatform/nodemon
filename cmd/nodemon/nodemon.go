@@ -5,7 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"nodemon/pkg/analysis/L2"
+	"nodemon/pkg/analysis/l2"
 	"os"
 	"os/signal"
 	"strings"
@@ -149,9 +149,9 @@ func newNodemonConfig() *nodemonConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
-	tools.StringVarFlagWithEnv(&c.L2nodeURL, "L2-node-url", "",
+	tools.StringVarFlagWithEnv(&c.L2nodeURL, "l2-node-url", "",
 		"")
-	tools.StringVarFlagWithEnv(&c.L2nodeName, "L2-node-name", "",
+	tools.StringVarFlagWithEnv(&c.L2nodeName, "l2-node-name", "",
 		"")
 
 	c.vault = newNodemonVaultConfig()
@@ -262,7 +262,7 @@ func run() error {
 
 	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
 
-	go L2.RunL2Analyzer(logger, alerts, cfg.L2nodeURL, cfg.L2nodeName)
+	go l2.RunL2Analyzer(logger, alerts, cfg.L2nodeURL, cfg.L2nodeName)
 
 	<-ctx.Done()
 	a.Shutdown()

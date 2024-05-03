@@ -543,10 +543,6 @@ type bot interface {
 	TemplatesExtension() ExpectedExtension
 }
 
-func RunL2Monitoring() {
-
-}
-
 func ScheduleNodesStatus(
 	taskScheduler chrono.TaskScheduler,
 	requestType chan<- pair.Request,
@@ -957,7 +953,7 @@ func executeL2StuckAlertTemplate(alertJSON []byte, extension ExpectedExtension) 
 	if err != nil {
 		return "", err
 	}
-	msg, err := executeTemplate("templates/alerts/L2/l2_stuck_alert", l2StuckAlert, extension)
+	msg, err := executeTemplate("templates/alerts/l2/l2_stuck_alert", l2StuckAlert, extension)
 	if err != nil {
 		return "", err
 	}

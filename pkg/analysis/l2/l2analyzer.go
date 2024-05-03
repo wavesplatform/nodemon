@@ -1,15 +1,15 @@
-package L2
+package l2
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"go.uber.org/zap"
 	"io/ioutil"
 	"net/http"
 	"nodemon/pkg/entities"
 	"strconv"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 type Response struct {
@@ -24,7 +24,6 @@ func hexStringToInt(hexString string) (int64, error) {
 }
 
 func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
-
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      "1",
@@ -32,32 +31,32 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 		"params":  []interface{}{},
 	})
 	if err != nil {
-		logger.Error("Failed to build a request body for L2 node", zap.Error(err))
+		logger.Error("Failed to build a request body for l2 node", zap.Error(err))
 	}
 
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
-		logger.Error("Failed to send a request to L2 node", zap.Error(err))
+		logger.Error("Failed to send a request to l2 node", zap.Error(err))
 		return
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		logger.Error("Failed to read response body from L2 node", zap.Error(err))
+		logger.Error("Failed to read response body from l2 node", zap.Error(err))
 		return
 	}
 
 	var response Response
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		fmt.Println("Error unmarshalling response:", err)
+		logger.Error("Failed unmarshalling response:", zap.Error(err))
 		return
 	}
 
 	height, err := hexStringToInt(response.Result)
 	if err != nil {
-		fmt.Println("Error converting hex string to integer:", err)
+		logger.Error("Failed converting hex string to integer:", zap.Error(err))
 		return
 	}
 	ch <- height
@@ -66,14 +65,14 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 func RunL2Analyzer(
 	zap *zap.Logger,
 	alerts chan<- entities.Alert,
-	nodeUrl string,
+	nodeURL string,
 	nodeName string,
 ) {
 	ch := make(chan int64)
 
 	go func() {
 		for {
-			collectL2Height(nodeUrl, ch, zap)
+			collectL2Height(nodeURL, ch, zap)
 			time.Sleep(time.Minute)
 		}
 	}()
@@ -89,7 +88,7 @@ func RunL2Analyzer(
 				alertTimer.Reset(5 * time.Minute)
 			}
 		case <-alertTimer.C:
-			zap.Info("Alert: Height of an L2 node didn't change in 5 minutes")
+			zap.Info("Alert: Height of an l2 node didn't change in 5 minutes")
 			alerts <- entities.NewL2StuckAlert(time.Now().Unix(), int(lastHeight), nodeName)
 			alertTimer.Reset(5 * time.Minute)
 		}
