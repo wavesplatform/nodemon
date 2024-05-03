@@ -461,6 +461,8 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 		out.Fixed = &BaseTargetAlert{}
 	case InternalErrorAlertType:
 		out.Fixed = &InternalErrorAlert{}
+	case L2StuckAlertType:
+		out.Fixed = &L2StuckAlert{}
 	case AlertFixedType:
 		return errors.Errorf("nested fixed alerts (%d) are not allowed", t)
 	default:
@@ -597,15 +599,15 @@ func (a *InternalErrorAlert) String() string {
 
 func NewL2StuckAlert(timestamp int64, l2Height int, l2Node string) *L2StuckAlert {
 	return &L2StuckAlert{
-		l2Height:  l2Height,
-		l2Node:    l2Node,
+		L2Height:  l2Height,
+		L2Node:    l2Node,
 		Timestamp: timestamp,
 	}
 }
 
 type L2StuckAlert struct {
-	l2Height  int    `json:"l2_height"`
-	l2Node    string `json:"l2_node"`
+	L2Height  int    `json:"l2_height"`
+	L2Node    string `json:"l2_node"`
 	Timestamp int64  `json:"timestamp"`
 }
 
@@ -615,7 +617,7 @@ func (a *L2StuckAlert) Name() AlertName {
 
 func (a *L2StuckAlert) Message() string {
 	return fmt.Sprintf(
-		"Node %s is at the same height for more than 5 minutes", a.l2Node,
+		"Node %s is at the same height for more than 5 minutes", a.L2Node,
 	)
 }
 
@@ -630,8 +632,8 @@ func (a *L2StuckAlert) String() string {
 func (a *L2StuckAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
 	buff.WriteString(a.Name().String())
-	buff.WriteString(a.l2Node)
-	buff.WriteString(strconv.Itoa(a.l2Height))
+	buff.WriteString(a.L2Node)
+	buff.WriteString(strconv.Itoa(a.L2Height))
 	digest := crypto.MustFastHash(buff.Bytes())
 	return digest
 }

@@ -3,7 +3,7 @@ package l2
 import (
 	"bytes"
 	"encoding/json"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"nodemon/pkg/entities"
 	"strconv"
@@ -41,7 +41,7 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 	}
 	defer resp.Body.Close()
 
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error("Failed to read response body from l2 node", zap.Error(err))
 		return
