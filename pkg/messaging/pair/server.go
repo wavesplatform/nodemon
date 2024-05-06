@@ -89,7 +89,7 @@ func handleMessage(
 		handleUpdateNodeRequest(msg, logger, ns)
 	case RequestDeleteNodeType:
 		handleDeleteNodeRequest(msg, ns, logger)
-	case RequestNodesStatusType, RequestNodeStatementType, RequestNodesLastGeneratorsType:
+	case RequestNodesStatusType, RequestNodeStatementType:
 		handleNodesStatementsRequest(msg, es, logger, socket)
 	default:
 		logger.Error("Unknown request type", zap.Int("type", int(t)), zap.Binary("message", msg))

@@ -11,5 +11,4 @@ const (
 	RequestDeleteNodeType
 	RequestNodesStatusType
 	RequestNodeStatementType
-	RequestNodesLastGeneratorsType
 )

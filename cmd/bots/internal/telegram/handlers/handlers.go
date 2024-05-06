@@ -17,6 +17,11 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
+const (
+	OnlyNormalNodes   = false
+	OnlySpecificNodes = true
+)
+
 func InitTgHandlers(
 	env *common.TelegramBotEnvironment,
 	zapLogger *zap.Logger,
@@ -167,9 +172,11 @@ func viewChains(
 	zapLogger *zap.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		// TODO include private nodes too after they support sending Generators
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
 			zapLogger.Error("failed to get nodes list", zap.Error(err))
+			return err
 		}
 		urls := messaging.NodesToUrls(nodes)
 
@@ -298,7 +305,7 @@ func addSpecificCmd(
 			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
-		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, true)
+		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, OnlySpecificNodes)
 		return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
@@ -315,7 +322,7 @@ func addCmd(
 		}
 		url := args[0]
 
-		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, false)
+		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, OnlyNormalNodes)
 		err := c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 		if err != nil {
 			return err
