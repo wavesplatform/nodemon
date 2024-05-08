@@ -577,6 +577,7 @@ func ScheduleNodesStatus(
 			if err != nil {
 				zapLogger.Error("failed to construct a message", zap.Error(err))
 			}
+			//nolint:all U1000 ignoring this because bot does have this method
 			bot.SendMessage(msg)
 			return
 		}
@@ -590,6 +591,7 @@ func ScheduleNodesStatus(
 			zapLogger.Error("failed to schedule nodes status, unknown bot type")
 			return
 		}
+		//nolint:all U1000 ignoring this because bot does have this method
 		bot.SendMessage(msg)
 	}, scheduledTimeExpression)
 

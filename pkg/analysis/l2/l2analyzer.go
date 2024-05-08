@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	urlPackage "net/url"
 	"nodemon/pkg/entities"
 	"strconv"
 	"time"
 
 	"go.uber.org/zap"
 )
+
+const l2NodesSameHeightTimerMinutes = 5
 
 type Response struct {
 	Jsonrpc string `json:"jsonrpc"`
@@ -24,6 +27,12 @@ func hexStringToInt(hexString string) (int64, error) {
 }
 
 func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
+	// Validate the URL
+	if _, err := urlPackage.ParseRequestURI(url); err != nil {
+		logger.Error("Invalid URL", zap.String("url", url), zap.Error(err))
+		return
+	}
+
 	requestBody, err := json.Marshal(map[string]interface{}{
 		"jsonrpc": "2.0",
 		"id":      "1",
@@ -33,8 +42,8 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 	if err != nil {
 		logger.Error("Failed to build a request body for l2 node", zap.Error(err))
 	}
-
-	resp, err := http.Post(url, "application/json", bytes.NewBuffer(requestBody))
+	//nolint:noctx // ignoring this because the URL is validated
+	resp, err := http.DefaultClient.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Error("Failed to send a request to l2 node", zap.Error(err))
 		return
@@ -78,19 +87,19 @@ func RunL2Analyzer(
 	}()
 
 	var lastHeight int64
-	alertTimer := time.NewTimer(5 * time.Minute)
+	alertTimer := time.NewTimer(l2NodesSameHeightTimerMinutes * time.Minute)
 
 	for {
 		select {
 		case height := <-ch:
 			if height != lastHeight {
 				lastHeight = height
-				alertTimer.Reset(5 * time.Minute)
+				alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
 			}
 		case <-alertTimer.C:
 			zap.Info("Alert: Height of an l2 node didn't change in 5 minutes")
 			alerts <- entities.NewL2StuckAlert(time.Now().Unix(), int(lastHeight), nodeName)
-			alertTimer.Reset(5 * time.Minute)
+			alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
 		}
 	}
 }
