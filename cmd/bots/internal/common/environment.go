@@ -1075,7 +1075,7 @@ func HandleNodesChains(
 	var chains []Chain
 	chains = append(chains, Chain{
 		BlockID:          sample.BlockID.String(),
-		GeneratorAddress: sample.BlockID.String(),
+		GeneratorAddress: sample.Generator.String(),
 	})
 	height := sample.Height
 	for i := 1; i < len(resp.NodesStatements); i++ {
