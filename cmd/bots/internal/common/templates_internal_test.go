@@ -399,8 +399,8 @@ func TestNodesStatusDifferentHashesTemplate(t *testing.T) {
 }
 
 func TestNodesDifferentChainsTemplate(t *testing.T) {
-	data := NodesChains{Height: "5",
-		Chains: []Chain{
+	data := nodesChains{Height: "5",
+		Chains: []chain{
 			{
 				BlockID:          "some-block-id",
 				GeneratorAddress: "some-generator",
@@ -421,7 +421,7 @@ func TestNodesDifferentChainsTemplate(t *testing.T) {
 }
 
 func TestNodesOkChainsTemplate(t *testing.T) {
-	data := NodesSingleChain{
+	data := nodesSingleChain{
 		NodesNumber:      3,
 		Height:           "5",
 		BlockID:          "some-block-id",

@@ -1043,19 +1043,19 @@ func HandleNodesStatus(
 	return msg, statusCondition, nil
 }
 
-type NodesSingleChain struct {
+type nodesSingleChain struct {
 	NodesNumber      int
 	Height           string
 	BlockID          string
 	GeneratorAddress string
 }
 
-type NodesChains struct {
+type nodesChains struct {
 	Height string
-	Chains []Chain
+	Chains []chain
 }
 
-type Chain struct {
+type chain struct {
 	BlockID          string
 	GeneratorAddress string
 }
@@ -1072,8 +1072,8 @@ func HandleNodesChains(
 	if sample.BlockID == nil || sample.Generator == nil {
 		return "", errors.Errorf("block ID or generator are empty for node %s", sample.URL)
 	}
-	var chains []Chain
-	chains = append(chains, Chain{
+	var chains []chain
+	chains = append(chains, chain{
 		BlockID:          sample.BlockID.String(),
 		GeneratorAddress: sample.Generator.String(),
 	})
@@ -1084,7 +1084,7 @@ func HandleNodesChains(
 			return "", errors.Errorf("block ID or generator are empty for node %s", statement.URL)
 		}
 		if statement.BlockID != sample.BlockID && statement.Height == sample.Height {
-			chains = append(chains, Chain{
+			chains = append(chains, chain{
 				BlockID:          statement.BlockID.String(),
 				GeneratorAddress: statement.Generator.String(),
 			})
@@ -1093,7 +1093,7 @@ func HandleNodesChains(
 
 	/* we have more than one chain */
 	if len(chains) > 1 {
-		nodesChainsMsg := NodesChains{
+		nodesChainsMsg := nodesChains{
 			Height: strconv.Itoa(height),
 			Chains: chains,
 		}
@@ -1104,7 +1104,7 @@ func HandleNodesChains(
 		return msg, nil
 	}
 
-	nodeChainOk := NodesSingleChain{
+	nodeChainOk := nodesSingleChain{
 		NodesNumber:      len(resp.NodesStatements),
 		Height:           strconv.Itoa(height),
 		BlockID:          sample.BlockID.String(),
