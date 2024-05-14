@@ -17,11 +17,6 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-const (
-	OnlyNormalNodes   = false
-	OnlySpecificNodes = true
-)
-
 func InitTgHandlers(
 	env *common.TelegramBotEnvironment,
 	zapLogger *zap.Logger,
@@ -305,7 +300,7 @@ func addSpecificCmd(
 			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
-		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, OnlySpecificNodes)
+		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, true)
 		return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 	}
 }
@@ -322,7 +317,7 @@ func addCmd(
 		}
 		url := args[0]
 
-		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, OnlyNormalNodes)
+		response := AddNewNodeHandler(c, environment, requestChan, responseChan, url, false)
 		err := c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 		if err != nil {
 			return err
