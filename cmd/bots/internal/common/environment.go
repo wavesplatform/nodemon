@@ -1080,13 +1080,18 @@ func HandleNodesChains(
 	height := sample.Height
 	for i := 1; i < len(resp.NodesStatements); i++ {
 		statement := resp.NodesStatements[i]
-		if statement.BlockID == nil || statement.Generator == nil {
-			return "", errors.Errorf("block ID or generator are empty for node %s", statement.URL)
+		if statement.BlockID == nil {
+			return "", errors.Errorf("block ID is empty for node %s", statement.URL)
+		}
+		// can be empty for private nodes
+		generatorAddress := ""
+		if statement.Generator != nil {
+			generatorAddress = statement.Generator.String()
 		}
 		if statement.BlockID != sample.BlockID && statement.Height == sample.Height {
 			chains = append(chains, Chain{
 				BlockID:          statement.BlockID.String(),
-				GeneratorAddress: statement.Generator.String(),
+				GeneratorAddress: generatorAddress,
 			})
 		}
 	}
