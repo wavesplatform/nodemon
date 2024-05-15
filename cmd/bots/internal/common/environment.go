@@ -1088,7 +1088,7 @@ func HandleNodesChains(
 		if statement.Generator != nil {
 			generatorAddress = statement.Generator.String()
 		}
-		if statement.BlockID != sample.BlockID && statement.Height == sample.Height {
+		if statement.BlockID.String() != sample.BlockID.String() && statement.Height == sample.Height {
 			chains = append(chains, Chain{
 				BlockID:          statement.BlockID.String(),
 				GeneratorAddress: generatorAddress,
