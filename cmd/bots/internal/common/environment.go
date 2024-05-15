@@ -1069,8 +1069,12 @@ func HandleNodesChains(
 	}
 
 	sample := resp.NodesStatements[0]
-	if sample.BlockID == nil || sample.Generator == nil {
+	if sample.BlockID == nil {
 		return "", errors.Errorf("block ID or generator are empty for node %s", sample.URL)
+	}
+	sampleGeneratorAddress := ""
+	if sample.Generator != nil {
+		sampleGeneratorAddress = sample.Generator.String()
 	}
 	var chains []Chain
 	chains = append(chains, Chain{
@@ -1113,7 +1117,7 @@ func HandleNodesChains(
 		NodesNumber:      len(resp.NodesStatements),
 		Height:           strconv.Itoa(height),
 		BlockID:          sample.BlockID.String(),
-		GeneratorAddress: sample.Generator.String(),
+		GeneratorAddress: sampleGeneratorAddress,
 	}
 
 	okMsg, err := executeTemplate("templates/nodes_chains_ok", nodeChainOk, ext)
