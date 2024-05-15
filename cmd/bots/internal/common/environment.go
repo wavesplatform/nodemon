@@ -1043,19 +1043,19 @@ func HandleNodesStatus(
 	return msg, statusCondition, nil
 }
 
-type NodesSingleChain struct {
+type nodesSingleChain struct {
 	NodesNumber      int
 	Height           string
 	BlockID          string
 	GeneratorAddress string
 }
 
-type NodesChains struct {
+type nodesChains struct {
 	Height string
-	Chains []Chain
+	Chains []chain
 }
 
-type Chain struct {
+type chain struct {
 	BlockID          string
 	GeneratorAddress string
 }
@@ -1076,10 +1076,10 @@ func HandleNodesChains(
 	if sample.Generator != nil {
 		sampleGeneratorAddress = sample.Generator.String()
 	}
-	var chains []Chain
-	chains = append(chains, Chain{
+	var chains []chain
+	chains = append(chains, chain{
 		BlockID:          sample.BlockID.String(),
-		GeneratorAddress: sample.BlockID.String(),
+		GeneratorAddress: sampleGeneratorAddress,
 	})
 	height := sample.Height
 	for i := 1; i < len(resp.NodesStatements); i++ {
@@ -1093,7 +1093,7 @@ func HandleNodesChains(
 			generatorAddress = statement.Generator.String()
 		}
 		if statement.BlockID.String() != sample.BlockID.String() && statement.Height == sample.Height {
-			chains = append(chains, Chain{
+			chains = append(chains, chain{
 				BlockID:          statement.BlockID.String(),
 				GeneratorAddress: generatorAddress,
 			})
@@ -1102,7 +1102,7 @@ func HandleNodesChains(
 
 	/* we have more than one chain */
 	if len(chains) > 1 {
-		nodesChainsMsg := NodesChains{
+		nodesChainsMsg := nodesChains{
 			Height: strconv.Itoa(height),
 			Chains: chains,
 		}
@@ -1113,7 +1113,7 @@ func HandleNodesChains(
 		return msg, nil
 	}
 
-	nodeChainOk := NodesSingleChain{
+	nodeChainOk := nodesSingleChain{
 		NodesNumber:      len(resp.NodesStatements),
 		Height:           strconv.Itoa(height),
 		BlockID:          sample.BlockID.String(),
