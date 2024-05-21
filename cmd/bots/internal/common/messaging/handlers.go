@@ -76,18 +76,18 @@ func RemoveNodeHandler(chatID string, bot Bot, requestType chan<- pair.Request, 
 	return fmt.Sprintf("Node '%s' was deleted", url), nil
 }
 
-func RequestNodesStatus(
+func RequestNodesStatements(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 	urls []string,
-) (*pair.NodesStatusResponse, error) {
+) (*pair.NodesStatementsResponse, error) {
 	requestChan <- &pair.NodesStatusRequest{URLs: urls}
 	response := <-responseChan
-	nodesStatus, ok := response.(*pair.NodesStatusResponse)
+	nodesStatements, ok := response.(*pair.NodesStatementsResponse)
 	if !ok {
 		return nil, errors.New("failed to convert response interface to the nodes status type")
 	}
-	return nodesStatus, nil
+	return nodesStatements, nil
 }
 
 func RequestNodes(

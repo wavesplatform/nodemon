@@ -76,6 +76,8 @@ func InitTgHandlers(
 	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh))
 
 	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
+
+	env.Bot.Handle("/viewchains", viewChains(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 }
 
 func removeCmd(
@@ -158,6 +160,41 @@ func onTextMsgHandler(
 	}
 }
 
+func viewChains(
+	requestChan chan<- pair.Request,
+	responsePairType <-chan pair.Response,
+	ext common.ExpectedExtension,
+	zapLogger *zap.Logger,
+) func(c telebot.Context) error {
+	return func(c telebot.Context) error {
+		// TODO include private nodes too after they support sending Generators
+		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
+		if err != nil {
+			zapLogger.Error("failed to get nodes list", zap.Error(err))
+			return err
+		}
+		urls := messaging.NodesToUrls(nodes)
+
+		nodesStatements, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
+		if err != nil {
+			zapLogger.Error("failed to request status of nodes", zap.Error(err))
+			return err
+		}
+
+		if nodesStatements.ErrMessage != "" {
+			return c.Send(nodesStatements.ErrMessage, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+		}
+
+		msg, err := common.HandleNodesChains(nodesStatements, ext)
+		if err != nil {
+			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
+			return err
+		}
+
+		return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
+	}
+}
+
 func statusCmd(
 	requestChan chan<- pair.Request,
 	responsePairType <-chan pair.Response,
@@ -171,7 +208,7 @@ func statusCmd(
 		}
 		urls := messaging.NodesToUrls(nodes)
 
-		nodesStatus, err := messaging.RequestNodesStatus(requestChan, responsePairType, urls)
+		nodesStatus, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
 			zapLogger.Error("failed to request status of nodes", zap.Error(err))
 			return err

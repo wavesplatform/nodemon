@@ -1,12 +1,9 @@
-❌ <b>Diverging State Hashes</b>
-Nodes on the same chain have diverging state hashes at {{ .SameHeight}}
+📊 <b>Nodes on the same chain have diverging state hashes at {{ .SameHeight}}</b>
 {{ with .FirstGroup }}
-<i>BlockID:</i> <code>{{ .BlockID}}</code>
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
 <i>Nodes:</i>{{range .Nodes}}
 <code>{{.}}</code>{{end}}{{end}}
 {{ with .SecondGroup }}
-<i>BlockID:</i> <code>{{ .BlockID}}</code>
 <i>State Hash:</i> <code>{{ .StateHash}}</code>
 <i>Nodes:</i>{{range .Nodes}}
 <code>{{.}}</code>{{end}}{{end}}

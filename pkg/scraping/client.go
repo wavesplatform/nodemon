@@ -65,3 +65,13 @@ func (c *nodeClient) baseTarget(ctx context.Context, height int) (int, error) {
 	}
 	return int(headers.NxtConsensus.BaseTarget), nil
 }
+
+func (c *nodeClient) blockGenerator(ctx context.Context, height int) (proto.BlockID, proto.WavesAddress, error) {
+	headers, _, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
+	if err != nil {
+		nodeURL := c.cl.GetOptions().BaseUrl
+		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
+		return proto.BlockID{}, proto.WavesAddress{}, err
+	}
+	return headers.ID, headers.Generator, nil
+}

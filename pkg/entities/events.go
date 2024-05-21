@@ -191,10 +191,13 @@ type StateHashEvent struct {
 	h          int
 	sh         *proto.StateHash
 	baseTarget int
+	blockID    *proto.BlockID
+	generator  *proto.WavesAddress
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int) *StateHashEvent {
-	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt}
+func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int,
+	blockID *proto.BlockID, generator *proto.WavesAddress) *StateHashEvent {
+	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt, blockID: blockID, generator: generator}
 }
 
 func (e *StateHashEvent) Node() string {
@@ -221,6 +224,14 @@ func (e *StateHashEvent) BaseTarget() int {
 	return e.baseTarget
 }
 
+func (e *StateHashEvent) BlockID() *proto.BlockID {
+	return e.blockID
+}
+
+func (e *StateHashEvent) Generator() *proto.WavesAddress {
+	return e.generator
+}
+
 func (e *StateHashEvent) Statement() NodeStatement {
 	return NodeStatement{
 		Node:       e.Node(),
@@ -230,6 +241,8 @@ func (e *StateHashEvent) Statement() NodeStatement {
 		Height:     e.Height(),
 		StateHash:  e.StateHash(),
 		BaseTarget: e.BaseTarget(),
+		BlockID:    e.blockID,
+		Generator:  e.generator,
 	}
 }
 
@@ -283,6 +296,68 @@ func (e *BaseTargetEvent) Statement() NodeStatement {
 }
 
 func (e *BaseTargetEvent) WithTimestamp(ts int64) Event {
+	cpy := *e
+	cpy.ts = ts
+	return &cpy
+}
+
+type BlockGeneratorEvent struct {
+	node      string
+	ts        int64
+	v         string
+	h         int
+	bs        int
+	blockID   *proto.BlockID
+	generator *proto.WavesAddress
+}
+
+func NewBlockGeneratorEvent(node string, ts int64, v string, h int, bs int,
+	blockID *proto.BlockID, generator *proto.WavesAddress) *BlockGeneratorEvent {
+	return &BlockGeneratorEvent{node: node, ts: ts, v: v, h: h, bs: bs, blockID: blockID, generator: generator}
+}
+
+func (e *BlockGeneratorEvent) Node() string {
+	return e.node
+}
+
+func (e *BlockGeneratorEvent) Timestamp() int64 {
+	return e.ts
+}
+
+func (e *BlockGeneratorEvent) Version() string {
+	return e.v
+}
+
+func (e *BlockGeneratorEvent) Height() int {
+	return e.h
+}
+
+func (e *BlockGeneratorEvent) BaseTarget() int {
+	return e.bs
+}
+
+func (e *BlockGeneratorEvent) BlockID() *proto.BlockID {
+	return e.blockID
+}
+
+func (e *BlockGeneratorEvent) Generator() *proto.WavesAddress {
+	return e.generator
+}
+
+func (e *BlockGeneratorEvent) Statement() NodeStatement {
+	return NodeStatement{
+		Node:       e.Node(),
+		Timestamp:  e.Timestamp(),
+		Status:     Incomplete,
+		Version:    e.Version(),
+		Height:     e.Height(),
+		BaseTarget: e.BaseTarget(),
+		BlockID:    e.BlockID(),
+		Generator:  e.Generator(),
+	}
+}
+
+func (e *BlockGeneratorEvent) WithTimestamp(ts int64) Event {
 	cpy := *e
 	cpy.ts = ts
 	return &cpy

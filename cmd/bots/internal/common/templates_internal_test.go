@@ -398,6 +398,45 @@ func TestNodesStatusDifferentHashesTemplate(t *testing.T) {
 	}
 }
 
+func TestNodesDifferentChainsTemplate(t *testing.T) {
+	data := nodesChains{Height: "5",
+		Chains: []chain{
+			{
+				BlockID:          "some-block-id",
+				GeneratorAddress: "some-generator",
+			},
+			{
+				BlockID:          "another-block-id",
+				GeneratorAddress: "another-generator",
+			},
+		},
+	}
+	for _, f := range expectedFormats() {
+		const template = "templates/nodes_chains_different"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
+func TestNodesOkChainsTemplate(t *testing.T) {
+	data := nodesSingleChain{
+		NodesNumber:      3,
+		Height:           "5",
+		BlockID:          "some-block-id",
+		GeneratorAddress: "some-generator",
+	}
+
+	for _, f := range expectedFormats() {
+		const template = "templates/nodes_chains_ok"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
+
 func TestNodesStatusDifferentHeightsTemplate(t *testing.T) {
 	data := []NodeStatus{
 		{
