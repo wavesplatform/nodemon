@@ -19,8 +19,8 @@ var (
 )
 
 const (
-	depthCommonHeightSearch = 10
-	heightDifference        = 10
+	depthCommonHeightSearch = 50
+	heightDifference        = 50
 )
 
 type Storage struct {
@@ -256,7 +256,7 @@ func (s *Storage) findMinCommonSpecificHeight(
 	return nodesHeights, nil
 }
 
-func (s *Storage) FindAllStateHashesOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
+func (s *Storage) FindAllStatementsOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
 	minHeight, maxHeight := math.MaxInt, 0
 
 	nodesList := make(map[string]bool) // reachable or unreachable
