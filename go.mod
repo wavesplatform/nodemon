@@ -7,7 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/hashicorp/vault/api v1.14.0
-	github.com/hashicorp/vault/api/auth/userpass v0.6.0
+	github.com/hashicorp/vault/api/auth/userpass v0.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
