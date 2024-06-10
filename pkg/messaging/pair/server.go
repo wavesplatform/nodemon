@@ -39,10 +39,24 @@ func StartPairMessagingServer(
 		return err
 	}
 
+	loopErr := enterLoop(ctx, socket, logger, ns, es)
+	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
+		return loopErr
+	}
+	return nil
+}
+
+func enterLoop(
+	ctx context.Context,
+	socket protocol.Socket,
+	logger *zap.Logger,
+	ns nodes.Storage,
+	es *events.Storage,
+) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		default:
 			rawMsg, recvErr := socket.Recv()
 			if recvErr != nil {
