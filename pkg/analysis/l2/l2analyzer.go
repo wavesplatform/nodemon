@@ -73,15 +73,15 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 
 func RunL2Analyzer(
 	zap *zap.Logger,
-	alerts chan<- entities.Alert,
 	nodeURL string,
 	nodeName string,
-) {
-	ch := make(chan int64)
+) <-chan entities.Alert {
+	alertsL2 := make(chan entities.Alert)
+	heihtCh := make(chan int64)
 
 	go func() {
 		for {
-			collectL2Height(nodeURL, ch, zap)
+			collectL2Height(nodeURL, heihtCh, zap)
 			time.Sleep(time.Minute)
 		}
 	}()
@@ -89,17 +89,21 @@ func RunL2Analyzer(
 	var lastHeight int64
 	alertTimer := time.NewTimer(l2NodesSameHeightTimerMinutes * time.Minute)
 
-	for {
-		select {
-		case height := <-ch:
-			if height != lastHeight {
-				lastHeight = height
+	go func(alertsL2 chan<- entities.Alert) {
+		defer close(alertsL2)
+		for {
+			select {
+			case height := <-heihtCh:
+				if height != lastHeight {
+					lastHeight = height
+					alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
+				}
+			case <-alertTimer.C:
+				zap.Info("Alert: Height of an l2 node didn't change in 5 minutes")
+				alertsL2 <- entities.NewL2StuckAlert(time.Now().Unix(), int(lastHeight), nodeName)
 				alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
 			}
-		case <-alertTimer.C:
-			zap.Info("Alert: Height of an l2 node didn't change in 5 minutes")
-			alerts <- entities.NewL2StuckAlert(time.Now().Unix(), int(lastHeight), nodeName)
-			alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
 		}
-	}
+	}(alertsL2)
+	return alertsL2
 }

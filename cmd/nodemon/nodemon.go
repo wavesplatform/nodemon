@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -106,7 +107,7 @@ func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
 type nodemonConfig struct {
 	storage                string
 	nodes                  string
-	L2nodeName             string
+	L2nodes                string
 	L2nodeURL              string
 	bindAddress            string
 	interval               time.Duration
@@ -151,8 +152,8 @@ func newNodemonConfig() *nodemonConfig {
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	tools.StringVarFlagWithEnv(&c.L2nodeURL, "l2-node-url", "",
 		"")
-	tools.StringVarFlagWithEnv(&c.L2nodeName, "l2-node-name", "",
-		"")
+	tools.StringVarFlagWithEnv(&c.L2nodes, "l2-nodes", "",
+		"List of Waves L2 Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 
 	c.vault = newNodemonVaultConfig()
 	return c
@@ -182,6 +183,30 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 		return errInvalidParameters
 	}
 	return c.vault.validate(logger)
+}
+
+func merge(channels ...<-chan entities.Alert) <-chan entities.Alert {
+	var wg sync.WaitGroup
+	out := make(chan entities.Alert)
+	fanInFunc := func(c <-chan entities.Alert) {
+		// will keep working until the input channels are closed
+		for n := range c {
+			out <- n
+		}
+		wg.Done()
+	}
+	wg.Add(len(channels))
+
+	for _, ch := range channels {
+		go fanInFunc(ch)
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	return out
 }
 
 func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscordURL != "" }
@@ -260,9 +285,11 @@ func run() error {
 
 	alerts := runAnalyzer(cfg, es, logger, notifications)
 
-	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
+	alertL2 := l2.RunL2Analyzer(logger, cfg.L2nodeURL, cfg.L2nodes)
 
-	go l2.RunL2Analyzer(logger, alerts, cfg.L2nodeURL, cfg.L2nodeName)
+	mergedAlerts := merge(alerts, alertL2)
+
+	runMessagingServices(ctx, cfg, mergedAlerts, logger, ns, es)
 
 	<-ctx.Done()
 	a.Shutdown()
@@ -304,7 +331,7 @@ func runAnalyzer(
 	es *events.Storage,
 	zap *zap.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
-) chan entities.Alert {
+) <-chan entities.Alert {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: cfg.baseTargetThreshold},
 	}
