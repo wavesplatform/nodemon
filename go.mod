@@ -15,7 +15,7 @@ require (
 	github.com/wavesplatform/gowaves v0.10.7-0.20240501073236-f26d1c3dda68
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/zap v1.27.0
-	gopkg.in/telebot.v3 v3.2.1
+	gopkg.in/telebot.v3 v3.3.6
 )
 
 require (
