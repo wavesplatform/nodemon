@@ -15,6 +15,7 @@ import (
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
+	"nodemon/pkg/tools"
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
@@ -40,6 +41,8 @@ type API struct {
 type mwLog struct{ *zap.Logger }
 
 func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
+
+func (m mwLog) Println(v ...interface{}) { m.Sugar().Infoln(v...) }
 
 func NewAPI(
 	bind string,
@@ -67,7 +70,7 @@ func NewAPI(
 	}))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.SetHeader("Content-Type", "application/json"))
-	r.Mount("/", a.routes())
+	r.Mount("/", a.routes(logger))
 	a.srv = &http.Server{Addr: bind, Handler: r, ReadHeaderTimeout: apiReadTimeout, ReadTimeout: apiReadTimeout}
 	return a, nil
 }
@@ -95,13 +98,14 @@ func (a *API) Shutdown() {
 	}
 }
 
-func (a *API) routes() chi.Router {
+func (a *API) routes(logger *zap.Logger) chi.Router {
 	r := chi.NewRouter()
 	r.Get("/nodes/all", a.nodes)
 	r.Get("/nodes/enabled", a.enabled)
 	r.Post("/nodes/specific/statements", a.specificNodesHandler)
 	r.Get("/health", a.health)
 	r.Handle("/log/level", a.atom)
+	r.Handle("/metrics", tools.PrometheusHTTPMetricsHandler(mwLog{logger}))
 	return r
 }
 
