@@ -2,12 +2,15 @@ package l2
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	urlPackage "net/url"
 	"nodemon/pkg/entities"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -23,10 +26,11 @@ type Response struct {
 
 func hexStringToInt(hexString string) (int64, error) {
 	// Parse the hexadecimal string to integer
-	return strconv.ParseInt(hexString[2:], 16, 64)
+	hexString = strings.TrimPrefix(hexString, "0x")
+	return strconv.ParseInt(hexString, 16, 64)
 }
 
-func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
+func collectL2Height(url string, ch chan<- uint64, logger *zap.Logger) {
 	// Validate the URL
 	if _, err := urlPackage.ParseRequestURI(url); err != nil {
 		logger.Error("Invalid URL", zap.String("url", url), zap.Error(err))
@@ -68,16 +72,20 @@ func collectL2Height(url string, ch chan<- int64, logger *zap.Logger) {
 		logger.Error("Failed converting hex string to integer:", zap.Error(err))
 		return
 	}
-	ch <- height
+	if height < 0 {
+		logger.Error("The received height is negative, " + strconv.Itoa(int(height)))
+	}
+	ch <- uint64(height)
 }
 
 func RunL2Analyzer(
+	ctx context.Context,
 	zap *zap.Logger,
 	nodeURL string,
 	nodeName string,
 ) <-chan entities.Alert {
 	alertsL2 := make(chan entities.Alert)
-	heihtCh := make(chan int64)
+	heihtCh := make(chan uint64)
 
 	go func() {
 		for {
@@ -86,11 +94,13 @@ func RunL2Analyzer(
 		}
 	}()
 
-	var lastHeight int64
+	var lastHeight uint64
 	alertTimer := time.NewTimer(l2NodesSameHeightTimerMinutes * time.Minute)
+	defer alertTimer.Stop()
 
 	go func(alertsL2 chan<- entities.Alert) {
 		defer close(alertsL2)
+		defer close(heihtCh)
 		for {
 			select {
 			case height := <-heihtCh:
@@ -99,9 +109,12 @@ func RunL2Analyzer(
 					alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
 				}
 			case <-alertTimer.C:
-				zap.Info("Alert: Height of an l2 node didn't change in 5 minutes")
-				alertsL2 <- entities.NewL2StuckAlert(time.Now().Unix(), int(lastHeight), nodeName)
+
+				zap.Info(fmt.Sprintf("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s", nodeName, nodeURL))
+				alertsL2 <- entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, nodeName)
 				alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
+			case <-ctx.Done():
+				return
 			}
 		}
 	}(alertsL2)

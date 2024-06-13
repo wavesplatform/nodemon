@@ -107,7 +107,7 @@ func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
 type nodemonConfig struct {
 	storage                string
 	nodes                  string
-	L2nodes                string
+	L2nodeName             string
 	L2nodeURL              string
 	bindAddress            string
 	interval               time.Duration
@@ -152,7 +152,7 @@ func newNodemonConfig() *nodemonConfig {
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	tools.StringVarFlagWithEnv(&c.L2nodeURL, "l2-node-url", "",
 		"")
-	tools.StringVarFlagWithEnv(&c.L2nodes, "l2-nodes", "",
+	tools.StringVarFlagWithEnv(&c.L2nodeName, "l2-nodes", "",
 		"List of Waves L2 Blockchain nodes to monitor. Provide comma separated list of REST API URLs here.")
 
 	c.vault = newNodemonVaultConfig()
@@ -212,6 +212,29 @@ func merge(channels ...<-chan entities.Alert) <-chan entities.Alert {
 func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscordURL != "" }
 
 func (c *nodemonConfig) runTelegramPairServer() bool { return c.nanomsgPairTelegramURL != "" }
+
+func (c *nodemonConfig) runAnalyzers(
+	ctx context.Context,
+	cfg *nodemonConfig, es *events.Storage,
+	ns nodes.Storage,
+	logger *zap.Logger,
+	notifications <-chan entities.NodesGatheringNotification,
+	a *api.API) {
+	alerts := runAnalyzer(cfg, es, logger, notifications)
+
+	// L2 analyzer will only be run if the arguments are set
+	if cfg.L2nodeURL != "" && cfg.L2nodeName != "" {
+		alertL2 := l2.RunL2Analyzer(ctx, logger, cfg.L2nodeName, cfg.L2nodeURL)
+		mergedAlerts := merge(alerts, alertL2)
+		runMessagingServices(ctx, cfg, mergedAlerts, logger, ns, es)
+		<-ctx.Done()
+		a.Shutdown()
+		logger.Info("shutting down")
+		return
+	}
+
+	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
+}
 
 func run() error {
 	cfg := newNodemonConfig()
@@ -283,13 +306,7 @@ func run() error {
 		return apiErr
 	}
 
-	alerts := runAnalyzer(cfg, es, logger, notifications)
-
-	alertL2 := l2.RunL2Analyzer(logger, cfg.L2nodeURL, cfg.L2nodes)
-
-	mergedAlerts := merge(alerts, alertL2)
-
-	runMessagingServices(ctx, cfg, mergedAlerts, logger, ns, es)
+	cfg.runAnalyzers(ctx, cfg, es, ns, logger, notifications, a)
 
 	<-ctx.Done()
 	a.Shutdown()

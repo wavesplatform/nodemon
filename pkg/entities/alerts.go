@@ -597,7 +597,7 @@ func (a *InternalErrorAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
 }
 
-func NewL2StuckAlert(timestamp int64, l2Height int, l2Node string) *L2StuckAlert {
+func NewL2StuckAlert(timestamp int64, l2Height uint64, l2Node string) *L2StuckAlert {
 	return &L2StuckAlert{
 		L2Height:  l2Height,
 		L2Node:    l2Node,
@@ -606,7 +606,7 @@ func NewL2StuckAlert(timestamp int64, l2Height int, l2Node string) *L2StuckAlert
 }
 
 type L2StuckAlert struct {
-	L2Height  int    `json:"l2_height"`
+	L2Height  uint64 `json:"l2_height"`
 	L2Node    string `json:"l2_node"`
 	Timestamp int64  `json:"timestamp"`
 }
@@ -633,7 +633,7 @@ func (a *L2StuckAlert) ID() crypto.Digest {
 	var buff bytes.Buffer
 	buff.WriteString(a.Name().String())
 	buff.WriteString(a.L2Node)
-	buff.WriteString(strconv.Itoa(a.L2Height))
+	buff.WriteString(strconv.FormatUint(a.L2Height, 10))
 	digest := crypto.MustFastHash(buff.Bytes())
 	return digest
 }
