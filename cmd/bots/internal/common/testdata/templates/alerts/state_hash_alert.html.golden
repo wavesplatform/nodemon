@@ -1,12 +1,9 @@
-❌ <b>Diverging State Hashes</b>
-Nodes on the same chain have diverging state hashes at 100
+📊 <b>Nodes on the same chain have diverging state hashes at 100</b>
 
-<i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 <i>Nodes:</i>
 <code>a</code>
 
-<i>BlockID:</i> <code>1111111ogCyDbaRMvkdsHB3qfdyFYaG1WtRUAfdh</code>
 <i>State Hash:</i> <code>0000000000000066000000000000000000000000000000000000000000000000</code>
 <i>Nodes:</i>
 <code>b</code>

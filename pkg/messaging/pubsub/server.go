@@ -37,15 +37,18 @@ func StartPubMessagingServer(
 	if err := socketPub.Listen(nanomsgURL); err != nil {
 		return err
 	}
-
-	return enterLoop(ctx, alerts, logger, socketPub)
+	loopErr := enterLoop(ctx, alerts, logger, socketPub)
+	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
+		return loopErr
+	}
+	return nil
 }
 
 func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, socketPub protocol.Socket) error {
 	for {
 		select {
 		case <-ctx.Done():
-			return nil
+			return ctx.Err()
 		case alert := <-alerts:
 			logger.Sugar().Infof("Alert has been generated: %v", alert)
 
