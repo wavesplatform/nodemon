@@ -85,12 +85,18 @@ func RunL2Analyzer(
 	nodeName string,
 ) <-chan entities.Alert {
 	alertsL2 := make(chan entities.Alert)
-	heihtCh := make(chan uint64)
+	heightCh := make(chan uint64)
 
 	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
 		for {
-			collectL2Height(nodeURL, heihtCh, zap)
-			time.Sleep(time.Minute)
+			select {
+			case <-ticker.C:
+				collectL2Height(nodeURL, heightCh, zap)
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
 
@@ -100,10 +106,10 @@ func RunL2Analyzer(
 
 	go func(alertsL2 chan<- entities.Alert) {
 		defer close(alertsL2)
-		defer close(heihtCh)
+		defer close(heightCh)
 		for {
 			select {
-			case height := <-heihtCh:
+			case height := <-heightCh:
 				if height != lastHeight {
 					lastHeight = height
 					alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
