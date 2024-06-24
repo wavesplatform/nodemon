@@ -8,15 +8,17 @@ import (
 	"io"
 	"net/http"
 	urlPackage "net/url"
-	"nodemon/pkg/entities"
 	"strconv"
 	"strings"
 	"time"
+
+	"nodemon/pkg/entities"
 
 	"go.uber.org/zap"
 )
 
 const l2NodesSameHeightTimerMinutes = 5
+const l2HeightRequestTimeout = 5 * time.Second
 
 type Response struct {
 	Jsonrpc string `json:"jsonrpc"`
@@ -46,8 +48,9 @@ func collectL2Height(url string, ch chan<- uint64, logger *zap.Logger) {
 	if err != nil {
 		logger.Error("Failed to build a request body for l2 node", zap.Error(err))
 	}
+	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	//nolint:noctx // ignoring this because the URL is validated
-	resp, err := http.DefaultClient.Post(url, "application/json", bytes.NewBuffer(requestBody))
+	resp, err := httpClient.Post(url, "application/json", bytes.NewBuffer(requestBody))
 	if err != nil {
 		logger.Error("Failed to send a request to l2 node", zap.Error(err))
 		return
