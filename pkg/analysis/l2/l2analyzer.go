@@ -47,6 +47,7 @@ func collectL2Height(ctx context.Context, url string, ch chan<- uint64, logger *
 	})
 	if err != nil {
 		logger.Error("Failed to build a request body for l2 node", zap.Error(err))
+		return
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
 	if err != nil {
