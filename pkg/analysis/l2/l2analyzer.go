@@ -32,7 +32,7 @@ func hexStringToInt(hexString string) (int64, error) {
 	return strconv.ParseInt(hexString, 16, 64)
 }
 
-func collectL2Height(url string, ch chan<- uint64, logger *zap.Logger) {
+func collectL2Height(ctx context.Context, url string, ch chan<- uint64, logger *zap.Logger) {
 	// Validate the URL
 	if _, err := urlPackage.ParseRequestURI(url); err != nil {
 		logger.Error("Invalid URL", zap.String("url", url), zap.Error(err))
@@ -48,9 +48,13 @@ func collectL2Height(url string, ch chan<- uint64, logger *zap.Logger) {
 	if err != nil {
 		logger.Error("Failed to build a request body for l2 node", zap.Error(err))
 	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(requestBody))
+	if err != nil {
+		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err))
+		return
+	}
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
-	//nolint:noctx // ignoring this because the URL is validated
-	resp, err := httpClient.Post(url, "application/json", bytes.NewBuffer(requestBody))
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		logger.Error("Failed to send a request to l2 node", zap.Error(err))
 		return
@@ -96,7 +100,7 @@ func RunL2Analyzer(
 		for {
 			select {
 			case <-ticker.C:
-				collectL2Height(nodeURL, heightCh, zap)
+				collectL2Height(ctx, nodeURL, heightCh, zap)
 			case <-ctx.Done():
 				return
 			}
