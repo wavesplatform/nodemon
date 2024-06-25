@@ -5,13 +5,14 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"nodemon/pkg/analysis/l2"
 	"os"
 	"os/signal"
 	"strings"
 	"sync"
 	"syscall"
 	"time"
+
+	"nodemon/pkg/analysis/l2"
 
 	"go.uber.org/zap"
 
@@ -186,19 +187,20 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 }
 
 func merge(channels ...<-chan entities.Alert) <-chan entities.Alert {
-	var wg sync.WaitGroup
-	out := make(chan entities.Alert)
-	fanInFunc := func(c <-chan entities.Alert) {
+	fanInFunc := func(wg *sync.WaitGroup, out chan<- entities.Alert, in <-chan entities.Alert) {
+		defer wg.Done()
 		// will keep working until the input channels are closed
-		for n := range c {
-			out <- n
+		for alert := range in {
+			out <- alert
 		}
-		wg.Done()
 	}
+
+	wg := new(sync.WaitGroup)
 	wg.Add(len(channels))
+	out := make(chan entities.Alert)
 
 	for _, ch := range channels {
-		go fanInFunc(ch)
+		go fanInFunc(wg, out, ch)
 	}
 
 	go func() {
@@ -215,24 +217,19 @@ func (c *nodemonConfig) runTelegramPairServer() bool { return c.nanomsgPairTeleg
 
 func (c *nodemonConfig) runAnalyzers(
 	ctx context.Context,
-	cfg *nodemonConfig, es *events.Storage,
+	cfg *nodemonConfig,
+	es *events.Storage,
 	ns nodes.Storage,
 	logger *zap.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
-	a *api.API) {
+) {
 	alerts := runAnalyzer(cfg, es, logger, notifications)
-
 	// L2 analyzer will only be run if the arguments are set
 	if cfg.L2nodeURL != "" && cfg.L2nodeName != "" {
 		alertL2 := l2.RunL2Analyzer(ctx, logger, cfg.L2nodeName, cfg.L2nodeURL)
 		mergedAlerts := merge(alerts, alertL2)
-		runMessagingServices(ctx, cfg, mergedAlerts, logger, ns, es)
-		<-ctx.Done()
-		a.Shutdown()
-		logger.Info("shutting down")
-		return
+		alerts = mergedAlerts
 	}
-
 	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
 }
 
@@ -306,7 +303,7 @@ func run() error {
 		return apiErr
 	}
 
-	cfg.runAnalyzers(ctx, cfg, es, ns, logger, notifications, a)
+	cfg.runAnalyzers(ctx, cfg, es, ns, logger, notifications)
 
 	<-ctx.Done()
 	a.Shutdown()

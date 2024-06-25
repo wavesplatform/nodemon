@@ -92,12 +92,10 @@ func RunL2Analyzer(
 	nodeURL string,
 	nodeName string,
 ) <-chan entities.Alert {
-	alertsL2 := make(chan entities.Alert)
-	heightCh := make(chan uint64)
-
-	go func() {
+	collector := func(heightCh chan<- uint64) {
 		ticker := time.NewTicker(time.Minute)
 		defer ticker.Stop()
+		defer close(heightCh)
 		for {
 			select {
 			case <-ticker.C:
@@ -106,31 +104,38 @@ func RunL2Analyzer(
 				return
 			}
 		}
-	}()
+	}
+	heightCh := make(chan uint64)
+	go collector(heightCh)
 
-	var lastHeight uint64
-	alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
-	defer alertTimer.Stop()
-
-	go func(alertsL2 chan<- entities.Alert) {
+	analyzer := func(alertsL2 chan<- entities.Alert, heightCh <-chan uint64) {
+		alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
+		defer alertTimer.Stop()
 		defer close(alertsL2)
-		defer close(heightCh)
+
+		var lastHeight uint64
 		for {
 			select {
-			case height := <-heightCh:
+			case height, ok := <-heightCh:
+				if !ok { // chan is closed, same as ctx.Done()
+					return
+				}
 				if height != lastHeight {
 					lastHeight = height
 					alertTimer.Reset(l2NodesSameHeightTimerDuration)
 				}
 			case <-alertTimer.C:
-
-				zap.Info(fmt.Sprintf("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s", nodeName, nodeURL))
+				zap.Info(fmt.Sprintf("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s",
+					nodeName, nodeURL,
+				))
 				alertsL2 <- entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, nodeName)
 				alertTimer.Reset(l2NodesSameHeightTimerDuration)
 			case <-ctx.Done():
 				return
 			}
 		}
-	}(alertsL2)
+	}
+	alertsL2 := make(chan entities.Alert)
+	go analyzer(alertsL2, heightCh)
 	return alertsL2
 }
