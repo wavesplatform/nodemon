@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-const l2NodesSameHeightTimerMinutes = 5
+const l2NodesSameHeightTimerDuration = 5 * time.Minute
 const l2HeightRequestTimeout = 5 * time.Second
 
 type Response struct {
@@ -109,7 +109,7 @@ func RunL2Analyzer(
 	}()
 
 	var lastHeight uint64
-	alertTimer := time.NewTimer(l2NodesSameHeightTimerMinutes * time.Minute)
+	alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
 	defer alertTimer.Stop()
 
 	go func(alertsL2 chan<- entities.Alert) {
@@ -120,13 +120,13 @@ func RunL2Analyzer(
 			case height := <-heightCh:
 				if height != lastHeight {
 					lastHeight = height
-					alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
+					alertTimer.Reset(l2NodesSameHeightTimerDuration)
 				}
 			case <-alertTimer.C:
 
 				zap.Info(fmt.Sprintf("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s", nodeName, nodeURL))
 				alertsL2 <- entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, nodeName)
-				alertTimer.Reset(l2NodesSameHeightTimerMinutes * time.Minute)
+				alertTimer.Reset(l2NodesSameHeightTimerDuration)
 			case <-ctx.Done():
 				return
 			}
