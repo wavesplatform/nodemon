@@ -1,0 +1,3 @@
+```yaml
+L2 node {{ .L2Node}} is at {{ .L2Height}} for more than 5 minutes
+```

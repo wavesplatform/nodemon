@@ -74,6 +74,7 @@ func newAlertConfirmations(customConfirmations ...alertConfirmationsValue) alert
 		entities.AlertFixedType:         0,
 		entities.BaseTargetAlertType:    0,
 		entities.InternalErrorAlertType: 0,
+		entities.L2StuckAlertType:       0,
 	}
 	for _, cc := range customConfirmations {
 		confirmations[cc.alertType] = cc.confirmations

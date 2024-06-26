@@ -550,3 +550,18 @@ func TestNodesStatusUnavailableTemplate(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	}
 }
+
+func TestL2StuckTemplate(t *testing.T) {
+	data := &entities.L2StuckAlert{
+		Timestamp: 100,
+		L2Node:    "node_name",
+		L2Height:  100,
+	}
+	for _, f := range expectedFormats() {
+		const template = "templates/alerts/l2/l2_stuck_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}
