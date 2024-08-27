@@ -7,7 +7,7 @@ import (
 )
 
 type BaseTargetCriterionOptions struct {
-	Threshold int
+	Threshold uint64
 }
 
 type BaseTargetCriterion struct {
@@ -40,18 +40,18 @@ func (c *BaseTargetCriterion) Analyze(alerts chan<- entities.Alert, ts int64, st
 	}
 }
 
-func mostFrequentBaseTarget(statements entities.NodeStatements) int {
-	m := make(map[int]int)
-	var max int
-	var maxKey int
+func mostFrequentBaseTarget(statements entities.NodeStatements) uint64 {
+	m := make(map[uint64]uint64)
+	var maxBT uint64
+	var maxKey uint64
 	for _, s := range statements {
 		if s.BaseTarget == 0 {
 			continue
 		}
 		v := s.BaseTarget
 		m[v]++
-		if m[v] > max {
-			max = m[v]
+		if m[v] > maxBT {
+			maxBT = m[v]
 			maxKey = v
 		}
 	}

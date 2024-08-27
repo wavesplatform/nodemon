@@ -601,7 +601,7 @@ func ScheduleNodesStatus(
 
 type NodeStatus struct {
 	URL     string
-	Sumhash string
+	SumHash string
 	Status  string
 	Height  string
 	BlockID string
@@ -660,11 +660,11 @@ func GetNodeURLByAlias(alias string, nodes []entities.Node) string {
 
 type heightStatementGroup struct {
 	Nodes  []string
-	Height int
+	Height uint64
 }
 
 type heightStatement struct {
-	HeightDifference int
+	HeightDifference uint64
 	FirstGroup       heightStatementGroup
 	SecondGroup      heightStatementGroup
 }
@@ -676,9 +676,9 @@ type stateHashStatementGroup struct {
 }
 
 type stateHashStatement struct {
-	SameHeight               int
+	SameHeight               uint64
 	LastCommonStateHashExist bool
-	ForkHeight               int
+	ForkHeight               uint64
 	ForkBlockID              string
 	ForkStateHash            string
 	FirstGroup               stateHashStatementGroup
@@ -982,7 +982,7 @@ func HandleNodesStatusError(resp *pair.NodesStatementsResponse,
 			unavailableNodes = append(unavailableNodes, NodeStatus{URL: stat.URL})
 			continue
 		}
-		height := strconv.Itoa(stat.Height)
+		height := strconv.FormatUint(stat.Height, 10)
 		s := NodeStatus{
 			URL:    stat.URL,
 			Height: height,
@@ -1048,7 +1048,7 @@ func HandleNodesStatus(
 		return "", statusCondition, err
 	}
 
-	if len(unavailableNodes) == 0 && len(okNodes) != 0 && areHashesEqual {
+	if len(unavailableNodes) == 0 && len(okNodes) != 0 {
 		statusCondition.AllNodesAreOk = true
 		statusCondition.NodesNumber = len(okNodes)
 		statusCondition.Height = height
@@ -1118,7 +1118,7 @@ func HandleNodesChains(
 	/* we have more than one chain */
 	if len(chains) > 1 {
 		nodesChainsMsg := nodesChains{
-			Height: strconv.Itoa(height),
+			Height: strconv.FormatUint(height, 10),
 			Chains: chains,
 		}
 		msg, err := executeTemplate("templates/nodes_chains_different", nodesChainsMsg, ext)
@@ -1130,7 +1130,7 @@ func HandleNodesChains(
 
 	nodeChainOk := nodesSingleChain{
 		NodesNumber:      len(resp.NodesStatements),
-		Height:           strconv.Itoa(height),
+		Height:           strconv.FormatUint(height, 10),
 		BlockID:          sample.BlockID.String(),
 		GeneratorAddress: sampleGeneratorAddress,
 	}
@@ -1144,16 +1144,16 @@ func HandleNodesChains(
 }
 
 func areStateHashesEqual(okNodes []NodeStatus) bool {
-	hashesEqual := true
 	if len(okNodes) == 0 {
-		return hashesEqual
+		return true
 	}
-	previousHash := okNodes[0].Sumhash
+	hashesEqual := true
+	previousHash := okNodes[0].SumHash
 	for _, node := range okNodes {
-		if node.Sumhash != previousHash {
+		if node.SumHash != previousHash {
 			hashesEqual = false
 		}
-		previousHash = node.Sumhash
+		previousHash = node.SumHash
 	}
 	return hashesEqual
 }
@@ -1178,10 +1178,10 @@ func sortedNodesByStatusWithHeight(resp *pair.NodesStatementsResponse) ([]NodeSt
 		if stat.Status != entities.OK {
 			unavailable = append(unavailable, NodeStatus{URL: stat.URL})
 		} else {
-			height = strconv.Itoa(stat.Height)
+			height = strconv.FormatUint(stat.Height, 10)
 			s := NodeStatus{
 				URL:     stat.URL,
-				Sumhash: stat.StateHash.SumHash.Hex(),
+				SumHash: stat.StateHash.SumHash.Hex(),
 				Status:  string(stat.Status),
 				Height:  height,
 				BlockID: stat.StateHash.BlockID.String(),
@@ -1196,7 +1196,7 @@ func sortedNodesByStatusWithHeight(resp *pair.NodesStatementsResponse) ([]NodeSt
 
 type nodeStatement struct {
 	Node      string
-	Height    int
+	Height    uint64
 	Timestamp int64
 	StateHash string
 	Version   string

@@ -105,7 +105,7 @@ func (d *dummyEvent) Timestamp() int64 {
 	return d.NodeStatement.Timestamp
 }
 
-func (d *dummyEvent) Height() int {
+func (d *dummyEvent) Height() uint64 {
 	return d.NodeStatement.Height
 }
 
@@ -328,7 +328,7 @@ func TestEarliestHeight(t *testing.T) {
 		node     string
 		events   []entities.Event
 		error    bool
-		expected int
+		expected uint64
 	}{
 		{"A", genEvents(
 			she("A", 1, 100),
@@ -387,7 +387,7 @@ func TestLatestHeight(t *testing.T) {
 		node     string
 		events   []entities.Event
 		error    bool
-		expected int
+		expected uint64
 	}{
 		{"A",
 			genEvents(
@@ -459,7 +459,7 @@ func TestLastStateHashAtHeight(t *testing.T) {
 	for _, test := range []struct {
 		node     string
 		events   []entities.Event
-		height   int
+		height   uint64
 		error    bool
 		expected proto.StateHash
 	}{
@@ -517,15 +517,15 @@ func genEvents(es ...entities.Event) []entities.Event {
 	return es
 }
 
-func she(n string, h int, ts int64) entities.Event {
+func she(n string, h uint64, ts int64) entities.Event {
 	return fshe(n, h, ts, &proto.StateHash{})
 }
 
-func fshe(n string, h int, ts int64, sh *proto.StateHash) entities.Event {
+func fshe(n string, h uint64, ts int64, sh *proto.StateHash) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, sh, 1, &sh.BlockID, nil)
 }
 
-func he(n string, h int, ts int64) entities.Event {
+func he(n string, h uint64, ts int64) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, nil, 1, nil, nil)
 }
 
@@ -560,7 +560,7 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 		testcase       string
 		events         []entities.Event
 		expectedError  bool
-		expectedHeight int
+		expectedHeight uint64
 		expectedSH     *proto.StateHash
 	}{
 		// node 1 - 1000; node 2 - 1000; node 3 - 1000, 1001. Expected height 1000

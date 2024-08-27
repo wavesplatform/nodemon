@@ -14,7 +14,7 @@ import (
 )
 
 type heightInfo struct {
-	Height int
+	Height uint64
 	Nodes  entities.Nodes
 }
 

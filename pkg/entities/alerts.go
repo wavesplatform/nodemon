@@ -25,8 +25,6 @@ const (
 	AlertFixedType
 	BaseTargetAlertType
 	InternalErrorAlertType
-
-	// l2 related.
 	L2StuckAlertType
 )
 
@@ -91,9 +89,7 @@ const (
 	AlertFixedName         AlertName = "Resolved"
 	BaseTargetAlertName    AlertName = "BaseTargetAlert"
 	InternalErrorName      AlertName = "InternalErrorAlert"
-
-	// l2 related.
-	L2StuckAlertName AlertName = "L2StuckAlert"
+	L2StuckAlertName       AlertName = "L2StuckAlert"
 )
 
 func (n AlertName) AlertType() (AlertType, bool) {
@@ -278,8 +274,8 @@ func (a *InvalidHeightAlert) Level() string {
 }
 
 type HeightGroup struct {
-	Height int   `json:"height"`
-	Nodes  Nodes `json:"group"`
+	Height uint64 `json:"height"`
+	Nodes  Nodes  `json:"group"`
 }
 
 type HeightAlert struct {
@@ -337,11 +333,11 @@ type StateHashGroup struct {
 }
 
 type StateHashAlert struct {
-	Timestamp                 int64 `json:"timestamp"`
-	CurrentGroupsBucketHeight int   `json:"current_groups_bucket_height"`
-	LastCommonStateHashExist  bool  `json:"last_common_state_hash_exist"`
+	Timestamp                 int64  `json:"timestamp"`
+	CurrentGroupsBucketHeight uint64 `json:"current_groups_bucket_height"`
+	LastCommonStateHashExist  bool   `json:"last_common_state_hash_exist"`
 	// LastCommonStateHashHeight can be empty if LastCommonStateHashExist == false
-	LastCommonStateHashHeight int `json:"last_common_state_hash_height"`
+	LastCommonStateHashHeight uint64 `json:"last_common_state_hash_height"`
 	// LastCommonStateHash can be empty if LastCommonStateHashExist == false
 	LastCommonStateHash proto.StateHash `json:"last_common_state_hash"`
 	FirstGroup          StateHashGroup  `json:"first_group"`
@@ -398,7 +394,7 @@ func (a *StateHashAlert) ID() crypto.Digest {
 	buff.WriteString(a.Name().String())
 
 	if a.LastCommonStateHashExist {
-		buff.WriteString(strconv.Itoa(a.LastCommonStateHashHeight))
+		buff.WriteString(strconv.FormatUint(a.LastCommonStateHashHeight, 10))
 		buff.WriteString(a.LastCommonStateHash.SumHash.String())
 	}
 
@@ -506,13 +502,13 @@ func (a *AlertFixed) Level() string {
 
 type BaseTargetValue struct {
 	Node       string `json:"node"`
-	BaseTarget int    `json:"base_target"`
+	BaseTarget uint64 `json:"base_target"`
 }
 
 type BaseTargetAlert struct {
 	Timestamp        int64             `json:"timestamp"`
 	BaseTargetValues []BaseTargetValue `json:"thresh_holds"`
-	Threshold        int               `json:"default_value"`
+	Threshold        uint64            `json:"default_value"`
 }
 
 func (a *BaseTargetAlert) Name() AlertName {

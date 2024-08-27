@@ -369,21 +369,21 @@ func TestNodesStatusDifferentHashesTemplate(t *testing.T) {
 	data := []NodeStatus{
 		{
 			URL:     "some-url",
-			Sumhash: "some-sum-hash",
+			SumHash: "some-sum-hash",
 			Status:  "some-status",
 			Height:  "1234",
 			BlockID: "some-block-id",
 		},
 		{
 			URL:     "another-url",
-			Sumhash: "another-sum-hash",
+			SumHash: "another-sum-hash",
 			Status:  "some-status",
 			Height:  "4321",
 			BlockID: "another-block-id",
 		},
 		{
 			URL:     "one-more-url",
-			Sumhash: "one-more-sum-hash",
+			SumHash: "one-more-sum-hash",
 			Status:  "one-more-status",
 			Height:  "9876543245",
 			BlockID: "one-more-block-id",
@@ -441,21 +441,21 @@ func TestNodesStatusDifferentHeightsTemplate(t *testing.T) {
 	data := []NodeStatus{
 		{
 			URL:     "some-url",
-			Sumhash: "some-sum-hash",
+			SumHash: "some-sum-hash",
 			Status:  "some-status",
 			Height:  "1234",
 			BlockID: "some-block-id",
 		},
 		{
 			URL:     "another-url",
-			Sumhash: "another-sum-hash",
+			SumHash: "another-sum-hash",
 			Status:  "some-status",
 			Height:  "4321",
 			BlockID: "another-block-id",
 		},
 		{
 			URL:     "one-more-url",
-			Sumhash: "one-more-sum-hash",
+			SumHash: "one-more-sum-hash",
 			Status:  "one-more-status",
 			Height:  "9876543245",
 			BlockID: "one-more-block-id",
@@ -474,21 +474,21 @@ func TestNodesStatusOkTemplate(t *testing.T) {
 	data := []NodeStatus{
 		{
 			URL:     "some-url",
-			Sumhash: "some-sum-hash",
+			SumHash: "some-sum-hash",
 			Status:  "some-status",
 			Height:  "1234",
 			BlockID: "some-block-id",
 		},
 		{
 			URL:     "another-url",
-			Sumhash: "another-sum-hash",
+			SumHash: "another-sum-hash",
 			Status:  "some-status",
 			Height:  "4321",
 			BlockID: "another-block-id",
 		},
 		{
 			URL:     "one-more-url",
-			Sumhash: "one-more-sum-hash",
+			SumHash: "one-more-sum-hash",
 			Status:  "one-more-status",
 			Height:  "9876543245",
 			BlockID: "one-more-block-id",
@@ -522,21 +522,21 @@ func TestNodesStatusUnavailableTemplate(t *testing.T) {
 	data := []NodeStatus{
 		{
 			URL:     "some-url",
-			Sumhash: "some-sum-hash",
+			SumHash: "some-sum-hash",
 			Status:  "some-status",
 			Height:  "1234",
 			BlockID: "some-block-id",
 		},
 		{
 			URL:     "another-url",
-			Sumhash: "another-sum-hash",
+			SumHash: "another-sum-hash",
 			Status:  "some-status",
 			Height:  "4321",
 			BlockID: "another-block-id",
 		},
 		{
 			URL:     "one-more-url",
-			Sumhash: "one-more-sum-hash",
+			SumHash: "one-more-sum-hash",
 			Status:  "one-more-status",
 			Height:  "9876543245",
 			BlockID: "one-more-block-id",

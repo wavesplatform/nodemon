@@ -112,9 +112,9 @@ func (s *Storage) StatementsCount() (int, error) {
 	return cnt, nil
 }
 
-func (s *Storage) EarliestHeight(node string) (int, error) {
+func (s *Storage) EarliestHeight(node string) (uint64, error) {
 	pattern := newStatementKey(node, "*")
-	var h int
+	var h uint64
 	err := s.viewByKeyPatternWithAscendKeys(pattern, func(s *entities.NodeStatement) bool {
 		if s.StateHash != nil {
 			h = s.Height
@@ -131,9 +131,9 @@ func (s *Storage) EarliestHeight(node string) (int, error) {
 	return h, nil
 }
 
-func (s *Storage) LatestHeight(node string) (int, error) {
+func (s *Storage) LatestHeight(node string) (uint64, error) {
 	pattern := newStatementKey(node, "*")
-	var h int
+	var h uint64
 	err := s.viewByKeyPatternWithDescendKeys(pattern, func(s *entities.NodeStatement) bool {
 		if s.StateHash != nil {
 			h = s.Height
@@ -150,7 +150,7 @@ func (s *Storage) LatestHeight(node string) (int, error) {
 	return h, nil
 }
 
-func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.NodeStatement, error) {
+func (s *Storage) GetFullStatementAtHeight(node string, height uint64) (entities.NodeStatement, error) {
 	pattern := newStatementKey(node, "*")
 	var (
 		st           = entities.NodeStatement{}
@@ -181,7 +181,7 @@ func (s *Storage) GetFullStatementAtHeight(node string, height int) (entities.No
 	return st, nil
 }
 
-func (s *Storage) FoundStatementAtHeight(node string, height int) (bool, error) {
+func (s *Storage) FoundStatementAtHeight(node string, height uint64) (bool, error) {
 	_, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
 		if errors.Is(err, ErrNoFullStatement) {
@@ -199,9 +199,9 @@ var ErrStorageIsNotReady = errors.New("The storage has not collected enough stat
 
 func (s *Storage) findMinCommonLatestHeight(
 	nodesList map[string]bool,
-	minHeight int,
-	maxHeight int,
-) ([]entities.NodeStatement, map[string]bool, int, int, error) {
+	minHeight uint64,
+	maxHeight uint64,
+) ([]entities.NodeStatement, map[string]bool, uint64, uint64, error) {
 	// looking for the min common height and the max height
 	var nodesHeights []entities.NodeStatement
 	for node := range nodesList {
@@ -229,7 +229,7 @@ func (s *Storage) findMinCommonLatestHeight(
 
 func (s *Storage) findMinCommonSpecificHeight(
 	nodesList map[string]bool,
-	minHeight int,
+	minHeight uint64,
 ) ([]entities.NodeStatement, error) {
 	// looking for the min common height and the max height
 	var nodesHeights []entities.NodeStatement
@@ -257,7 +257,7 @@ func (s *Storage) findMinCommonSpecificHeight(
 }
 
 func (s *Storage) FindAllStatementsOnCommonHeight(nodes []string) ([]entities.NodeStatement, error) {
-	minHeight, maxHeight := math.MaxInt, 0
+	minHeight, maxHeight := uint64(math.MaxUint64), uint64(0)
 
 	nodesList := make(map[string]bool) // reachable or unreachable
 	for _, node := range nodes {
@@ -295,7 +295,7 @@ func (s *Storage) FindAllStatementsOnCommonHeight(nodes []string) ([]entities.No
 	return s.findStatementsOnHeight(nodesList, minHeight)
 }
 
-func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height int) ([]entities.NodeStatement, error) {
+func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height uint64) ([]entities.NodeStatement, error) {
 	var statementsOnHeight []entities.NodeStatement
 	for node, reachable := range nodesList {
 		if !reachable {
@@ -312,7 +312,7 @@ func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height int) 
 					errors.Wrapf(storErr, "failed to find statement at height %d for node '%s'", height, node)
 			}
 			s.zap.Error("failed to find statement at height",
-				zap.Int("height", height), zap.String("node", node), zap.Error(storErr),
+				zap.Uint64("height", height), zap.String("node", node), zap.Error(storErr),
 			)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
 				Node:   node,
@@ -336,7 +336,7 @@ func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height int) 
 	return statementsOnHeight, nil
 }
 
-func (s *Storage) StateHashAtHeight(node string, height int) (proto.StateHash, error) {
+func (s *Storage) StateHashAtHeight(node string, height uint64) (proto.StateHash, error) {
 	st, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
 		return proto.StateHash{},

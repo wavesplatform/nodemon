@@ -56,14 +56,14 @@ func generateFiveStateHashes(o int) []shInfo {
 	return r
 }
 
-func mkTimestamp(height int) int64 {
+func mkTimestamp(height uint64) int64 {
 	return int64(100 + height*100)
 }
 
-func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
+func mkEvents(node string, startHeight uint64, shs ...shInfo) []entities.Event {
 	r := make([]entities.Event, len(shs))
 	for i := range shs {
-		h := startHeight + i
+		h := startHeight + uint64(i)
 		ts := mkTimestamp(h)
 		sh := shs[i].sh
 		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh, 1, &sh.BlockID, nil)
