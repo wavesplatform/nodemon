@@ -18,7 +18,7 @@ import (
 func mkIncompleteEvents(node string, startHeight, count int) []entities.Event {
 	out := make([]entities.Event, count)
 	for i := 0; i < count; i++ {
-		out[i] = entities.NewVersionEvent(node, mkTimestamp(startHeight+i), node+strconv.Itoa(i+1))
+		out[i] = entities.NewVersionEvent(node, mkTimestamp(uint64(startHeight+i)), node+strconv.Itoa(i+1))
 	}
 	return out
 }
@@ -63,7 +63,7 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 				mkEvents("a", 1, commonStateHashes[:len(commonStateHashes)-2]...),
 				mkUnreachableEvents("a", len(commonStateHashes)-1, 1),
 				mkIncompleteEvents("a", len(commonStateHashes), 1),
-				mkEvents("a", len(commonStateHashes)+1, commonStateHashes[len(commonStateHashes)-1]),
+				mkEvents("a", uint64(len(commonStateHashes)+1), commonStateHashes[len(commonStateHashes)-1]),
 
 				mkEvents("b", 1, commonStateHashes...),
 				mkIncompleteEvents("b", len(commonStateHashes)+1, 1),

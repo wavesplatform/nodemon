@@ -60,10 +60,10 @@ func loadEvents(t *testing.T, st *events.Storage, a, b []entities.Event) {
 	}
 }
 
-func mkEvents(node string, startHeight int, shs ...shInfo) []entities.Event {
+func mkEvents(node string, startHeight uint64, shs ...shInfo) []entities.Event {
 	r := make([]entities.Event, len(shs))
 	for i := range shs {
-		h := startHeight + i
+		h := startHeight + uint64(i)
 		ts := int64(100 + i*100)
 		sh := shs[i].sh
 		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh, 1, &sh.BlockID, nil)
@@ -88,7 +88,7 @@ func TestFindLastCommonBlock(t *testing.T) {
 		eventsA         []entities.Event
 		eventsB         []entities.Event
 		error           bool
-		expectedHeight  int
+		expectedHeight  uint64
 		expectedBlockID proto.BlockID
 	}{
 		{
@@ -206,9 +206,9 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		eventsA           []entities.Event
 		eventsB           []entities.Event
 		error             bool
-		expectedHeight    int
+		expectedHeight    uint64
 		expectedStateHash proto.StateHash
-		linearSearchDepth int
+		linearSearchDepth uint64
 	}{
 		{
 			eventsA: mkEvents("A", 1, forkA...),

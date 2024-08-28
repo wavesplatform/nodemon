@@ -16,7 +16,7 @@ type EventProducerWithTimestamp interface {
 type Event interface {
 	Node() string
 	Timestamp() int64
-	Height() int
+	Height() uint64
 	Statement() NodeStatement
 }
 
@@ -37,7 +37,7 @@ func (e *UnreachableEvent) Timestamp() int64 {
 	return e.ts
 }
 
-func (e *UnreachableEvent) Height() int {
+func (e *UnreachableEvent) Height() uint64 {
 	return UndefinedHeight
 }
 
@@ -78,7 +78,7 @@ func (e *VersionEvent) Version() string {
 	return e.v
 }
 
-func (e *VersionEvent) Height() int {
+func (e *VersionEvent) Height() uint64 {
 	return UndefinedHeight
 }
 
@@ -102,10 +102,10 @@ type HeightEvent struct {
 	node string
 	ts   int64
 	v    string
-	h    int
+	h    uint64
 }
 
-func NewHeightEvent(node string, ts int64, v string, height int) *HeightEvent {
+func NewHeightEvent(node string, ts int64, v string, height uint64) *HeightEvent {
 	return &HeightEvent{node: node, ts: ts, v: v, h: height}
 }
 
@@ -121,7 +121,7 @@ func (e *HeightEvent) Version() string {
 	return e.v
 }
 
-func (e *HeightEvent) Height() int {
+func (e *HeightEvent) Height() uint64 {
 	return e.h
 }
 
@@ -145,10 +145,10 @@ type InvalidHeightEvent struct {
 	node string
 	ts   int64
 	v    string
-	h    int
+	h    uint64
 }
 
-func NewInvalidHeightEvent(node string, ts int64, v string, height int) *InvalidHeightEvent {
+func NewInvalidHeightEvent(node string, ts int64, v string, height uint64) *InvalidHeightEvent {
 	return &InvalidHeightEvent{node: node, ts: ts, v: v, h: height}
 }
 
@@ -164,7 +164,7 @@ func (e *InvalidHeightEvent) Version() string {
 	return e.v
 }
 
-func (e *InvalidHeightEvent) Height() int {
+func (e *InvalidHeightEvent) Height() uint64 {
 	return e.h
 }
 
@@ -188,14 +188,14 @@ type StateHashEvent struct {
 	node       string
 	ts         int64
 	v          string
-	h          int
+	h          uint64
 	sh         *proto.StateHash
-	baseTarget int
+	baseTarget uint64
 	blockID    *proto.BlockID
 	generator  *proto.WavesAddress
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h int, sh *proto.StateHash, bt int,
+func NewStateHashEvent(node string, ts int64, v string, h uint64, sh *proto.StateHash, bt uint64,
 	blockID *proto.BlockID, generator *proto.WavesAddress) *StateHashEvent {
 	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt, blockID: blockID, generator: generator}
 }
@@ -212,7 +212,7 @@ func (e *StateHashEvent) Version() string {
 	return e.v
 }
 
-func (e *StateHashEvent) Height() int {
+func (e *StateHashEvent) Height() uint64 {
 	return e.h
 }
 
@@ -220,7 +220,7 @@ func (e *StateHashEvent) StateHash() *proto.StateHash {
 	return e.sh
 }
 
-func (e *StateHashEvent) BaseTarget() int {
+func (e *StateHashEvent) BaseTarget() uint64 {
 	return e.baseTarget
 }
 
@@ -256,11 +256,11 @@ type BaseTargetEvent struct {
 	node       string
 	ts         int64
 	v          string
-	h          int
-	baseTarget int
+	h          uint64
+	baseTarget uint64
 }
 
-func NewBaseTargetEvent(node string, ts int64, v string, h int, baseTarget int) *BaseTargetEvent {
+func NewBaseTargetEvent(node string, ts int64, v string, h, baseTarget uint64) *BaseTargetEvent {
 	return &BaseTargetEvent{node: node, ts: ts, v: v, h: h, baseTarget: baseTarget}
 }
 
@@ -276,11 +276,11 @@ func (e *BaseTargetEvent) Version() string {
 	return e.v
 }
 
-func (e *BaseTargetEvent) Height() int {
+func (e *BaseTargetEvent) Height() uint64 {
 	return e.h
 }
 
-func (e *BaseTargetEvent) BaseTarget() int {
+func (e *BaseTargetEvent) BaseTarget() uint64 {
 	return e.baseTarget
 }
 
@@ -305,13 +305,13 @@ type BlockGeneratorEvent struct {
 	node      string
 	ts        int64
 	v         string
-	h         int
-	bs        int
+	h         uint64
+	bs        uint64
 	blockID   *proto.BlockID
 	generator *proto.WavesAddress
 }
 
-func NewBlockGeneratorEvent(node string, ts int64, v string, h int, bs int,
+func NewBlockGeneratorEvent(node string, ts int64, v string, h, bs uint64,
 	blockID *proto.BlockID, generator *proto.WavesAddress) *BlockGeneratorEvent {
 	return &BlockGeneratorEvent{node: node, ts: ts, v: v, h: h, bs: bs, blockID: blockID, generator: generator}
 }
@@ -328,11 +328,11 @@ func (e *BlockGeneratorEvent) Version() string {
 	return e.v
 }
 
-func (e *BlockGeneratorEvent) Height() int {
+func (e *BlockGeneratorEvent) Height() uint64 {
 	return e.h
 }
 
-func (e *BlockGeneratorEvent) BaseTarget() int {
+func (e *BlockGeneratorEvent) BaseTarget() uint64 {
 	return e.bs
 }
 

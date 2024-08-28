@@ -15,9 +15,9 @@ type baseTargetInfo struct {
 	node       string
 	ts         int64
 	v          string
-	h          int
+	h          uint64
 	sh         *proto.StateHash
-	baseTarget int
+	baseTarget uint64
 }
 
 func mkBaseTargetStatements(baseTargetInfo []baseTargetInfo) entities.NodeStatements {

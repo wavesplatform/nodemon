@@ -36,18 +36,18 @@ func (c *nodeClient) version(ctx context.Context) (string, error) {
 	return version, nil
 }
 
-func (c *nodeClient) height(ctx context.Context) (int, error) {
+func (c *nodeClient) height(ctx context.Context) (uint64, error) {
 	height, _, err := c.cl.Blocks.Height(ctx)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("Height request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
-	return int(height.Height), nil
+	return height.Height, nil
 }
 
-func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHash, error) {
-	sh, _, err := c.cl.Debug.StateHash(ctx, uint64(height))
+func (c *nodeClient) stateHash(ctx context.Context, height uint64) (*proto.StateHash, error) {
+	sh, _, err := c.cl.Debug.StateHash(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("State hash request failed", zap.String("node", nodeURL), zap.Error(err))
@@ -56,18 +56,18 @@ func (c *nodeClient) stateHash(ctx context.Context, height int) (*proto.StateHas
 	return sh, nil
 }
 
-func (c *nodeClient) baseTarget(ctx context.Context, height int) (int, error) {
-	headers, _, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
+func (c *nodeClient) baseTarget(ctx context.Context, height uint64) (uint64, error) {
+	headers, _, err := c.cl.Blocks.HeadersAt(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
 		return 0, err
 	}
-	return int(headers.NxtConsensus.BaseTarget), nil
+	return headers.NxtConsensus.BaseTarget, nil
 }
 
-func (c *nodeClient) blockGenerator(ctx context.Context, height int) (proto.BlockID, proto.WavesAddress, error) {
-	headers, _, err := c.cl.Blocks.HeadersAt(ctx, uint64(height))
+func (c *nodeClient) blockGenerator(ctx context.Context, height uint64) (proto.BlockID, proto.WavesAddress, error) {
+	headers, _, err := c.cl.Blocks.HeadersAt(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
