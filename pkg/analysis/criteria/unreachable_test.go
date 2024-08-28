@@ -17,7 +17,7 @@ import (
 func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
 	out := make([]entities.Event, count)
 	for i := 0; i < count; i++ {
-		out[i] = entities.NewUnreachableEvent(node, mkTimestamp(startHeight+i))
+		out[i] = entities.NewUnreachableEvent(node, mkTimestamp(uint64(startHeight+i)))
 	}
 	return out
 }

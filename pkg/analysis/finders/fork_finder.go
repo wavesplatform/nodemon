@@ -18,21 +18,21 @@ type ForkFinder struct {
 }
 
 type linearSearchParams struct {
-	searchDepth int
+	searchDepth uint64
 }
 
 func NewForkFinder(es *events.Storage) *ForkFinder {
 	return &ForkFinder{storage: es}
 }
 
-func (f *ForkFinder) WithLinearSearchParams(searchDepth int) *ForkFinder {
+func (f *ForkFinder) WithLinearSearchParams(searchDepth uint64) *ForkFinder {
 	f.linearSearchParams = &linearSearchParams{
 		searchDepth: searchDepth,
 	}
 	return f
 }
 
-func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockID, error) {
+func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (uint64, proto.BlockID, error) {
 	startA, err := f.storage.EarliestHeight(nodeA)
 	if err != nil {
 		return 0, proto.BlockID{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
@@ -52,12 +52,12 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 	}
 	stop := min(stopA, stopB)
 
-	var r int
+	var r uint64
 	for start <= stop {
 		middle := (start + stop) / 2 //nolint:mnd // count here is 2
-		different, storErr := f.differentBlocksAt(nodeA, nodeB, middle)
-		if storErr != nil {
-			return 0, proto.BlockID{}, storErr
+		different, stgErr := f.differentBlocksAt(nodeA, nodeB, middle)
+		if stgErr != nil {
+			return 0, proto.BlockID{}, stgErr
 		}
 		if different {
 			stop = middle - 1
@@ -82,11 +82,13 @@ func (f *ForkFinder) FindLastCommonBlock(nodeA, nodeB string) (int, proto.BlockI
 
 var errNotFound = errors.New("not found")
 
-func (f *ForkFinder) tryLinearStateHashSearch(nodeA, nodeB string, start, stop int) (int, proto.StateHash, error) {
+func (f *ForkFinder) tryLinearStateHashSearch(
+	nodeA, nodeB string, start, stop uint64,
+) (uint64, proto.StateHash, error) {
 	if f.linearSearchParams == nil {
 		return 0, proto.StateHash{}, errors.Wrap(errNotFound, "no linear search params provided")
 	}
-	for i := 0; i < f.linearSearchParams.searchDepth && stop-start-i > 0; i++ {
+	for i := uint64(0); i < f.linearSearchParams.searchDepth && stop-start-i > 0; i++ {
 		h := stop - i
 		different, err := f.differentStateHashesAt(nodeA, nodeB, h)
 		if err != nil {
@@ -108,7 +110,7 @@ func (f *ForkFinder) tryLinearStateHashSearch(nodeA, nodeB string, start, stop i
 	return 0, proto.StateHash{}, errors.Wrapf(errNotFound, "linear search failed for nodes '%s' and '%s'", nodeA, nodeB)
 }
 
-func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.StateHash, error) {
+func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (uint64, proto.StateHash, error) {
 	startA, err := f.storage.EarliestHeight(nodeA)
 	if err != nil {
 		return 0, proto.StateHash{}, errors.Wrapf(err, "no earliest statement for node '%s'", nodeA)
@@ -138,15 +140,15 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 		return h, sh, nil
 	}
 
-	var r int
+	var r uint64
 	for start <= stop {
 		middle := (start + stop) / 2 //nolint:mnd // count here is 2
-		different, storErr := f.differentStateHashesAt(nodeA, nodeB, middle)
-		if storErr != nil {
-			storErr = errors.Wrapf(storErr, "binsearch failed for nodes '%s' and '%s' at height %d",
+		different, stgErr := f.differentStateHashesAt(nodeA, nodeB, middle)
+		if stgErr != nil {
+			stgErr = errors.Wrapf(stgErr, "binsearch failed for nodes '%s' and '%s' at height %d",
 				nodeA, nodeB, middle,
 			)
-			return 0, proto.StateHash{}, storErr
+			return 0, proto.StateHash{}, stgErr
 		}
 		if different {
 			stop = middle - 1
@@ -170,7 +172,7 @@ func (f *ForkFinder) FindLastCommonStateHash(nodeA, nodeB string) (int, proto.St
 	return r, sh, nil
 }
 
-func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
+func (f *ForkFinder) differentBlocksAt(a, b string, h uint64) (bool, error) {
 	shA, err := f.storage.StateHashAtHeight(a, h)
 	if err != nil { // err can be events.NoFullStatementError
 		return false, err
@@ -182,7 +184,7 @@ func (f *ForkFinder) differentBlocksAt(a, b string, h int) (bool, error) {
 	return shA.BlockID != shB.BlockID, nil
 }
 
-func (f *ForkFinder) differentStateHashesAt(a, b string, h int) (bool, error) {
+func (f *ForkFinder) differentStateHashesAt(a, b string, h uint64) (bool, error) {
 	shA, err := f.storage.StateHashAtHeight(a, h)
 	if err != nil { // err can be events.NoFullStatementError
 		return false, err
@@ -192,18 +194,4 @@ func (f *ForkFinder) differentStateHashesAt(a, b string, h int) (bool, error) {
 		return false, err
 	}
 	return shA.SumHash != shB.SumHash, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }

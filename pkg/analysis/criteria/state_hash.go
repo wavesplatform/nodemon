@@ -17,8 +17,8 @@ const (
 )
 
 type StateHashCriterionOptions struct {
-	MaxForkDepth     int
-	HeightBucketSize int
+	MaxForkDepth     uint64
+	HeightBucketSize uint64
 }
 
 type StateHashCriterion struct {
@@ -41,8 +41,9 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, sta
 	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
 		var statementsAtBucketHeight entities.NodeStatements
-		if min, max := nodeStatements.SplitByNodeHeight().MinMaxHeight(); min == max { // all nodes are on the same height
-			bucketHeight = min
+		if minHeight, maxHeight := nodeStatements.SplitByNodeHeight().MinMaxHeight(); minHeight == maxHeight {
+			// all nodes are on the same height
+			bucketHeight = minHeight
 			statementsAtBucketHeight = nodeStatements
 		} else {
 			var err error
@@ -60,7 +61,7 @@ func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, sta
 
 func (c *StateHashCriterion) getAllStatementsAtBucketHeight(
 	nodeStatements entities.NodeStatements,
-	bucketHeight int,
+	bucketHeight uint64,
 ) (entities.NodeStatements, error) {
 	statementsAtBucketHeight := make(entities.NodeStatements, 0, len(nodeStatements))
 	for _, statement := range nodeStatements {
@@ -90,7 +91,7 @@ func (c *StateHashCriterion) getAllStatementsAtBucketHeight(
 
 func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	alerts chan<- entities.Alert,
-	bucketHeight int,
+	bucketHeight uint64,
 	timestamp int64,
 	statements entities.NodeStatements,
 ) error {
@@ -125,7 +126,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 
 func (c *StateHashCriterion) handleSamplesPair(
 	alerts chan<- entities.Alert,
-	bucketHeight int,
+	bucketHeight uint64,
 	timestamp int64,
 	ff *finders.ForkFinder,
 	first entities.NodeStatement,
@@ -158,7 +159,7 @@ func (c *StateHashCriterion) handleSamplesPair(
 
 	if forkDepth > 0 {
 		c.zap.Info("StateHashCriterion: fork detected",
-			zap.Int("Fork depth", forkDepth),
+			zap.Uint64("Fork depth", forkDepth),
 			zap.Bool("Last common StateHash exist", lastCommonStateHashExist),
 			zap.String("First group",
 				strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", "),

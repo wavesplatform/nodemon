@@ -1,6 +1,6 @@
 module nodemon
 
-go 1.21
+go 1.22
 
 require (
 	codnect.io/chrono v1.1.3
