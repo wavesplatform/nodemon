@@ -22,9 +22,9 @@ type NodeStatement struct {
 	Timestamp  int64               `json:"timestamp"`
 	Status     NodeStatus          `json:"status"`
 	Version    string              `json:"version,omitempty"`
-	Height     int                 `json:"height,omitempty"`
+	Height     uint64              `json:"height,omitempty"`
 	StateHash  *proto.StateHash    `json:"state_hash,omitempty"`
-	BaseTarget int                 `json:"base_target,omitempty"`
+	BaseTarget uint64              `json:"base_target,omitempty"`
 	BlockID    *proto.BlockID      `json:"block_id,omitempty"`
 	Generator  *proto.WavesAddress `json:"generator,omitempty"`
 }
@@ -46,9 +46,9 @@ type NodeStatementsWithMinHeight struct {
 type (
 	NodeStatementsSplitByStatus       map[NodeStatus]NodeStatements
 	NodeStatementsSplitByVersion      map[string]NodeStatements
-	NodeStatementsSplitByHeight       map[int]NodeStatements
+	NodeStatementsSplitByHeight       map[uint64]NodeStatements
 	NodeStatementsSplitByStateHash    map[crypto.Digest]NodeStatements
-	NodeStatementsSplitByHeightBucket map[int]NodeStatements // map[heightBucket]NodeStatements
+	NodeStatementsSplitByHeightBucket map[uint64]NodeStatements // map[heightBucket]NodeStatements
 )
 
 func (s NodeStatements) Sort(less func(left, right *NodeStatement) bool) NodeStatements {
@@ -105,7 +105,7 @@ func (s NodeStatements) SplitByNodeHeight() NodeStatementsSplitByHeight {
 	return split
 }
 
-func (s NodeStatements) SplitByNodeHeightBuckets(heightBucketSize int) NodeStatementsSplitByHeightBucket {
+func (s NodeStatements) SplitByNodeHeightBuckets(heightBucketSize uint64) NodeStatementsSplitByHeightBucket {
 	split := make(NodeStatementsSplitByHeightBucket)
 	for _, statement := range s {
 		height := statement.Height
@@ -124,13 +124,13 @@ func (s NodeStatements) SplitByNodeVersion() NodeStatementsSplitByVersion {
 	return split
 }
 
-func (s NodeStatementsSplitByHeight) MinMaxHeight() (int, int) {
+func (s NodeStatementsSplitByHeight) MinMaxHeight() (uint64, uint64) {
 	if len(s) == 0 {
 		return 0, 0
 	}
 	var (
-		mih = math.MaxInt
-		mah = math.MinInt
+		mih = uint64(math.MaxUint64)
+		mah = uint64(0)
 	)
 	for height := range s {
 		if mah < height {

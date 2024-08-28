@@ -11,8 +11,8 @@ import (
 func TestNodeStatementsSplitByHeight_MinMaxHeight(t *testing.T) {
 	tests := []struct {
 		split entities.NodeStatementsSplitByHeight
-		min   int
-		max   int
+		min   uint64
+		max   uint64
 	}{
 		{
 			split: entities.NodeStatementsSplitByHeight{3: {}, 1: {}, 2: {}, 8: {}, 16: {}},
@@ -38,8 +38,8 @@ func TestNodeStatementsSplitByHeight_MinMaxHeight(t *testing.T) {
 	for i, test := range tests {
 		tcNum := i + 1
 
-		min, max := test.split.MinMaxHeight()
-		require.Equal(t, test.min, min, "test case #%d", tcNum)
-		require.Equal(t, test.max, max, "test case #%d", tcNum)
+		minHeight, maxHeight := test.split.MinMaxHeight()
+		require.Equal(t, test.min, minHeight, "test case #%d", tcNum)
+		require.Equal(t, test.max, maxHeight, "test case #%d", tcNum)
 	}
 }

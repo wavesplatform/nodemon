@@ -1,7 +1,7 @@
 These nodes have different hashes:
 
 {{range .}}{{.URL}}
-StateHash: {{.Sumhash}}
+StateHash: {{.SumHash}}
 BlockID: {{.BlockID}}
 
 {{end}}

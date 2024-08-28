@@ -118,7 +118,7 @@ type nodemonConfig struct {
 	nanomsgPairDiscordURL  string
 	retention              time.Duration
 	apiReadTimeout         time.Duration
-	baseTargetThreshold    int
+	baseTargetThreshold    uint64
 	logLevel               string
 	development            bool
 	vault                  *nodemonVaultConfig
@@ -136,7 +136,7 @@ func newNodemonConfig() *nodemonConfig {
 		defaultPollingInterval, "Polling interval, seconds. Default value is 60")
 	tools.DurationVarFlagWithEnv(&c.timeout, "timeout",
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
-	tools.IntVarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
+	tools.Uint64VarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
 	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
 		"ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
@@ -180,7 +180,7 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 		return errInvalidParameters
 	}
 	if c.baseTargetThreshold == 0 {
-		logger.Error("Invalid base target threshold", zap.Int("threshold", c.baseTargetThreshold))
+		logger.Error("Invalid base target threshold", zap.Uint64("threshold", c.baseTargetThreshold))
 		return errInvalidParameters
 	}
 	return c.vault.validate(logger)

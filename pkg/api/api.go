@@ -133,7 +133,7 @@ func (a *API) health(w http.ResponseWriter, r *http.Request) {
 type nodeShortStatement struct {
 	Node    string `json:"node,omitempty"`
 	Version string `json:"version,omitempty"`
-	Height  int    `json:"height,omitempty"`
+	Height  uint64 `json:"height,omitempty"`
 }
 
 type statementLogWrapper struct {
