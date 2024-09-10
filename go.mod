@@ -12,7 +12,7 @@ require (
 	github.com/prometheus/client_golang v1.20.3
 	github.com/stoewer/go-strcase v1.3.0
 	github.com/stretchr/testify v1.9.0
-	github.com/tidwall/buntdb v1.3.1
+	github.com/tidwall/buntdb v1.3.2
 	github.com/wavesplatform/gowaves v0.10.7-0.20240501073236-f26d1c3dda68
 	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/zap v1.27.0
