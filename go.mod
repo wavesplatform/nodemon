@@ -6,7 +6,7 @@ require (
 	codnect.io/chrono v1.1.3
 	github.com/bwmarrin/discordgo v0.28.1
 	github.com/go-chi/chi v4.1.2+incompatible
-	github.com/hashicorp/vault/api v1.14.0
+	github.com/hashicorp/vault/api v1.15.0
 	github.com/hashicorp/vault/api/auth/userpass v0.7.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.3
@@ -26,7 +26,7 @@ require (
 	github.com/bits-and-blooms/bitset v1.8.0 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.3 // indirect
-	github.com/cenkalti/backoff/v3 v3.0.0 // indirect
+	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark v0.10.0 // indirect
