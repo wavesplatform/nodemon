@@ -522,11 +522,11 @@ func she(n string, h uint64, ts int64) entities.Event {
 }
 
 func fshe(n string, h uint64, ts int64, sh *proto.StateHash) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, sh, 1, &sh.BlockID, nil)
+	return entities.NewStateHashEvent(n, ts, "", h, sh, 1, &sh.BlockID, nil, false)
 }
 
 func he(n string, h uint64, ts int64) entities.Event {
-	return entities.NewStateHashEvent(n, ts, "", h, nil, 1, nil, nil)
+	return entities.NewStateHashEvent(n, ts, "", h, nil, 1, nil, nil, false)
 }
 
 func putEvents(t *testing.T, st *events.Storage, events []entities.Event) {

@@ -140,26 +140,34 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 		s.zap.Sugar().Warnf("[SCRAPER] Node %s has invalid height %d", url, h)
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}
+
+	blockHeader, err := node.blockHeader(ctx, h)
+	if err != nil {
+		s.zap.Sugar().Warnf("[SCRAPER] Failed to get block header at height %d for node %s: %v", h, url, err)
+		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
+	}
+	var (
+		blockID    = blockHeader.ID
+		generator  = blockHeader.Generator
+		challenged = blockHeader.ChallengedHeader != nil // if challenged header is not nil, then it's challenged
+	)
+
 	h-- // Go to previous height to request base target and state hash
 
 	bs, err := node.baseTarget(ctx, h)
 	if err != nil {
-		s.zap.Sugar().Warnf("[SCRAPER] Failed to get base target for node %s: %v", url, err)
-		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
+		s.zap.Sugar().Warnf("[SCRAPER] Failed to get base target at height %d for node %s: %v", h, url, err)
+		// we know version, height and block generator, sending it
+		return entities.NewBlockHeaderEvent(url, ts, v, h, &blockID, &generator, challenged)
 	}
 	s.zap.Sugar().Debugf("[SCRAPER] Node %s has base target %d at height %d", url, bs, h)
 
-	blockID, generator, err := node.blockGenerator(ctx, h)
-	if err != nil {
-		s.zap.Sugar().Warnf("Failed to get block id and generator for node %s: %v", url, err)
-		return entities.NewBaseTargetEvent(url, ts, v, h, bs) // we know version, height and base target, sending it
-	}
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
-		s.zap.Sugar().Warnf("[SCRAPER] Failed to get state hash for node %s: %v", url, err)
-		return entities.NewBlockGeneratorEvent(url, ts, v, h,
-			bs, &blockID, &generator) // we know version, height and base target, block generator, sending it
+		s.zap.Sugar().Warnf("[SCRAPER] Failed to get state hash for node %s at height %d: %v", url, h, err)
+		// we know version, height and base target, block generator, sending it
+		return entities.NewBaseTargetEvent(url, ts, v, h, bs, &blockID, &generator, challenged)
 	}
 	s.zap.Sugar().Debugf("[SCRAPER] Node %s has state hash %s at height %d", url, sh.SumHash.Hex(), h)
-	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, &blockID, &generator) // sending full info about node
+	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, &blockID, &generator, challenged) // sending full info
 }

@@ -66,7 +66,7 @@ func mkEvents(node string, startHeight uint64, shs ...shInfo) []entities.Event {
 		h := startHeight + uint64(i)
 		ts := int64(100 + i*100)
 		sh := shs[i].sh
-		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh, 1, &sh.BlockID, nil)
+		r[i] = entities.NewStateHashEvent(node, ts, "V", h, &sh, 1, &sh.BlockID, nil, false)
 	}
 	return r
 }
