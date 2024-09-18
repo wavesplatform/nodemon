@@ -565,3 +565,18 @@ func TestL2StuckTemplate(t *testing.T) {
 		assert.Equal(t, expected, actual)
 	}
 }
+
+func TestChallengedBlockTemplate(t *testing.T) {
+	data := &entities.ChallengedBlockAlert{
+		Timestamp: 100,
+		BlockID:   proto.NewBlockIDFromDigest(crypto.Digest{1, 2, 3, 4, 5}),
+		Nodes:     []string{"node1", "node2", "node3"},
+	}
+	for _, f := range expectedFormats() {
+		const template = "templates/alerts/challenged_block_alert"
+		actual, err := executeTemplate(template, data, f)
+		require.NoError(t, err)
+		expected := goldenValue(t, template, f, actual)
+		assert.Equal(t, expected, actual)
+	}
+}

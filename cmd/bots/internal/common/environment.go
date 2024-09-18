@@ -724,6 +724,8 @@ func executeAlertTemplate(
 		msg, err = executeBaseTargetTemplate(alertJSON, nodesAliases, extension)
 	case entities.InternalErrorAlertType:
 		msg, err = executeInternalErrorTemplate(alertJSON, extension)
+	case entities.ChallengedBlockAlertType:
+		msg, err = executeChallengedBlockTemplate(alertJSON, extension)
 	case entities.L2StuckAlertType:
 		msg, err = executeL2StuckAlertTemplate(alertJSON, extension)
 	default:
@@ -743,6 +745,20 @@ func executeSimpleAlertTemplate(alertJSON []byte, extension ExpectedExtension) (
 		return "", err
 	}
 	msg, err := executeTemplate("templates/alerts/simple_alert", simpleAlert, extension)
+	if err != nil {
+		return "", err
+	}
+	return msg, nil
+}
+
+func executeChallengedBlockTemplate(alertJSON []byte, extension ExpectedExtension) (string, error) {
+	var challengedBlockAlert entities.ChallengedBlockAlert
+	err := json.Unmarshal(alertJSON, &challengedBlockAlert)
+	if err != nil {
+		return "", err
+	}
+	_ = fmt.Stringer(challengedBlockAlert.BlockID) // to check if it implements Stringer
+	msg, err := executeTemplate("templates/alerts/challenged_block_alert", challengedBlockAlert, extension)
 	if err != nil {
 		return "", err
 	}

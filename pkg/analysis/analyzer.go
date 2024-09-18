@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"context"
+	"iter"
 	"sync"
 	"time"
 
@@ -22,6 +23,7 @@ type AnalyzerOptions struct {
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
 	StateHashCriteriaOpts   *criteria.StateHashCriterionOptions
 	BaseTargetCriterionOpts *criteria.BaseTargetCriterionOptions
+	ChallengeCriterionOpts  *criteria.ChallengedBlockCriterionOptions
 }
 
 type Analyzer struct {
@@ -116,6 +118,20 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 	return nil
 }
 
+func joinSlicesSeq2[Slice ~[]E, E any](slices ...Slice) iter.Seq2[int, E] {
+	return func(yield func(int, E) bool) {
+		var i int
+		for _, slice := range slices {
+			for _, v := range slice {
+				if !yield(i, v) {
+					return
+				}
+				i++
+			}
+		}
+	}
+}
+
 func (a *Analyzer) criteriaRoutines(
 	statements entities.NodeStatements,
 	timestamp int64,
@@ -133,6 +149,12 @@ func (a *Analyzer) criteriaRoutines(
 			for _, statement := range statusSplit[entities.InvalidHeight] {
 				in <- &entities.InvalidHeightAlert{NodeStatement: statement}
 			}
+			return nil
+		},
+		func(in chan<- entities.Alert) error {
+			criterion := criteria.NewChallengedBlockCriterion(a.opts.ChallengeCriterionOpts, a.zap)
+			statementsToAnalyze := joinSlicesSeq2(statusSplit[entities.Incomplete], statusSplit[entities.OK])
+			criterion.Analyze(in, timestamp, statementsToAnalyze)
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
