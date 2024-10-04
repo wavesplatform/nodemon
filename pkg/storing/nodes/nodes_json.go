@@ -234,7 +234,7 @@ func (s *JSONStorage) Update(node entities.Node) error {
 	return nil
 }
 
-func (s *JSONStorage) InsertIfNew(url string, specific bool) error {
+func (s *JSONStorage) InsertIfNew(url string, specific bool) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -245,14 +245,14 @@ func (s *JSONStorage) InsertIfNew(url string, specific bool) error {
 		s.db.CommonNodes, appended = appendIfNew(s.db.CommonNodes, url)
 	}
 	if !appended {
-		return nil
+		return appended, nil
 	}
 
 	if err := s.syncDB(); err != nil {
-		return errors.Wrapf(err, "failed to insert new node '%s' (specific=%t)", url, specific)
+		return false, errors.Wrapf(err, "failed to insert new node '%s' (specific=%t)", url, specific)
 	}
 	s.zap.Sugar().Infof("New node '%s' (specific=%t) was stored", url, specific)
-	return nil
+	return appended, nil
 }
 
 func (s *JSONStorage) Delete(url string) error {

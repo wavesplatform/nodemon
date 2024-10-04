@@ -221,6 +221,7 @@ func (c *nodemonConfig) runAnalyzers(
 	es *events.Storage,
 	ns nodes.Storage,
 	logger *zap.Logger,
+	pew specific.PrivateNodesEventsWriter,
 	notifications <-chan entities.NodesGatheringNotification,
 ) {
 	alerts := runAnalyzer(cfg, es, logger, notifications)
@@ -230,7 +231,7 @@ func (c *nodemonConfig) runAnalyzers(
 		mergedAlerts := merge(alerts, alertL2)
 		alerts = mergedAlerts
 	}
-	runMessagingServices(ctx, cfg, alerts, logger, ns, es)
+	runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
 }
 
 func run() error {
@@ -290,10 +291,9 @@ func run() error {
 
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
+	pew := privateNodesHandler.PrivateNodesEventsWriter()
 
-	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger,
-		privateNodesHandler.PrivateNodesEventsWriter(), atom, cfg.development,
-	)
+	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, atom, cfg.development)
 	if err != nil {
 		logger.Error("failed to initialize API", zap.Error(err))
 		return err
@@ -303,7 +303,7 @@ func run() error {
 		return apiErr
 	}
 
-	cfg.runAnalyzers(ctx, cfg, es, ns, logger, notifications)
+	cfg.runAnalyzers(ctx, cfg, es, ns, logger, pew, notifications)
 
 	<-ctx.Done()
 	a.Shutdown()
@@ -361,6 +361,7 @@ func runMessagingServices(
 	logger *zap.Logger,
 	ns nodes.Storage,
 	es *events.Storage,
+	pew specific.PrivateNodesEventsWriter,
 ) {
 	go func() {
 		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, logger)
@@ -371,7 +372,7 @@ func runMessagingServices(
 
 	if cfg.runTelegramPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, pew, logger)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
@@ -380,7 +381,7 @@ func runMessagingServices(
 
 	if cfg.runDiscordPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, pew, logger)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}

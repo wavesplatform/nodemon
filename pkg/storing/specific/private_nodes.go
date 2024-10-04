@@ -16,6 +16,7 @@ import (
 
 type PrivateNodesEventsWriter interface {
 	Write(event entities.EventProducerWithTimestamp)
+	WriteInitialStateForSpecificNode(node string, ts int64)
 }
 
 type privateNodesEvents struct {
@@ -42,6 +43,19 @@ func (p *privateNodesEvents) Write(producer entities.EventProducerWithTimestamp)
 
 func (p *privateNodesEvents) unsafeWrite(producer entities.EventProducerWithTimestamp) {
 	p.data[producer.Node()] = producer
+}
+
+func (p *privateNodesEvents) WriteInitialStateForSpecificNode(node string, ts int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.unsafeWriteInitialStateForSpecificNodes(node, ts)
+}
+
+func (p *privateNodesEvents) unsafeWriteInitialStateForSpecificNodes(node string, ts int64) {
+	if _, ok := p.data[node]; ok { // already exists
+		return
+	}
+	p.unsafeWrite(entities.NewUnreachableEvent(node, ts))
 }
 
 func (p *privateNodesEvents) filterPrivateNodes(ns nodes.Storage) error {
@@ -78,12 +92,12 @@ func NewPrivateNodesHandlerWithUnreachableInitialState(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get specific nodes")
 	}
-	initialTS := time.Now().Unix()
-	initialPrivateNodesEvents := make([]entities.EventProducerWithTimestamp, len(privateNodes))
-	for i, node := range privateNodes {
-		initialPrivateNodesEvents[i] = entities.NewUnreachableEvent(node.URL, initialTS)
+	ts := time.Now().Unix()
+	h := NewPrivateNodesHandler(es, ns, zap)
+	for _, node := range privateNodes {
+		h.privateEvents.unsafeWriteInitialStateForSpecificNodes(node.URL, ts)
 	}
-	return NewPrivateNodesHandler(es, ns, zap, initialPrivateNodesEvents...), nil
+	return h, nil
 }
 
 func NewPrivateNodesHandler(

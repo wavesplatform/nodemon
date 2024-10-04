@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"strings"
+	"time"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+	"nodemon/pkg/storing/specific"
 
 	"github.com/pkg/errors"
 	"go.nanomsg.org/mangos/v3/protocol"
@@ -20,6 +22,7 @@ func StartPairMessagingServer(
 	nanomsgURL string,
 	ns nodes.Storage,
 	es *events.Storage,
+	pew specific.PrivateNodesEventsWriter,
 	logger *zap.Logger,
 ) error {
 	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
@@ -39,7 +42,7 @@ func StartPairMessagingServer(
 		return err
 	}
 
-	loopErr := enterLoop(ctx, socket, logger, ns, es)
+	loopErr := enterLoop(ctx, socket, logger, ns, es, pew)
 	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
 		return loopErr
 	}
@@ -52,6 +55,7 @@ func enterLoop(
 	logger *zap.Logger,
 	ns nodes.Storage,
 	es *events.Storage,
+	pew specific.PrivateNodesEventsWriter,
 ) error {
 	for {
 		select {
@@ -63,7 +67,7 @@ func enterLoop(
 				logger.Error("Failed to receive a message from pair socket", zap.Error(recvErr))
 				return recvErr
 			}
-			err := handleMessage(rawMsg, ns, logger, socket, es)
+			err := handleMessage(rawMsg, ns, logger, socket, es, pew)
 			if err != nil {
 				return err
 			}
@@ -77,6 +81,7 @@ func handleMessage(
 	logger *zap.Logger,
 	socket protocol.Socket,
 	es *events.Storage,
+	pew specific.PrivateNodesEventsWriter,
 ) error {
 	if len(rawMsg) == 0 {
 		logger.Warn("empty raw message received from pair socket")
@@ -96,9 +101,9 @@ func handleMessage(
 			return err
 		}
 	case RequestInsertNewNodeType:
-		insertNodeIfNew(msg, ns, false, logger)
+		insertRegularNodeIfNew(msg, ns, logger)
 	case RequestInsertSpecificNewNodeType:
-		insertNodeIfNew(msg, ns, true, logger)
+		insertSpecificNodeIfNew(msg, ns, pew, logger)
 	case RequestUpdateNodeType:
 		handleUpdateNodeRequest(msg, logger, ns)
 	case RequestDeleteNodeType:
@@ -111,13 +116,27 @@ func handleMessage(
 	return nil
 }
 
-func insertNodeIfNew(msg []byte, ns nodes.Storage, specific bool, logger *zap.Logger) {
-	url := msg
-	err := ns.InsertIfNew(string(url), specific)
+func insertNodeIfNew(url string, ns nodes.Storage, specific bool, logger *zap.Logger) bool {
+	appended, err := ns.InsertIfNew(url, specific)
 	if err != nil {
 		logger.Error("Failed to insert a new node to storage",
-			zap.Error(err), zap.Bool("specific", specific),
+			zap.Error(err), zap.String("node", url), zap.Bool("specific", specific),
 		)
+	}
+	return appended
+}
+
+func insertRegularNodeIfNew(msg []byte, ns nodes.Storage, logger *zap.Logger) {
+	url := string(msg)
+	_ = insertNodeIfNew(url, ns, false, logger)
+}
+
+func insertSpecificNodeIfNew(msg []byte, ns nodes.Storage, pew specific.PrivateNodesEventsWriter, logger *zap.Logger) {
+	url := string(msg)
+	appended := insertNodeIfNew(url, ns, true, logger)
+	if appended { // its new specific node
+		ts := time.Now().Unix()
+		pew.WriteInitialStateForSpecificNode(url, ts) // write unreachable event for the initial specific node state
 	}
 }
 
