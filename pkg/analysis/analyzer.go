@@ -168,7 +168,8 @@ func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotificatio
 			if err != nil {
 				a.zap.Error("Failed to process notification", zap.Error(err))
 				ts := time.Now().Unix()
-				alerts <- entities.NewInternalErrorAlert(ts, err)
+				ia := entities.NewInternalErrorAlert(ts, errors.Wrap(err, "analyzer: failed to process notification"))
+				alerts <- ia
 			}
 		}
 	}(out)
@@ -176,6 +177,9 @@ func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotificatio
 }
 
 func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.NodesGatheringNotification) error {
+	if err := n.Error(); err != nil {
+		alerts <- entities.NewInternalErrorAlert(n.Timestamp(), err)
+	}
 	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", n.NodesCount())
 	cnt, err := a.es.StatementsCount()
 	if err != nil {

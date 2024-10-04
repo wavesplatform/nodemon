@@ -1,6 +1,7 @@
 package specific
 
 import (
+	stderrs "errors"
 	"sync"
 	"time"
 
@@ -81,19 +82,20 @@ func (h *PrivateNodesHandler) PrivateNodesEventsWriter() PrivateNodesEventsWrite
 	return h.privateEvents
 }
 
-func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) entities.Nodes {
+func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) (entities.Nodes, error) {
 	nodesList := make(entities.Nodes, 0, len(h.privateEvents.data))
 	h.privateEvents.mu.RLock()
 	defer h.privateEvents.mu.RUnlock()
+	var errs []error
 	for node, eventProducer := range h.privateEvents.data {
 		event := eventProducer.WithTimestamp(ts)
 		if err := h.putPrivateNodesEvent(event); err != nil {
-			h.zap.Error("Failed to put private node event", zap.Error(err))
-			return nodesList
+			errs = append(errs, errors.Wrapf(err, "privateNodesHandler: failed to put event for private node %s", node))
+			continue // skip failed events
 		}
 		nodesList = append(nodesList, node)
 	}
-	return nodesList
+	return nodesList, stderrs.Join(errs...)
 }
 
 func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {
@@ -134,14 +136,23 @@ func (h *PrivateNodesHandler) handlePrivateEvents(
 ) {
 	defer close(output)
 	for notification := range input {
-		var (
-			ts          = notification.Timestamp()
-			polledNodes = notification.Nodes()
-		)
-		storedPrivateNodes := h.putPrivateNodesEvents(ts)
+		if notification.Error() != nil { // pass through error notifications
+			output <- notification
+			continue
+		}
+		ts := notification.Timestamp()
+		storedPrivateNodes, err := h.putPrivateNodesEvents(ts)
 		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d",
 			len(storedPrivateNodes), ts,
 		)
-		output <- entities.NewNodesGatheringComplete(append(polledNodes, storedPrivateNodes...), ts)
+		if len(storedPrivateNodes) > 0 {
+			polledNodes := notification.Nodes()
+			notification = entities.NewNodesGatheringComplete(append(polledNodes, storedPrivateNodes...), ts)
+		}
+		if err != nil {
+			h.zap.Error("Failed to put some private nodes events", zap.Error(err))
+			notification = entities.NewNodesGatheringWithError(notification, err) // pass through error
+		}
+		output <- notification
 	}
 }
