@@ -2,8 +2,11 @@ package scraping
 
 import (
 	"context"
+	stderrs "errors"
 	"sync"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -58,17 +61,29 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 	enabledNodes, storageErr := s.ns.EnabledNodes()
 	if storageErr != nil {
 		s.zap.Error("[SCRAPER] Failed to get nodes from storage", zap.Error(storageErr))
+		notifications <- entities.NewNodesGatheringError(
+			errors.Wrapf(storageErr, "scraper: failed to get nodes from storage"), now,
+		)
 	}
 
 	ec := s.queryNodes(ctx, enabledNodes, now)
 	cnt := 0
+	var errs []error
 	for e := range ec {
 		if err := s.es.PutEvent(e); err != nil {
 			s.zap.Sugar().Errorf("[SCRAPER] Failed to collect event '%T' from node %s, statement=%+v: %v",
 				e, e.Node(), e.Statement(), err)
+			errs = append(errs, errors.Wrapf(err, "scraper: failed to collect event '%T' from node %s: %v",
+				e, e.Node(), err,
+			))
 		} else {
 			cnt++
 		}
+	}
+	if len(errs) > 0 {
+		sumErr := errors.Wrapf(stderrs.Join(errs...), "scraper: failed to collect %d events", len(errs))
+		notifications <- entities.NewNodesGatheringError(sumErr, now)
+		return
 	}
 	s.zap.Sugar().Infof("[SCRAPER] Polling of %d nodes completed with %d events saved", len(enabledNodes), cnt)
 
