@@ -8,7 +8,7 @@ type Storage interface {
 	EnabledNodes() ([]entities.Node, error)
 	EnabledSpecificNodes() ([]entities.Node, error)
 	Update(nodeToUpdate entities.Node) error
-	InsertIfNew(url string, specific bool) error
+	InsertIfNew(url string, specific bool) (bool, error)
 	Delete(url string) error
 	FindAlias(url string) (string, error)
 }

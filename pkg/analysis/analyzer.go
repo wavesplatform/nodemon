@@ -180,7 +180,11 @@ func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.
 	if err := n.Error(); err != nil {
 		alerts <- entities.NewInternalErrorAlert(n.Timestamp(), err)
 	}
-	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", n.NodesCount())
+	nodesCount := n.NodesCount()
+	if nodesCount == 0 { // nothing to analyze
+		return nil
+	}
+	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", nodesCount)
 	cnt, err := a.es.StatementsCount()
 	if err != nil {
 		return errors.Wrap(err, "failed to get statements count")

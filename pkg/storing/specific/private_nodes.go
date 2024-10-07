@@ -2,6 +2,7 @@ package specific
 
 import (
 	stderrs "errors"
+	"maps"
 	"sync"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 type PrivateNodesEventsWriter interface {
 	Write(event entities.EventProducerWithTimestamp)
+	WriteInitialStateForSpecificNode(node string, ts int64)
 }
 
 type privateNodesEvents struct {
@@ -22,11 +24,15 @@ type privateNodesEvents struct {
 	data map[string]entities.EventProducerWithTimestamp // map[node]NodeStatement
 }
 
-func newPrivateNodesEvents() *privateNodesEvents {
-	return &privateNodesEvents{
+func newPrivateNodesEvents(initial ...entities.EventProducerWithTimestamp) *privateNodesEvents {
+	pe := &privateNodesEvents{
 		mu:   new(sync.RWMutex),
-		data: make(map[string]entities.EventProducerWithTimestamp),
+		data: make(map[string]entities.EventProducerWithTimestamp, len(initial)),
 	}
+	for _, producer := range initial {
+		pe.unsafeWrite(producer)
+	}
+	return pe
 }
 
 func (p *privateNodesEvents) Write(producer entities.EventProducerWithTimestamp) {
@@ -39,8 +45,40 @@ func (p *privateNodesEvents) unsafeWrite(producer entities.EventProducerWithTime
 	p.data[producer.Node()] = producer
 }
 
+func (p *privateNodesEvents) WriteInitialStateForSpecificNode(node string, ts int64) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.unsafeWriteInitialStateForSpecificNodes(node, ts)
+}
+
+func (p *privateNodesEvents) unsafeWriteInitialStateForSpecificNodes(node string, ts int64) {
+	if _, ok := p.data[node]; ok { // already exists
+		return
+	}
+	p.unsafeWrite(entities.NewUnreachableEvent(node, ts))
+}
+
+func (p *privateNodesEvents) filterPrivateNodes(ns nodes.Storage) error {
+	specificNodesList, err := ns.EnabledSpecificNodes()
+	if err != nil {
+		return errors.Wrap(err, "privateNodesEvents: failed to get specific nodes")
+	}
+	nodesURLs := make(map[string]struct{}, len(specificNodesList))
+	for _, node := range specificNodesList {
+		nodesURLs[node.URL] = struct{}{}
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	maps.DeleteFunc(p.data, func(node string, _ entities.EventProducerWithTimestamp) bool {
+		_, ok := nodesURLs[node]
+		return !ok
+	})
+	return nil
+}
+
 type PrivateNodesHandler struct {
 	es            *events.Storage
+	ns            nodes.Storage
 	zap           *zap.Logger
 	privateEvents *privateNodesEvents
 }
@@ -50,31 +88,29 @@ func NewPrivateNodesHandlerWithUnreachableInitialState(
 	ns nodes.Storage,
 	zap *zap.Logger,
 ) (*PrivateNodesHandler, error) {
-	privateNodes, err := ns.Nodes(true) // get private nodes aka specific nodes
+	privateNodes, err := ns.EnabledSpecificNodes() // get private nodes aka specific nodes
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get specific nodes")
 	}
-	initialTS := time.Now().Unix()
-	initialPrivateNodesEvents := make([]entities.EventProducerWithTimestamp, len(privateNodes))
-	for i, node := range privateNodes {
-		initialPrivateNodesEvents[i] = entities.NewUnreachableEvent(node.URL, initialTS)
+	ts := time.Now().Unix()
+	h := NewPrivateNodesHandler(es, ns, zap)
+	for _, node := range privateNodes {
+		h.privateEvents.unsafeWriteInitialStateForSpecificNodes(node.URL, ts)
 	}
-	return NewPrivateNodesHandler(es, zap, initialPrivateNodesEvents...), nil
+	return h, nil
 }
 
 func NewPrivateNodesHandler(
 	es *events.Storage,
+	ns nodes.Storage,
 	zap *zap.Logger,
 	initial ...entities.EventProducerWithTimestamp,
 ) *PrivateNodesHandler {
-	pe := newPrivateNodesEvents()
-	for _, producer := range initial {
-		pe.unsafeWrite(producer)
-	}
 	return &PrivateNodesHandler{
 		es:            es,
+		ns:            ns,
 		zap:           zap,
-		privateEvents: pe,
+		privateEvents: newPrivateNodesEvents(initial...),
 	}
 }
 
@@ -141,6 +177,10 @@ func (h *PrivateNodesHandler) handlePrivateEvents(
 			continue
 		}
 		ts := notification.Timestamp()
+		if err := h.privateEvents.filterPrivateNodes(h.ns); err != nil {
+			h.zap.Error("Failed to filter private nodes", zap.Error(err))
+			output <- entities.NewNodesGatheringError(err, ts) // pass through error, but continue processing
+		}
 		storedPrivateNodes, err := h.putPrivateNodesEvents(ts)
 		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d",
 			len(storedPrivateNodes), ts,

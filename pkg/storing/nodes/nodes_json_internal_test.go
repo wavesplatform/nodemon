@@ -364,7 +364,7 @@ func TestJSONStorage_InsertIfNew(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			storage, dbFilePath := newTestJSONStorageWithDB(t, &test.db)
-			err := storage.InsertIfNew(test.nodeURL, test.specific)
+			_, err := storage.InsertIfNew(test.nodeURL, test.specific)
 			require.NoError(t, err)
 			assert.Equal(t, &test.updatedDB, storage.db)
 			checkFileIsUpdated(t, dbFilePath, &test.updatedDB)
