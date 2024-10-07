@@ -263,13 +263,23 @@ func cleanCRLF(s string) string {
 	return cleaned
 }
 
+type nodesResponse struct {
+	Regular  proto.NonNullableSlice[entities.Node] `json:"regular"`
+	Specific proto.NonNullableSlice[entities.Node] `json:"specific"`
+}
+
 func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
 	regularNodes, err := a.nodesStorage.Nodes(false)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return
 	}
-	err = json.NewEncoder(w).Encode(regularNodes)
+	specificNodes, err := a.nodesStorage.Nodes(true)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(nodesResponse{Regular: regularNodes, Specific: specificNodes})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal nodes to JSON: %v", err), http.StatusInternalServerError)
 		return
@@ -277,12 +287,17 @@ func (a *API) nodes(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (a *API) enabled(w http.ResponseWriter, _ *http.Request) {
-	enabledNodes, err := a.nodesStorage.EnabledNodes()
+	enabledRegularNodes, err := a.nodesStorage.EnabledNodes()
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
 		return
 	}
-	err = json.NewEncoder(w).Encode(enabledNodes)
+	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Failed to complete request: %v", err), http.StatusInternalServerError)
+		return
+	}
+	err = json.NewEncoder(w).Encode(nodesResponse{Regular: enabledRegularNodes, Specific: enabledSpecificNodes})
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Failed to marshal nodes to JSON: %v", err), http.StatusInternalServerError)
 		return
