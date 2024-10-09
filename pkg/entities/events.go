@@ -99,26 +99,12 @@ func (e *VersionEvent) WithTimestamp(ts int64) Event {
 }
 
 type HeightEvent struct {
-	node string
-	ts   int64
-	v    string
-	h    uint64
+	VersionEvent
+	h uint64
 }
 
 func NewHeightEvent(node string, ts int64, v string, height uint64) *HeightEvent {
-	return &HeightEvent{node: node, ts: ts, v: v, h: height}
-}
-
-func (e *HeightEvent) Node() string {
-	return e.node
-}
-
-func (e *HeightEvent) Timestamp() int64 {
-	return e.ts
-}
-
-func (e *HeightEvent) Version() string {
-	return e.v
+	return &HeightEvent{VersionEvent: *NewVersionEvent(node, ts, v), h: height}
 }
 
 func (e *HeightEvent) Height() uint64 {
@@ -126,13 +112,10 @@ func (e *HeightEvent) Height() uint64 {
 }
 
 func (e *HeightEvent) Statement() NodeStatement {
-	return NodeStatement{
-		Node:      e.Node(),
-		Timestamp: e.Timestamp(),
-		Status:    Incomplete,
-		Version:   e.Version(),
-		Height:    e.Height(),
-	}
+	s := e.VersionEvent.Statement()
+	s.Status = Incomplete
+	s.Height = e.Height()
+	return s
 }
 
 func (e *HeightEvent) WithTimestamp(ts int64) Event {
@@ -142,40 +125,17 @@ func (e *HeightEvent) WithTimestamp(ts int64) Event {
 }
 
 type InvalidHeightEvent struct {
-	node string
-	ts   int64
-	v    string
-	h    uint64
+	HeightEvent
 }
 
 func NewInvalidHeightEvent(node string, ts int64, v string, height uint64) *InvalidHeightEvent {
-	return &InvalidHeightEvent{node: node, ts: ts, v: v, h: height}
-}
-
-func (e *InvalidHeightEvent) Node() string {
-	return e.node
-}
-
-func (e *InvalidHeightEvent) Timestamp() int64 {
-	return e.ts
-}
-
-func (e *InvalidHeightEvent) Version() string {
-	return e.v
-}
-
-func (e *InvalidHeightEvent) Height() uint64 {
-	return e.h
+	return &InvalidHeightEvent{HeightEvent: *NewHeightEvent(node, ts, v, height)}
 }
 
 func (e *InvalidHeightEvent) Statement() NodeStatement {
-	return NodeStatement{
-		Node:      e.Node(),
-		Timestamp: e.Timestamp(),
-		Status:    InvalidHeight,
-		Version:   e.Version(),
-		Height:    e.Height(),
-	}
+	s := e.HeightEvent.Statement()
+	s.Status = InvalidHeight
+	return s
 }
 
 func (e *InvalidHeightEvent) WithTimestamp(ts int64) Event {
@@ -184,115 +144,86 @@ func (e *InvalidHeightEvent) WithTimestamp(ts int64) Event {
 	return &cpy
 }
 
-type StateHashEvent struct {
-	node       string
-	ts         int64
-	v          string
-	h          uint64
-	sh         *proto.StateHash
-	baseTarget uint64
+type BlockHeaderEvent struct {
+	HeightEvent
 	blockID    *proto.BlockID
 	generator  *proto.WavesAddress
+	challenged bool
 }
 
-func NewStateHashEvent(node string, ts int64, v string, h uint64, sh *proto.StateHash, bt uint64,
-	blockID *proto.BlockID, generator *proto.WavesAddress) *StateHashEvent {
-	return &StateHashEvent{node: node, ts: ts, v: v, h: h, sh: sh, baseTarget: bt, blockID: blockID, generator: generator}
-}
-
-func (e *StateHashEvent) Node() string {
-	return e.node
-}
-
-func (e *StateHashEvent) Timestamp() int64 {
-	return e.ts
-}
-
-func (e *StateHashEvent) Version() string {
-	return e.v
-}
-
-func (e *StateHashEvent) Height() uint64 {
-	return e.h
-}
-
-func (e *StateHashEvent) StateHash() *proto.StateHash {
-	return e.sh
-}
-
-func (e *StateHashEvent) BaseTarget() uint64 {
-	return e.baseTarget
-}
-
-func (e *StateHashEvent) BlockID() *proto.BlockID {
-	return e.blockID
-}
-
-func (e *StateHashEvent) Generator() *proto.WavesAddress {
-	return e.generator
-}
-
-func (e *StateHashEvent) Statement() NodeStatement {
-	return NodeStatement{
-		Node:       e.Node(),
-		Timestamp:  e.Timestamp(),
-		Status:     OK,
-		Version:    e.Version(),
-		Height:     e.Height(),
-		StateHash:  e.StateHash(),
-		BaseTarget: e.BaseTarget(),
-		BlockID:    e.blockID,
-		Generator:  e.generator,
+func NewBlockHeaderEvent(
+	node string,
+	ts int64,
+	v string,
+	h uint64,
+	blockID *proto.BlockID,
+	generator *proto.WavesAddress,
+	challenged bool,
+) *BlockHeaderEvent {
+	return &BlockHeaderEvent{
+		HeightEvent: *NewHeightEvent(node, ts, v, h),
+		blockID:     blockID,
+		generator:   generator,
+		challenged:  challenged,
 	}
 }
 
-func (e *StateHashEvent) WithTimestamp(ts int64) Event {
+func (e *BlockHeaderEvent) BlockID() *proto.BlockID {
+	return e.blockID
+}
+
+func (e *BlockHeaderEvent) Generator() *proto.WavesAddress {
+	return e.generator
+}
+
+func (e *BlockHeaderEvent) Challenged() bool {
+	return e.challenged
+}
+
+func (e *BlockHeaderEvent) Statement() NodeStatement {
+	s := e.HeightEvent.Statement()
+	s.Status = Incomplete
+	s.BlockID = e.BlockID()
+	s.Generator = e.Generator()
+	s.Challenged = e.Challenged()
+	return s
+}
+
+func (e *BlockHeaderEvent) WithTimestamp(ts int64) Event {
 	cpy := *e
 	cpy.ts = ts
 	return &cpy
 }
 
 type BaseTargetEvent struct {
-	node       string
-	ts         int64
-	v          string
-	h          uint64
-	baseTarget uint64
+	BlockHeaderEvent
+	bs uint64
 }
 
-func NewBaseTargetEvent(node string, ts int64, v string, h, baseTarget uint64) *BaseTargetEvent {
-	return &BaseTargetEvent{node: node, ts: ts, v: v, h: h, baseTarget: baseTarget}
-}
-
-func (e *BaseTargetEvent) Node() string {
-	return e.node
-}
-
-func (e *BaseTargetEvent) Timestamp() int64 {
-	return e.ts
-}
-
-func (e *BaseTargetEvent) Version() string {
-	return e.v
-}
-
-func (e *BaseTargetEvent) Height() uint64 {
-	return e.h
+func NewBaseTargetEvent(
+	node string,
+	ts int64,
+	v string,
+	h, bt uint64,
+	blockID *proto.BlockID,
+	generator *proto.WavesAddress,
+	challenged bool,
+) *BaseTargetEvent {
+	return &BaseTargetEvent{
+		BlockHeaderEvent: *NewBlockHeaderEvent(node, ts, v, h, blockID, generator, challenged),
+		bs:               bt,
+	}
 }
 
 func (e *BaseTargetEvent) BaseTarget() uint64 {
-	return e.baseTarget
+	return e.bs
 }
 
 func (e *BaseTargetEvent) Statement() NodeStatement {
-	return NodeStatement{
-		Node:       e.Node(),
-		Timestamp:  e.Timestamp(),
-		Status:     Incomplete,
-		Version:    e.Version(),
-		Height:     e.Height(),
-		BaseTarget: e.BaseTarget(),
-	}
+	s := e.BlockHeaderEvent.Statement()
+	s.Status = Incomplete
+	s.BaseTarget = e.BaseTarget()
+	return s
 }
 
 func (e *BaseTargetEvent) WithTimestamp(ts int64) Event {
@@ -301,63 +232,40 @@ func (e *BaseTargetEvent) WithTimestamp(ts int64) Event {
 	return &cpy
 }
 
-type BlockGeneratorEvent struct {
-	node      string
-	ts        int64
-	v         string
-	h         uint64
-	bs        uint64
-	blockID   *proto.BlockID
-	generator *proto.WavesAddress
+type StateHashEvent struct {
+	BaseTargetEvent
+	sh *proto.StateHash
 }
 
-func NewBlockGeneratorEvent(node string, ts int64, v string, h, bs uint64,
-	blockID *proto.BlockID, generator *proto.WavesAddress) *BlockGeneratorEvent {
-	return &BlockGeneratorEvent{node: node, ts: ts, v: v, h: h, bs: bs, blockID: blockID, generator: generator}
-}
-
-func (e *BlockGeneratorEvent) Node() string {
-	return e.node
-}
-
-func (e *BlockGeneratorEvent) Timestamp() int64 {
-	return e.ts
-}
-
-func (e *BlockGeneratorEvent) Version() string {
-	return e.v
-}
-
-func (e *BlockGeneratorEvent) Height() uint64 {
-	return e.h
-}
-
-func (e *BlockGeneratorEvent) BaseTarget() uint64 {
-	return e.bs
-}
-
-func (e *BlockGeneratorEvent) BlockID() *proto.BlockID {
-	return e.blockID
-}
-
-func (e *BlockGeneratorEvent) Generator() *proto.WavesAddress {
-	return e.generator
-}
-
-func (e *BlockGeneratorEvent) Statement() NodeStatement {
-	return NodeStatement{
-		Node:       e.Node(),
-		Timestamp:  e.Timestamp(),
-		Status:     Incomplete,
-		Version:    e.Version(),
-		Height:     e.Height(),
-		BaseTarget: e.BaseTarget(),
-		BlockID:    e.BlockID(),
-		Generator:  e.Generator(),
+func NewStateHashEvent(
+	node string,
+	ts int64,
+	v string,
+	h uint64,
+	sh *proto.StateHash,
+	bt uint64,
+	blockID *proto.BlockID,
+	generator *proto.WavesAddress,
+	challenged bool,
+) *StateHashEvent {
+	return &StateHashEvent{
+		BaseTargetEvent: *NewBaseTargetEvent(node, ts, v, h, bt, blockID, generator, challenged),
+		sh:              sh,
 	}
 }
 
-func (e *BlockGeneratorEvent) WithTimestamp(ts int64) Event {
+func (e *StateHashEvent) StateHash() *proto.StateHash {
+	return e.sh
+}
+
+func (e *StateHashEvent) Statement() NodeStatement {
+	s := e.BaseTargetEvent.Statement()
+	s.Status = OK
+	s.StateHash = e.StateHash()
+	return s
+}
+
+func (e *StateHashEvent) WithTimestamp(ts int64) Event {
 	cpy := *e
 	cpy.ts = ts
 	return &cpy

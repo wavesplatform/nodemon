@@ -65,16 +65,17 @@ type alertConfirmationsValue struct {
 
 func newAlertConfirmations(customConfirmations ...alertConfirmationsValue) alertConfirmations {
 	confirmations := alertConfirmations{
-		entities.SimpleAlertType:        0,
-		entities.UnreachableAlertType:   0,
-		entities.IncompleteAlertType:    0,
-		entities.InvalidHeightAlertType: 0,
-		entities.HeightAlertType:        0,
-		entities.StateHashAlertType:     0,
-		entities.AlertFixedType:         0,
-		entities.BaseTargetAlertType:    0,
-		entities.InternalErrorAlertType: 0,
-		entities.L2StuckAlertType:       0,
+		entities.SimpleAlertType:          0,
+		entities.UnreachableAlertType:     0,
+		entities.IncompleteAlertType:      0,
+		entities.InvalidHeightAlertType:   0,
+		entities.HeightAlertType:          0,
+		entities.StateHashAlertType:       0,
+		entities.AlertFixedType:           0,
+		entities.BaseTargetAlertType:      0,
+		entities.InternalErrorAlertType:   0,
+		entities.ChallengedBlockAlertType: 0,
+		entities.L2StuckAlertType:         0,
 	}
 	for _, cc := range customConfirmations {
 		confirmations[cc.alertType] = cc.confirmations

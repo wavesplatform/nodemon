@@ -24,7 +24,7 @@ func mkBaseTargetStatements(baseTargetInfo []baseTargetInfo) entities.NodeStatem
 	var statements entities.NodeStatements
 	for _, info := range baseTargetInfo {
 		statement := entities.NewStateHashEvent(info.node, info.ts, info.v,
-			info.h, nil, info.baseTarget, nil, nil).Statement()
+			info.h, nil, info.baseTarget, nil, nil, false).Statement()
 		statements = append(statements, statement)
 	}
 	return statements

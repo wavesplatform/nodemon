@@ -25,21 +25,23 @@ const (
 	AlertFixedType
 	BaseTargetAlertType
 	InternalErrorAlertType
+	ChallengedBlockAlertType
 	L2StuckAlertType
 )
 
 func GetAllAlertTypesAndNames() map[AlertType]AlertName {
 	return map[AlertType]AlertName{
-		SimpleAlertType:        SimpleAlertName,
-		UnreachableAlertType:   UnreachableAlertName,
-		IncompleteAlertType:    IncompleteAlertName,
-		InvalidHeightAlertType: InvalidHeightAlertName,
-		HeightAlertType:        HeightAlertName,
-		StateHashAlertType:     StateHashAlertName,
-		AlertFixedType:         AlertFixedName,
-		BaseTargetAlertType:    BaseTargetAlertName,
-		InternalErrorAlertType: InternalErrorName,
-		L2StuckAlertType:       L2StuckAlertName,
+		SimpleAlertType:          SimpleAlertName,
+		UnreachableAlertType:     UnreachableAlertName,
+		IncompleteAlertType:      IncompleteAlertName,
+		InvalidHeightAlertType:   InvalidHeightAlertName,
+		HeightAlertType:          HeightAlertName,
+		StateHashAlertType:       StateHashAlertName,
+		AlertFixedType:           AlertFixedName,
+		BaseTargetAlertType:      BaseTargetAlertName,
+		InternalErrorAlertType:   InternalErrorName,
+		ChallengedBlockAlertType: ChallengedBlockAlertName,
+		L2StuckAlertType:         L2StuckAlertName,
 	}
 }
 
@@ -64,6 +66,8 @@ func (t AlertType) AlertName() (AlertName, bool) {
 		alertName = BaseTargetAlertName
 	case InternalErrorAlertType:
 		alertName = InternalErrorName
+	case ChallengedBlockAlertType:
+		alertName = ChallengedBlockAlertName
 	case L2StuckAlertType:
 		alertName = L2StuckAlertName
 	default:
@@ -80,16 +84,17 @@ func (t AlertType) Exist() bool {
 type AlertName string
 
 const (
-	SimpleAlertName        AlertName = "SimpleAlert"
-	UnreachableAlertName   AlertName = "UnreachableAlert"
-	IncompleteAlertName    AlertName = "IncompleteAlert"
-	InvalidHeightAlertName AlertName = "InvalidHeightAlert"
-	HeightAlertName        AlertName = "HeightAlert"
-	StateHashAlertName     AlertName = "StateHashAlert"
-	AlertFixedName         AlertName = "Resolved"
-	BaseTargetAlertName    AlertName = "BaseTargetAlert"
-	InternalErrorName      AlertName = "InternalErrorAlert"
-	L2StuckAlertName       AlertName = "L2StuckAlert"
+	SimpleAlertName          AlertName = "SimpleAlert"
+	UnreachableAlertName     AlertName = "UnreachableAlert"
+	IncompleteAlertName      AlertName = "IncompleteAlert"
+	InvalidHeightAlertName   AlertName = "InvalidHeightAlert"
+	HeightAlertName          AlertName = "HeightAlert"
+	StateHashAlertName       AlertName = "StateHashAlert"
+	AlertFixedName           AlertName = "Resolved"
+	BaseTargetAlertName      AlertName = "BaseTargetAlert"
+	InternalErrorName        AlertName = "InternalErrorAlert"
+	ChallengedBlockAlertName AlertName = "ChallengedBlockAlert"
+	L2StuckAlertName         AlertName = "L2StuckAlert"
 )
 
 func (n AlertName) AlertType() (AlertType, bool) {
@@ -113,6 +118,8 @@ func (n AlertName) AlertType() (AlertType, bool) {
 		alertType = BaseTargetAlertType
 	case InternalErrorName:
 		alertType = InternalErrorAlertType
+	case ChallengedBlockAlertName:
+		alertType = ChallengedBlockAlertType
 	case L2StuckAlertName:
 		alertType = L2StuckAlertType
 	default:
@@ -457,6 +464,8 @@ func (a *AlertFixed) UnmarshalJSON(msg []byte) error {
 		out.Fixed = &BaseTargetAlert{}
 	case InternalErrorAlertType:
 		out.Fixed = &InternalErrorAlert{}
+	case ChallengedBlockAlertType:
+		out.Fixed = &ChallengedBlockAlert{}
 	case L2StuckAlertType:
 		out.Fixed = &L2StuckAlert{}
 	case AlertFixedType:
@@ -591,6 +600,43 @@ func (a *InternalErrorAlert) Level() string {
 
 func (a *InternalErrorAlert) String() string {
 	return fmt.Sprintf("%s: %s", a.Name(), a.Message())
+}
+
+type ChallengedBlockAlert struct {
+	Timestamp int64         `json:"timestamp"`
+	BlockID   proto.BlockID `json:"block_id"`
+	Nodes     Nodes         `json:"nodes"`
+}
+
+func (c *ChallengedBlockAlert) Name() AlertName {
+	return ChallengedBlockAlertName
+}
+
+func (c *ChallengedBlockAlert) ID() crypto.Digest {
+	digest := crypto.MustFastHash([]byte(c.Name().String() + c.BlockID.String()))
+	return digest
+}
+
+func (c *ChallengedBlockAlert) Message() string {
+	return fmt.Sprintf("Challenged block %s is detected on nodes:\n%s",
+		c.BlockID.String(), strings.Join(c.Nodes, "\n"),
+	)
+}
+
+func (c *ChallengedBlockAlert) Time() time.Time {
+	return time.Unix(c.Timestamp, 0)
+}
+
+func (c *ChallengedBlockAlert) Type() AlertType {
+	return ChallengedBlockAlertType
+}
+
+func (c *ChallengedBlockAlert) Level() string {
+	return WarnLevel
+}
+
+func (c *ChallengedBlockAlert) String() string {
+	return fmt.Sprintf("%s: %s", c.Name(), c.Message())
 }
 
 func NewL2StuckAlert(timestamp int64, l2Height uint64, l2Node string) *L2StuckAlert {

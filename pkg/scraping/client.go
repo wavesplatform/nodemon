@@ -56,22 +56,22 @@ func (c *nodeClient) stateHash(ctx context.Context, height uint64) (*proto.State
 	return sh, nil
 }
 
-func (c *nodeClient) baseTarget(ctx context.Context, height uint64) (uint64, error) {
+func (c *nodeClient) blockHeader(ctx context.Context, height uint64) (*client.Headers, error) {
 	headers, _, err := c.cl.Blocks.HeadersAt(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
-		return 0, err
+		c.zap.Error("headers at request failed",
+			zap.String("node", nodeURL), zap.Uint64("height", height), zap.Error(err),
+		)
+		return nil, err
 	}
-	return headers.NxtConsensus.BaseTarget, nil
+	return headers, nil
 }
 
-func (c *nodeClient) blockGenerator(ctx context.Context, height uint64) (proto.BlockID, proto.WavesAddress, error) {
-	headers, _, err := c.cl.Blocks.HeadersAt(ctx, height)
+func (c *nodeClient) baseTarget(ctx context.Context, height uint64) (uint64, error) {
+	header, err := c.blockHeader(ctx, height)
 	if err != nil {
-		nodeURL := c.cl.GetOptions().BaseUrl
-		c.zap.Error("headers at request failed", zap.String("node", nodeURL), zap.Error(err))
-		return proto.BlockID{}, proto.WavesAddress{}, err
+		return 0, err
 	}
-	return headers.ID, headers.Generator, nil
+	return header.NxtConsensus.BaseTarget, nil
 }

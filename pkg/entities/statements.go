@@ -27,6 +27,7 @@ type NodeStatement struct {
 	BaseTarget uint64              `json:"base_target,omitempty"`
 	BlockID    *proto.BlockID      `json:"block_id,omitempty"`
 	Generator  *proto.WavesAddress `json:"generator,omitempty"`
+	Challenged bool                `json:"challenged,omitempty"`
 }
 
 type Nodes []string

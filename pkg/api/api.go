@@ -232,6 +232,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		zeroBT,
 		&statehash.BlockID,
 		nil,
+		false,
 	)
 	a.privateNodesEvents.Write(stateHashEvent)
 
