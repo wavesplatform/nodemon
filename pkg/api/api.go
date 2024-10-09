@@ -159,6 +159,58 @@ type hexBodyStringer []byte
 
 func (b hexBodyStringer) String() string { return hex.EncodeToString(b) }
 
+func parseStatementAndStateHash(
+	w http.ResponseWriter,
+	r *http.Request,
+	body []byte,
+	logger *zap.Logger,
+) (*nodeShortStatement, *proto.StateHash, bool) {
+	statementReader := io.Reader(bytes.NewBuffer(body))
+	// TODO remove these readers after implementing proper statehash structure
+	stateHashReader := io.Reader(bytes.NewBuffer(body))
+
+	statement := &nodeShortStatement{}
+	err := json.NewDecoder(statementReader).Decode(&statement)
+	if err != nil {
+		logger.Error("[API] Failed to decode a specific nodes statement",
+			zap.Error(err),
+			zap.String("request-id", middleware.GetReqID(r.Context())),
+			zap.Stringer("hex-body", hexBodyStringer(body)),
+		)
+		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusBadRequest)
+		return nil, nil, false
+	}
+	statehash := &proto.StateHash{}
+	err = json.NewDecoder(stateHashReader).Decode(statehash)
+	if err != nil {
+		logger.Error("[API] Failed to decode statehash",
+			zap.Error(err),
+			zap.String("request-id", middleware.GetReqID(r.Context())),
+			zap.Stringer("hex-body", hexBodyStringer(body)),
+		)
+		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusBadRequest)
+		return statement, nil, false
+	}
+
+	escapedNodeName := cleanCRLF(r.Header.Get("node-name"))
+	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
+	if err != nil {
+		logger.Error("[API] Failed to check and update node's url",
+			zap.Error(err),
+			zap.String("request-id", middleware.GetReqID(r.Context())),
+			zap.Stringer("hex-body", hexBodyStringer(body)),
+		)
+		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusBadRequest)
+		return statement, statehash, false
+	}
+	statement.Node = updatedURL
+	logger.Debug("[API] Received statement",
+		zap.Stringer("statement", (*statementLogWrapper)(statement)),
+		zap.String("request-id", middleware.GetReqID(r.Context())),
+	)
+	return statement, statehash, true
+}
+
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, specificNodeRequestLimit))
 	if err != nil {
@@ -171,50 +223,10 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Empty request body", http.StatusBadRequest)
 		return
 	}
-	// TODO remove these readers after implementing proper statehash structure
-	stateHashReader := io.Reader(bytes.NewBuffer(body))
-	statementReader := io.Reader(bytes.NewBuffer(body))
-
-	statehash := &proto.StateHash{}
-	err = json.NewDecoder(stateHashReader).Decode(statehash)
-	if err != nil {
-		a.zap.Error("[API] Failed to decode statehash",
-			zap.Error(err),
-			zap.String("request-id", middleware.GetReqID(r.Context())),
-			zap.Stringer("hex-body", hexBodyStringer(body)),
-		)
-		http.Error(w, fmt.Sprintf("Failed to decode statehash: %v", err), http.StatusBadRequest)
-		return
+	statement, statehash, ok := parseStatementAndStateHash(w, r, body, a.zap)
+	if !ok {
+		return // error is already written
 	}
-
-	statement := nodeShortStatement{}
-	err = json.NewDecoder(statementReader).Decode(&statement)
-	if err != nil {
-		a.zap.Error("[API] Failed to decode a specific nodes statement",
-			zap.Error(err),
-			zap.String("request-id", middleware.GetReqID(r.Context())),
-			zap.Stringer("hex-body", hexBodyStringer(body)),
-		)
-		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusBadRequest)
-		return
-	}
-	escapedNodeName := cleanCRLF(r.Header.Get("node-name"))
-	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
-	if err != nil {
-		a.zap.Error("[API] Failed to check and update node's url",
-			zap.Error(err),
-			zap.String("request-id", middleware.GetReqID(r.Context())),
-			zap.Stringer("hex-body", hexBodyStringer(body)),
-		)
-		http.Error(w, fmt.Sprintf("Failed to check node name: %v", err), http.StatusBadRequest)
-		return
-	}
-	statement.Node = updatedURL
-	a.zap.Debug("[API] Received statement",
-		zap.Stringer("statement", statementLogWrapper(statement)),
-		zap.String("request-id", middleware.GetReqID(r.Context())),
-	)
-
 	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
 	if err != nil {
 		a.zap.Error("[API] Failed to fetch specific nodes from storage",
@@ -276,10 +288,10 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 
 	sumhash := cleanCRLF(statehash.SumHash.Hex())
 	a.zap.Sugar().Infof("Statement for node %s has been received, height %d, statehash %s\n",
-		escapedNodeName, statement.Height, sumhash)
+		statement.Node, statement.Height, sumhash)
 }
 
-func specificNodeFoundInStorage(enabledSpecificNodes []entities.Node, statement nodeShortStatement) bool {
+func specificNodeFoundInStorage(enabledSpecificNodes []entities.Node, statement *nodeShortStatement) bool {
 	foundInStorage := false
 	for _, enabled := range enabledSpecificNodes {
 		if enabled.URL == statement.Node {
