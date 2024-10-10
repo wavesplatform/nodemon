@@ -38,7 +38,7 @@ func (c *ChallengedBlockCriterion) Analyze(alerts chan<- entities.Alert, timesta
 	for blockID, nodes := range challengedBlocks {
 		sortedNodes := nodes.Sort()
 		c.logger.Info("ChallengedBlockCriterion: challenged block detected",
-			zap.Stringer("block ID", blockID),
+			zap.Stringer("block-id", blockID),
 			zap.Strings("nodes", sortedNodes),
 		)
 		alerts <- &entities.ChallengedBlockAlert{
