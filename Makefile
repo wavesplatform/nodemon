@@ -29,7 +29,7 @@ mod-clean:
 	go mod tidy
 
 build-bots-linux-amd64:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-telegram ./cmd/bots/telegram/telegram.go
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-discord ./cmd/bots/discord/discord.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-telegram ./cmd/bots/telegram
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-discord ./cmd/bots/discord
 build-nodemon-linux-amd64:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon ./cmd/nodemon/nodemon.go
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon ./cmd/nodemon
