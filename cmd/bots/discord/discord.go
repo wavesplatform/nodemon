@@ -157,12 +157,16 @@ func runDiscordBot() error {
 	}()
 	<-ctx.Done()
 
+	waitScheduler(taskScheduler, logger)
+	logger.Info("Discord bot finished")
+	return nil
+}
+
+func waitScheduler(taskScheduler chrono.TaskScheduler, logger *zap.Logger) {
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
-	logger.Info("Discord bot finished")
-	return nil
 }
 
 func runMessagingClients(
