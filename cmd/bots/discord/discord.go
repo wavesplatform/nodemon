@@ -14,6 +14,7 @@ import (
 	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
+	"nodemon/cmd/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -91,6 +92,8 @@ func runDiscordBot() error {
 			log.Println(syncErr)
 		}
 	}(logger)
+
+	logger.Info("Starting discord bot", zap.String("version", internal.Version()))
 
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr
