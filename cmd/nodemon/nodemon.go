@@ -14,7 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
-	"nodemon/cmd/internal"
+	"nodemon/internal"
 	"nodemon/pkg/analysis/l2"
 
 	"go.uber.org/zap"

@@ -1,7 +1,7 @@
 export GO111MODULE=on
 
 VERSION=$(shell git describe --tags --always --dirty)
-SOURCE_DIRS = cmd pkg
+SOURCE_DIRS = cmd pkg internal
 
 .PHONY: vendor vetcheck fmtcheck clean build gotest mod-clean
 
@@ -21,7 +21,7 @@ clean:
 	rm -r build/
 
 build:
-	@go build -o build/nodemon -ldflags="-X 'nodemon/cmd/internal.version=$(VERSION)'" ./cmd/nodemon
+	@go build -o build/nodemon -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/nodemon
 
 gotest:
 	go test -cover -race -covermode=atomic ./...
@@ -30,8 +30,8 @@ mod-clean:
 	go mod tidy
 
 build-bots-linux-amd64:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-telegram -ldflags="-X 'nodemon/cmd/internal.version=$(VERSION)'" ./cmd/bots/telegram
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-discord -ldflags="-X 'nodemon/cmd/internal.version=$(VERSION)'" ./cmd/bots/discord
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-telegram -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/bots/telegram
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon-discord -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/bots/discord
 
 build-nodemon-linux-amd64:
-	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon -ldflags="-X 'nodemon/cmd/internal.version=$(VERSION)'" ./cmd/nodemon
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/nodemon

@@ -16,7 +16,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
-	"nodemon/cmd/internal"
+	"nodemon/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
