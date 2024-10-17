@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 )
@@ -70,6 +71,7 @@ func (a *BotAPI) routes(logger *zap.Logger) chi.Router {
 	r.Get("/health", a.health)
 	r.Handle("/log/level", a.atom)
 	r.Handle("/metrics", tools.PrometheusHTTPMetricsHandler(mwLog{logger}))
+	r.Get("/version", internal.VersionHTTPHandler)
 	return r
 }
 

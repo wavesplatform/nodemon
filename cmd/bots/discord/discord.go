@@ -14,6 +14,7 @@ import (
 	"nodemon/cmd/bots/internal/common/initial"
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
+	"nodemon/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -92,6 +93,8 @@ func runDiscordBot() error {
 		}
 	}(logger)
 
+	logger.Info("Starting discord bot", zap.String("version", internal.Version()))
+
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr
 	}
@@ -154,12 +157,16 @@ func runDiscordBot() error {
 	}()
 	<-ctx.Done()
 
+	waitScheduler(taskScheduler, logger)
+	logger.Info("Discord bot finished")
+	return nil
+}
+
+func waitScheduler(taskScheduler chrono.TaskScheduler, logger *zap.Logger) {
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
-	logger.Info("Discord bot finished")
-	return nil
 }
 
 func runMessagingClients(

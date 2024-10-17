@@ -14,6 +14,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	"nodemon/internal"
 	"nodemon/pkg/analysis/l2"
 
 	"go.uber.org/zap"
@@ -296,6 +297,8 @@ func run() error {
 			log.Println(syncErr)
 		}
 	}(logger)
+
+	logger.Info("Starting nodemon", zap.String("version", internal.Version()))
 
 	if validateErr := cfg.validate(logger); validateErr != nil {
 		return validateErr

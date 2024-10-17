@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/internal"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
@@ -109,6 +110,7 @@ func (a *API) routes(logger *zap.Logger) chi.Router {
 	r.Get("/health", a.health)
 	r.Handle("/log/level", a.atom)
 	r.Handle("/metrics", tools.PrometheusHTTPMetricsHandler(mwLog{logger}))
+	r.Get("/version", internal.VersionHTTPHandler)
 	return r
 }
 

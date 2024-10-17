@@ -16,6 +16,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
+	"nodemon/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -106,6 +107,8 @@ func runTelegramBot() error {
 			log.Println(syncErr)
 		}
 	}(logger)
+
+	logger.Info("Starting telegram bot", zap.String("version", internal.Version()))
 
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr
