@@ -17,8 +17,8 @@ const (
 )
 
 type StateHashCriterionOptions struct {
-	MaxForkDepth     uint64
-	HeightBucketSize uint64
+	MaxForkDepth     uint32
+	HeightBucketSize uint32
 }
 
 type StateHashCriterion struct {
@@ -38,7 +38,7 @@ func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, 
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, statements entities.NodeStatements) error {
-	splitByBucketHeight := statements.SplitByNodeHeightBuckets(c.opts.HeightBucketSize)
+	splitByBucketHeight := statements.SplitByNodeHeightBuckets(uint64(c.opts.HeightBucketSize))
 	for bucketHeight, nodeStatements := range splitByBucketHeight {
 		var statementsAtBucketHeight entities.NodeStatements
 		if minHeight, maxHeight := nodeStatements.SplitByNodeHeight().MinMaxHeight(); minHeight == maxHeight {
@@ -111,7 +111,7 @@ func (c *StateHashCriterion) analyzeNodesOnSameHeight(
 	}
 	samples.SortByNodeAsc() // sort for predictable alert result
 
-	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(c.opts.MaxForkDepth + 1)
+	ff := finders.NewForkFinder(c.es).WithLinearSearchParams(uint64(c.opts.MaxForkDepth + 1))
 
 	for i, first := range samples {
 		for _, second := range samples[i+1:] {
@@ -155,12 +155,18 @@ func (c *StateHashCriterion) handleSamplesPair(
 			)
 		}
 	}
-	forkDepth := bucketHeight - lastCommonStateHashHeight
+	forkDepth := int64(bucketHeight) - int64(lastCommonStateHashHeight) //#nosec: the diff can be negative
 
-	if forkDepth > 0 {
-		c.zap.Info("StateHashCriterion: fork detected",
-			zap.Uint64("Fork depth", forkDepth),
+	if forkDepth != 0 {
+		msg := "StateHashCriterion: fork detected"
+		if forkDepth < 0 {
+			msg = "StateHashCriterion: last common StateHash height is greater than bucket height"
+		}
+		c.zap.Info(msg,
+			zap.Int64("Fork depth", forkDepth),
 			zap.Bool("Last common StateHash exist", lastCommonStateHashExist),
+			zap.Uint64("Bucket height", bucketHeight),
+			zap.Uint64("Last common StateHash height", lastCommonStateHashHeight),
 			zap.String("First group",
 				strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", "),
 			),
@@ -171,7 +177,7 @@ func (c *StateHashCriterion) handleSamplesPair(
 			zap.String("Second group StateHash", second.StateHash.SumHash.Hex()))
 	}
 
-	if forkDepth > c.opts.MaxForkDepth || forkDepth >= c.opts.HeightBucketSize {
+	if forkDepth > int64(c.opts.MaxForkDepth) || forkDepth >= int64(c.opts.HeightBucketSize) {
 		alerts <- &entities.StateHashAlert{
 			Timestamp:                 timestamp,
 			CurrentGroupsBucketHeight: bucketHeight,
