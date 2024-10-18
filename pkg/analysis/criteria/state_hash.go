@@ -155,7 +155,7 @@ func (c *StateHashCriterion) handleSamplesPair(
 			)
 		}
 	}
-	forkDepth := int64(bucketHeight) - int64(lastCommonStateHashHeight) //#nosec: height can't be negative, but the diff can
+	forkDepth := int64(bucketHeight) - int64(lastCommonStateHashHeight) //#nosec: the diff can be negative
 
 	if forkDepth != 0 {
 		msg := "StateHashCriterion: fork detected"
