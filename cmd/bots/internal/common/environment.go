@@ -243,10 +243,10 @@ func (m unhandledAlertMessages) Delete(alertID crypto.Digest) {
 }
 
 type TelegramBotEnvironment struct {
-	ChatID                 int64
-	Bot                    *telebot.Bot
-	Mute                   bool // If it used elsewhere, should be protected by mutex
-	subSocket              protocol.Socket
+	ChatID int64
+	Bot    *telebot.Bot
+	Mute   bool // If it used elsewhere, should be protected by mutex
+	//subSocket              protocol.Socket
 	subscriptions          subscriptions
 	zap                    *zap.Logger
 	requestType            chan<- pair.Request
@@ -288,10 +288,6 @@ func (tgEnv *TelegramBotEnvironment) Start(ctx context.Context) error {
 	tgEnv.Bot.Start() // the call is blocking
 	tgEnv.zap.Info("Telegram bot finished")
 	return nil
-}
-
-func (tgEnv *TelegramBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
-	tgEnv.subSocket = subSocket
 }
 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
@@ -426,10 +422,11 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
-		if err != nil {
-			return err
-		}
+		// todo fix this. send (topic, handlerFunc) into this function
+		//err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+		//if err != nil {
+		//	return err
+		//}
 		tgEnv.subscriptions.Add(alertType, alertName)
 		tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	}
@@ -447,10 +444,11 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 	}
 
-	err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
-	if err != nil {
-		return errors.Wrap(err, "failed to subscribe to alert")
-	}
+	// todo fix this. send (topic, handlerFunc) into this function
+	//err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to subscribe to alert")
+	//}
 	tgEnv.subscriptions.Add(alertType, alertName)
 	tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	return nil
@@ -465,11 +463,11 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	if !tgEnv.IsAlreadySubscribed(alertType) {
 		return errors.Errorf("failed to unsubscribe from %s, was not subscribed to it", alertName)
 	}
-
-	err := tgEnv.subSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
-	if err != nil {
-		return errors.Wrap(err, "failed to unsubscribe from alert")
-	}
+	// TODO fix this
+	//err := tgEnv.subSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
+	//if err != nil {
+	//	return errors.Wrap(err, "failed to unsubscribe from alert")
+	//}
 	ok = tgEnv.IsAlreadySubscribed(alertType)
 	if !ok {
 		return errors.New("failed to unsubscribe from alert: was not subscribed to it")

@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrs "errors"
 	"flag"
+	"github.com/nats-io/nats-server/v2/server"
 	"log"
 	"net/url"
 	"os"
@@ -189,9 +190,11 @@ type nodemonConfig struct {
 	bindAddress            string
 	interval               time.Duration
 	timeout                time.Duration
-	nanomsgPubSubURL       string
+	natsPubSubURL          string
 	nanomsgPairTelegramURL string
 	nanomsgPairDiscordURL  string
+	natsMaxPayloadSize     int
+	natsTimeout            time.Duration
 	retention              time.Duration
 	apiReadTimeout         time.Duration
 	baseTargetThreshold    uint64
@@ -215,12 +218,16 @@ func newNodemonConfig() *nodemonConfig {
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
 	tools.Uint64VarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
-	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
-		"ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairTelegramURL, "nano-msg-pair-telegram-url",
+	tools.StringVarFlagWithEnv(&c.natsPubSubURL, "nats-msg-pubsub-url",
+		"nats://127.0.0.1:4222", "Nats URL for pubsub socket")
+	tools.StringVarFlagWithEnv(&c.nanomsgPairTelegramURL, "nats-msg-pair-telegram-url",
 		"", "Nanomsg IPC URL for pair socket")
 	tools.StringVarFlagWithEnv(&c.nanomsgPairDiscordURL, "nano-msg-pair-discord-url",
 		"", "Nanomsg IPC URL for pair socket")
+	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-server-timeout",
+		server.AUTH_TIMEOUT, "Nanomsg IPC URL for pair socket")
+	tools.IntVarFlagWithEnv(&c.natsMaxPayloadSize, "nats-msg-payload-size", 1024*1024,
+		"The size of the payload passed between nats server and clients.Default 1MB")
 	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
@@ -415,7 +422,7 @@ func runMessagingServices(
 	pew specific.PrivateNodesEventsWriter,
 ) {
 	go func() {
-		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, logger)
+		pubSubErr := pubsub.StartPubMessagingServer(ctx, int32(cfg.natsMaxPayloadSize), cfg.natsPubSubURL, alerts, logger)
 		if pubSubErr != nil {
 			logger.Fatal("failed to start pub messaging server", zap.Error(pubSubErr))
 		}
