@@ -78,8 +78,9 @@ func TestBaseTargetCriterion_Analyze(t *testing.T) {
 		for j := range test.expectedAlerts {
 			select {
 			case actualAlert := <-alerts:
-				baseTargetAlert := *actualAlert.(*entities.BaseTargetAlert)
-				require.Contains(t, test.expectedAlerts, baseTargetAlert, "test case #%d", j+1)
+				baseTargetAlert, ok := actualAlert.(*entities.BaseTargetAlert)
+				require.True(t, ok, "unexpected alert type: %T", actualAlert)
+				require.Contains(t, test.expectedAlerts, *baseTargetAlert, "test case #%d", j+1)
 			case <-time.After(5 * time.Second):
 				require.Fail(t, "timeout exceeded")
 			}
@@ -125,7 +126,8 @@ func TestNoBaseTargetAlertCriterion_Analyze(t *testing.T) {
 		select {
 		case actualAlert, ok := <-alerts:
 			if ok {
-				baseTargetAlert := *actualAlert.(*entities.BaseTargetAlert)
+				baseTargetAlert, btOk := actualAlert.(*entities.BaseTargetAlert)
+				require.True(t, btOk, "unexpected alert type: %T", actualAlert)
 				require.Fail(t, "unexpected alert: %v", baseTargetAlert)
 			}
 			return
