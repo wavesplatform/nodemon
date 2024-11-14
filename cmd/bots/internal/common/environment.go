@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	textTemplate "text/template"
 
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
@@ -615,19 +614,8 @@ func sortNodesStatuses(statuses []NodeStatus) {
 
 func executeTemplate(template string, data any, extension ExpectedExtension) (string, error) {
 	switch extension {
-	case HTML:
+	case HTML, Markdown:
 		tmpl, err := htmlTemplate.ParseFS(templateFiles, template+string(extension))
-		if err != nil {
-			return "", err
-		}
-		buffer := &bytes.Buffer{}
-		err = tmpl.Execute(buffer, data)
-		if err != nil {
-			return "", err
-		}
-		return buffer.String(), nil
-	case Markdown:
-		tmpl, err := textTemplate.ParseFS(templateFiles, template+string(extension))
 		if err != nil {
 			return "", err
 		}
