@@ -92,8 +92,9 @@ func TestChallengedBlockCriterion_Analyze(t *testing.T) {
 			for j := range test.expectedAlerts {
 				select {
 				case actualAlert := <-alerts:
-					challengedBlockAlert := *actualAlert.(*entities.ChallengedBlockAlert)
-					require.Contains(t, test.expectedAlerts, challengedBlockAlert, "test case #%d", j+1)
+					challengedBlockAlert, ok := actualAlert.(*entities.ChallengedBlockAlert)
+					require.True(t, ok, "unexpected alert type: %T", actualAlert)
+					require.Contains(t, test.expectedAlerts, *challengedBlockAlert, "test case #%d", j+1)
 				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")
 				}

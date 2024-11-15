@@ -101,8 +101,9 @@ func TestHeightCriterion_Analyze(t *testing.T) {
 			for j := range test.expectedAlerts {
 				select {
 				case actualAlert := <-alerts:
-					heightAlert := *actualAlert.(*entities.HeightAlert)
-					require.Contains(t, test.expectedAlerts, heightAlert, "test case #%d", j+1)
+					heightAlert, ok := actualAlert.(*entities.HeightAlert)
+					require.True(t, ok, "unexpected alert type: %T", actualAlert)
+					require.Contains(t, test.expectedAlerts, *heightAlert, "test case #%d", j+1)
 				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")
 				}
