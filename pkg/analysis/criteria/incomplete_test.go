@@ -132,7 +132,9 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			for j := range test.expectedAlerts {
 				select {
 				case actualAlert := <-alerts:
-					incompleteAlert := *actualAlert.(*entities.IncompleteAlert)
+					actualA, ok := actualAlert.(*entities.IncompleteAlert)
+					require.True(t, ok)
+					incompleteAlert := *actualA
 					require.Contains(t, test.expectedAlerts, incompleteAlert, "test case #%d", j+1)
 				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")

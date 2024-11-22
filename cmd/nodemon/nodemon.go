@@ -4,7 +4,6 @@ import (
 	"context"
 	stderrs "errors"
 	"flag"
-	"github.com/nats-io/nats-server/v2/server"
 	"log"
 	"net/url"
 	"os"
@@ -13,15 +12,12 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"nodemon/internal"
-	"nodemon/pkg/analysis/l2"
-
 	"go.uber.org/zap"
 
+	"nodemon/internal"
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/analysis/l2"
 	"nodemon/pkg/api"
 	"nodemon/pkg/clients"
 	"nodemon/pkg/entities"
@@ -32,6 +28,9 @@ import (
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
+
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -183,25 +182,24 @@ func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
 }
 
 type nodemonConfig struct {
-	storage                string
-	nodes                  string
-	L2nodeName             string
-	L2nodeURL              string
-	bindAddress            string
-	interval               time.Duration
-	timeout                time.Duration
-	natsPubSubURL          string
-	nanomsgPairTelegramURL string
-	nanomsgPairDiscordURL  string
-	natsMaxPayloadSize     int
-	natsTimeout            time.Duration
-	retention              time.Duration
-	apiReadTimeout         time.Duration
-	baseTargetThreshold    uint64
-	logLevel               string
-	development            bool
-	vault                  *nodemonVaultConfig
-	l2                     *nodemonL2Config
+	storage             string
+	nodes               string
+	L2nodeName          string
+	L2nodeURL           string
+	bindAddress         string
+	interval            time.Duration
+	timeout             time.Duration
+	natsMessagingURL    string
+	natsPairTelegram    bool
+	natsPairDiscord     bool
+	natsTimeout         time.Duration
+	retention           time.Duration
+	apiReadTimeout      time.Duration
+	baseTargetThreshold uint64
+	logLevel            string
+	development         bool
+	vault               *nodemonVaultConfig
+	l2                  *nodemonL2Config
 }
 
 func newNodemonConfig() *nodemonConfig {
@@ -218,21 +216,17 @@ func newNodemonConfig() *nodemonConfig {
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
 	tools.Uint64VarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
-	tools.StringVarFlagWithEnv(&c.natsPubSubURL, "nats-msg-pubsub-url",
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-pubsub-url",
 		"nats://127.0.0.1:4222", "Nats URL for pubsub socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairTelegramURL, "nats-msg-pair-telegram-url",
-		"", "Nanomsg IPC URL for pair socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairDiscordURL, "nano-msg-pair-discord-url",
-		"", "Nanomsg IPC URL for pair socket")
 	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-server-timeout",
 		server.AUTH_TIMEOUT, "Nanomsg IPC URL for pair socket")
-	tools.IntVarFlagWithEnv(&c.natsMaxPayloadSize, "nats-msg-payload-size", 1024*1024,
-		"The size of the payload passed between nats server and clients.Default 1MB")
 	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
 		"HTTP API read timeout. Default value is 30s.")
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
+	tools.BoolVarFlagWithEnv(&c.natsPairDiscord, "bot-requests-discord", false, "Should let discord bot send commands?")
+	tools.BoolVarFlagWithEnv(&c.natsPairTelegram, "bot-requests-telegram", true, "Should let telegram bot send commands?")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	c.vault = newNodemonVaultConfig()
@@ -266,9 +260,9 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 	return stderrs.Join(c.vault.validate(logger), c.l2.validate(logger))
 }
 
-func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscordURL != "" }
+func (c *nodemonConfig) runDiscordPairServer() bool { return c.natsPairDiscord }
 
-func (c *nodemonConfig) runTelegramPairServer() bool { return c.nanomsgPairTelegramURL != "" }
+func (c *nodemonConfig) runTelegramPairServer() bool { return c.natsPairTelegram }
 
 func (c *nodemonConfig) runAnalyzers(
 	ctx context.Context,
@@ -422,7 +416,7 @@ func runMessagingServices(
 	pew specific.PrivateNodesEventsWriter,
 ) {
 	go func() {
-		pubSubErr := pubsub.StartPubMessagingServer(ctx, int32(cfg.natsMaxPayloadSize), cfg.natsPubSubURL, alerts, logger)
+		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.natsMessagingURL, alerts, logger)
 		if pubSubErr != nil {
 			logger.Fatal("failed to start pub messaging server", zap.Error(pubSubErr))
 		}
@@ -430,7 +424,7 @@ func runMessagingServices(
 
 	if cfg.runTelegramPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, pew, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
@@ -439,7 +433,7 @@ func runMessagingServices(
 
 	if cfg.runDiscordPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, pew, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}

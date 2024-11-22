@@ -4,87 +4,37 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	stderr "errors"
 	"fmt"
 	"strings"
 	"time"
 
-	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging/pair"
-
-	"github.com/pkg/errors"
-	"go.nanomsg.org/mangos/v3/protocol"
-	pairProtocol "go.nanomsg.org/mangos/v3/protocol/pair"
 	"go.uber.org/zap"
-)
 
-const (
-	defaultSendTimeout = 5 * time.Second
-	defaultRecvTimeout = 5 * time.Second
+	"github.com/nats-io/nats.go"
+	"github.com/pkg/errors"
+
+	"nodemon/pkg/entities"
+	"nodemon/pkg/messaging"
+	"nodemon/pkg/messaging/pair"
 )
 
 const defaultResponseTimeout = 5 * time.Second
 
-type sendRecvDeadlineSocketWrapper struct {
-	protocol.Socket
-}
-
-func (w sendRecvDeadlineSocketWrapper) Send(data []byte) (err error) {
-	defer func() { // reset deadline in any case
-		setOptErr := w.Socket.SetOption(protocol.OptionSendDeadline, time.Duration(0))
-		if setOptErr != nil {
-			if err != nil {
-				err = stderr.Join(err, setOptErr)
-			} else {
-				err = setOptErr
-			}
-		}
-	}()
-	// set deadline for current send
-	if setOptErr := w.Socket.SetOption(protocol.OptionSendDeadline, defaultSendTimeout); setOptErr != nil {
-		return setOptErr
-	}
-	return w.Socket.Send(data)
-}
-
-func (w sendRecvDeadlineSocketWrapper) Recv() (_ []byte, err error) {
-	defer func() { // reset deadline in any case
-		setOptErr := w.Socket.SetOption(protocol.OptionRecvDeadline, time.Duration(0))
-		if setOptErr != nil {
-			if err != nil {
-				err = stderr.Join(err, setOptErr)
-			} else {
-				err = setOptErr
-			}
-		}
-	}()
-	// set deadline for current recv
-	if setOptErr := w.Socket.SetOption(protocol.OptionRecvDeadline, defaultRecvTimeout); setOptErr != nil {
-		return nil, setOptErr
-	}
-	return w.Socket.Recv()
-}
-
 func StartPairMessagingClient(
 	ctx context.Context,
-	nanomsgURL string,
+	natsServerURL string,
 	requestPair <-chan pair.Request,
 	responsePair chan<- pair.Response,
 	logger *zap.Logger,
 ) error {
-	pairSocket, sockErr := pairProtocol.NewSocket()
-	if sockErr != nil {
-		return errors.Wrap(sockErr, "failed to get new pair socket")
+	nc, err := nats.Connect(natsServerURL)
+	if err != nil {
+		zap.S().Fatalf("Failed to connect to nats server: %v", err)
+		return err
 	}
-	defer func() {
-		_ = pairSocket.Close() // can be ignored, only possible error is protocol.ErrClosed
-	}()
+	defer nc.Close()
 
-	if err := pairSocket.Dial(nanomsgURL); err != nil {
-		return errors.Wrap(err, "failed to dial on pair socket")
-	}
-
-	done := runPairLoop(ctx, requestPair, sendRecvDeadlineSocketWrapper{pairSocket}, logger, responsePair)
+	done := runPairLoop(ctx, requestPair, nc, logger, responsePair)
 
 	<-ctx.Done()
 	logger.Info("stopping pair messaging service...")
@@ -96,7 +46,7 @@ func StartPairMessagingClient(
 func runPairLoop(
 	ctx context.Context,
 	requestPair <-chan pair.Request,
-	pairSocket protocol.Socket,
+	nc *nats.Conn,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
 ) <-chan struct{} {
@@ -114,7 +64,7 @@ func runPairLoop(
 				message := &bytes.Buffer{}
 				message.WriteByte(byte(request.RequestType()))
 
-				err := handlePairRequest(ctx, request, pairSocket, message, logger, responsePair)
+				err := handlePairRequest(ctx, request, nc, message, logger, responsePair)
 				if err != nil {
 					logger.Error("failed to handle pair request",
 						zap.String("request-type", fmt.Sprintf("(%T)", request)),
@@ -130,28 +80,30 @@ func runPairLoop(
 func handlePairRequest(
 	ctx context.Context,
 	request pair.Request,
-	pairSocket protocol.Socket,
+	nc *nats.Conn,
 	message *bytes.Buffer,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
 ) error {
 	switch r := request.(type) {
 	case *pair.NodesListRequest:
-		return handleNodesListRequest(ctx, pairSocket, message, logger, responsePair)
+		return handleNodesListRequest(ctx, nc, message, logger, responsePair)
 	case *pair.InsertNewNodeRequest:
-		return handleInsertNewNodeRequest(r.URL, message, pairSocket)
+		return handleInsertNewNodeRequest(r.URL, message, nc)
 	case *pair.UpdateNodeRequest:
-		return handleUpdateNodeRequest(r.URL, r.Alias, message, pairSocket)
+		return handleUpdateNodeRequest(r.URL, r.Alias, message, nc)
 	case *pair.DeleteNodeRequest:
 		message.WriteString(r.URL)
-		if sendErr := pairSocket.Send(message.Bytes()); sendErr != nil {
-			return errors.Wrap(sendErr, "failed handle delete node request and send data to a pair socket")
+		// ignore response
+		_, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+		if err != nil {
+			return errors.Wrap(err, "failed to receive message from nodemon")
 		}
 		return nil
 	case *pair.NodesStatusRequest:
-		return handleNodesStatementsRequest(ctx, r.URLs, message, pairSocket, logger, responsePair)
+		return handleNodesStatementsRequest(ctx, r.URLs, message, nc, logger, responsePair)
 	case *pair.NodeStatementRequest:
-		return handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, pairSocket, responsePair)
+		return handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, nc, responsePair)
 	default:
 		return errors.New("unknown request type to pair socket")
 	}
@@ -163,7 +115,7 @@ func handleNodesStatementRequest(
 	height int,
 	logger *zap.Logger,
 	message *bytes.Buffer,
-	pairSocket protocol.Socket,
+	nc *nats.Conn,
 	responsePair chan<- pair.Response,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
@@ -175,17 +127,14 @@ func handleNodesStatementRequest(
 	}
 
 	message.Write(req)
-	err = pairSocket.Send(message.Bytes())
+
+	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
-		return errors.Wrap(err, "failed to send a request to pair socket")
+		return errors.Wrap(err, "failed to receive message from nodemon")
 	}
 
-	response, err := pairSocket.Recv()
-	if err != nil {
-		return errors.Wrap(err, "failed to receive message from pair socket")
-	}
 	nodeStatementResp := pair.NodeStatementResponse{}
-	err = json.Unmarshal(response, &nodeStatementResp)
+	err = json.Unmarshal(response.Data, &nodeStatementResp)
 	if err != nil {
 		return errors.Wrap(err, "failed to unmarshal message from pair socket")
 	}
@@ -195,7 +144,7 @@ func handleNodesStatementRequest(
 	case <-ctx.Done():
 		logger.Error("failed to send node statement response, timeout exceeded",
 			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("node-statement-response", response),
+			zap.ByteString("node-statement-response", response.Data),
 			zap.Error(ctx.Err()),
 		)
 		return ctx.Err()
@@ -206,7 +155,7 @@ func handleNodesStatementsRequest(
 	ctx context.Context,
 	urls []string,
 	message *bytes.Buffer,
-	pairSocket protocol.Socket,
+	nc *nats.Conn,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
 ) error {
@@ -214,17 +163,13 @@ func handleNodesStatementsRequest(
 	defer cancel()
 
 	message.WriteString(strings.Join(urls, ","))
-	err := pairSocket.Send(message.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "failed to send a request to pair socket")
-	}
 
-	response, err := pairSocket.Recv()
+	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
-		return errors.Wrap(err, "failed to receive message from pair socket")
+		return errors.Wrap(err, "failed to receive message from nodemon")
 	}
 	nodesStatusResp := pair.NodesStatementsResponse{}
-	err = json.Unmarshal(response, &nodesStatusResp)
+	err = json.Unmarshal(response.Data, &nodesStatusResp)
 	if err != nil {
 		return errors.Wrap(err, "failed to unmarshal message from pair socket")
 	}
@@ -234,30 +179,32 @@ func handleNodesStatementsRequest(
 	case <-ctx.Done():
 		logger.Error("failed to send nodes status response, timeout exceeded",
 			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("nodes-status-response", response),
+			zap.ByteString("nodes-status-response", response.Data),
 			zap.Error(ctx.Err()),
 		)
 		return ctx.Err()
 	}
 }
 
-func handleUpdateNodeRequest(url, alias string, message *bytes.Buffer, pairSocket protocol.Socket) error {
+func handleUpdateNodeRequest(url, alias string, message *bytes.Buffer, nc *nats.Conn) error {
 	node := entities.Node{URL: url, Enabled: true, Alias: alias}
 	nodeInfo, err := json.Marshal(node)
 	if err != nil {
 		return errors.Wrap(err, "failed to marshal node's info")
 	}
 	message.Write(nodeInfo)
-	err = pairSocket.Send(message.Bytes())
+	// ignore a response
+	_, err = nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to send message")
 	}
 	return nil
 }
 
-func handleInsertNewNodeRequest(url string, message *bytes.Buffer, pairSocket protocol.Socket) error {
+func handleInsertNewNodeRequest(url string, message *bytes.Buffer, nc *nats.Conn) error {
 	message.WriteString(url)
-	err := pairSocket.Send(message.Bytes())
+	// ignore a response
+	_, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to send message")
 	}
@@ -266,7 +213,7 @@ func handleInsertNewNodeRequest(url string, message *bytes.Buffer, pairSocket pr
 
 func handleNodesListRequest(
 	ctx context.Context,
-	pairSocket protocol.Socket,
+	nc *nats.Conn,
 	message *bytes.Buffer,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
@@ -274,17 +221,12 @@ func handleNodesListRequest(
 	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
 	defer cancel()
 
-	err := pairSocket.Send(message.Bytes())
-	if err != nil {
-		return errors.Wrap(err, "failed to send message")
-	}
-
-	response, err := pairSocket.Recv()
+	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to receive message")
 	}
 	nodeList := pair.NodesListResponse{}
-	err = json.Unmarshal(response, &nodeList)
+	err = json.Unmarshal(response.Data, &nodeList)
 	if err != nil {
 		return errors.Wrap(err, "failed to unmarshal message")
 	}
@@ -294,7 +236,7 @@ func handleNodesListRequest(
 	case <-ctx.Done():
 		logger.Error("failed to send nodes list response, timeout exceeded",
 			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("nodes-status-response", response),
+			zap.ByteString("nodes-status-response", response.Data),
 			zap.Error(ctx.Err()),
 		)
 		return ctx.Err()

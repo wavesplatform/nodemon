@@ -245,7 +245,9 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 			for j := range test.expectedAlerts {
 				select {
 				case actualAlert := <-alerts:
-					stateHashAlert := *actualAlert.(*entities.StateHashAlert)
+					actualA, ok := actualAlert.(*entities.StateHashAlert)
+					require.True(t, ok)
+					stateHashAlert := *actualA
 					require.Contains(t, test.expectedAlerts, stateHashAlert, "test case #%d", j+1)
 				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")

@@ -96,7 +96,9 @@ func TestUnreachableCriterion_Analyze(t *testing.T) {
 			for j := range test.expectedAlerts {
 				select {
 				case actualAlert := <-alerts:
-					unreachableAlert := *actualAlert.(*entities.UnreachableAlert)
+					actualA, ok := actualAlert.(*entities.UnreachableAlert)
+					require.True(t, ok)
+					unreachableAlert := *actualA
 					require.Contains(t, test.expectedAlerts, unreachableAlert, "test case #%d", j+1)
 				case <-time.After(5 * time.Second):
 					require.Fail(t, "timeout exceeded")
