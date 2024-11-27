@@ -1,6 +1,9 @@
-package analysis
+package storage
 
 import (
+	"iter"
+	"maps"
+
 	"nodemon/pkg/entities"
 
 	"github.com/wavesplatform/gowaves/pkg/crypto"
@@ -8,8 +11,8 @@ import (
 )
 
 const (
-	defaultAlertVacuumQuota = 5
-	defaultAlertBackoff     = 2
+	DefaultAlertVacuumQuota = 5
+	DefaultAlertBackoff     = 2
 )
 
 type alertInfo struct {
@@ -22,29 +25,15 @@ type alertInfo struct {
 
 type alertsInternalStorage map[crypto.Digest]alertInfo
 
-func (s alertsInternalStorage) ids() []crypto.Digest {
-	if len(s) == 0 {
-		return nil
-	}
-	ids := make([]crypto.Digest, 0, len(s))
-	for id := range s {
-		ids = append(ids, id)
-	}
-	return ids
+func (s alertsInternalStorage) ids() iter.Seq[crypto.Digest] {
+	return maps.Keys(s)
 }
 
-func (s alertsInternalStorage) infos() []alertInfo {
-	if len(s) == 0 {
-		return nil
-	}
-	infos := make([]alertInfo, 0, len(s))
-	for _, info := range s {
-		infos = append(infos, info)
-	}
-	return infos
+func (s alertsInternalStorage) infos() iter.Seq[alertInfo] {
+	return maps.Values(s)
 }
 
-type alertsStorage struct {
+type AlertsStorage struct {
 	alertBackoff          int
 	alertVacuumQuota      int
 	requiredConfirmations alertConfirmations
@@ -54,41 +43,47 @@ type alertsStorage struct {
 
 type alertConfirmations map[entities.AlertType]int
 
-const (
-	heightAlertConfirmationsDefault = 2
-)
-
-type alertConfirmationsValue struct {
-	alertType     entities.AlertType
-	confirmations int
+type AlertConfirmationsValue struct {
+	AlertType     entities.AlertType
+	Confirmations int
 }
 
-func newAlertConfirmations(customConfirmations ...alertConfirmationsValue) alertConfirmations {
-	confirmations := alertConfirmations{
-		entities.SimpleAlertType:          0,
-		entities.UnreachableAlertType:     0,
-		entities.IncompleteAlertType:      0,
-		entities.InvalidHeightAlertType:   0,
-		entities.HeightAlertType:          0,
-		entities.StateHashAlertType:       0,
-		entities.AlertFixedType:           0,
-		entities.BaseTargetAlertType:      0,
-		entities.InternalErrorAlertType:   0,
-		entities.ChallengedBlockAlertType: 0,
-		entities.L2StuckAlertType:         0,
-	}
+func newAlertConfirmations(customConfirmations ...AlertConfirmationsValue) alertConfirmations {
+	confirmations := make(alertConfirmations, len(customConfirmations))
 	for _, cc := range customConfirmations {
-		confirmations[cc.alertType] = cc.confirmations
+		confirmations[cc.AlertType] = cc.Confirmations
 	}
 	return confirmations
+}
+
+type AlertsStorageOption func(*AlertsStorage)
+
+func AlertBackoff(backoff int) AlertsStorageOption {
+	return func(s *AlertsStorage) { s.alertBackoff = backoff }
+}
+
+func AlertVacuumQuota(quota int) AlertsStorageOption {
+	return func(s *AlertsStorage) { s.alertVacuumQuota = quota }
+}
+
+func AlertConfirmations(confirmations ...AlertConfirmationsValue) AlertsStorageOption {
+	return func(s *AlertsStorage) { s.requiredConfirmations = newAlertConfirmations(confirmations...) }
+}
+
+func NewAlertsStorage(logger *zap.Logger, opts ...AlertsStorageOption) *AlertsStorage {
+	s := newAlertsStorage(DefaultAlertBackoff, DefaultAlertVacuumQuota, newAlertConfirmations(), logger)
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 func newAlertsStorage(
 	alertBackoff, alertVacuumQuota int,
 	requiredConfirmations alertConfirmations,
 	logger *zap.Logger,
-) *alertsStorage {
-	return &alertsStorage{
+) *AlertsStorage {
+	return &AlertsStorage{
 		alertBackoff:          alertBackoff,
 		alertVacuumQuota:      alertVacuumQuota,
 		requiredConfirmations: requiredConfirmations,
@@ -97,7 +92,7 @@ func newAlertsStorage(
 	}
 }
 
-func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
+func (s *AlertsStorage) PutAlert(alert entities.Alert) bool {
 	if s.alertVacuumQuota <= 1 { // no need to save alerts which can't outlive even one vacuum stage
 		return true
 	}
@@ -147,9 +142,9 @@ func (s *alertsStorage) PutAlert(alert entities.Alert) bool {
 	return false
 }
 
-func (s *alertsStorage) Vacuum() []entities.Alert {
+func (s *AlertsStorage) Vacuum() []entities.Alert {
 	var alertsFixed []entities.Alert
-	for _, id := range s.internalStorage.ids() {
+	for id := range s.internalStorage.ids() {
 		info := s.internalStorage[id]
 		info.vacuumQuota--
 		if info.vacuumQuota <= 0 {
