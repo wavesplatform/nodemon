@@ -1,7 +1,8 @@
-package analysis
+package storage
 
 import (
 	"log"
+	"slices"
 	"testing"
 
 	"nodemon/pkg/entities"
@@ -37,7 +38,7 @@ func TestAlertsStorage(t *testing.T) {
 		expectedAlertsInfo  []alertInfo
 	}{
 		{
-			alertBackoff:        defaultAlertBackoff,
+			alertBackoff:        DefaultAlertBackoff,
 			alertVacuumQuota:    4,
 			vacuumResults:       [][]entities.Alert{{}, {}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2},
@@ -48,28 +49,28 @@ func TestAlertsStorage(t *testing.T) {
 				{
 					vacuumQuota:      4,
 					repeats:          1,
-					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff * DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert1,
 				},
 				{
 					vacuumQuota:      1,
 					repeats:          1,
-					backoffThreshold: defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert2,
 				},
 				{
 					vacuumQuota:      4,
 					repeats:          1,
-					backoffThreshold: defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert3,
 				},
 			},
 		},
 		{
-			alertBackoff:        defaultAlertBackoff,
+			alertBackoff:        DefaultAlertBackoff,
 			alertVacuumQuota:    2,
 			vacuumResults:       [][]entities.Alert{{}, {alert1, alert2}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2},
@@ -80,21 +81,21 @@ func TestAlertsStorage(t *testing.T) {
 				{
 					vacuumQuota:      2,
 					repeats:          1,
-					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff * DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert1,
 				},
 				{
 					vacuumQuota:      2,
 					repeats:          2,
-					backoffThreshold: defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert3,
 				},
 			},
 		},
 		{
-			alertBackoff:        defaultAlertBackoff,
+			alertBackoff:        DefaultAlertBackoff,
 			alertVacuumQuota:    0,
 			vacuumResults:       nil,
 			initialAlerts:       nil,
@@ -104,7 +105,7 @@ func TestAlertsStorage(t *testing.T) {
 			expectedAlertsInfo:  nil,
 		},
 		{
-			alertBackoff:        defaultAlertBackoff,
+			alertBackoff:        DefaultAlertBackoff,
 			alertVacuumQuota:    1,
 			vacuumResults:       nil,
 			initialAlerts:       nil,
@@ -114,21 +115,21 @@ func TestAlertsStorage(t *testing.T) {
 			expectedAlertsInfo:  nil,
 		},
 		{
-			alertBackoff:        defaultAlertBackoff,
+			alertBackoff:        DefaultAlertBackoff,
 			alertVacuumQuota:    2,
 			vacuumResults:       [][]entities.Alert{{}, {alert1}, {}},
 			initialAlerts:       []entities.Alert{alert1, alert2, alert1},
 			alerts:              []entities.Alert{alert3, alert3, alert2, alert1, alert1, alert1, alert1, alert1},
 			sendAlertNowResults: []bool{false, true, false, false, true, false, true, false},
-			alertConfirmations: newAlertConfirmations(alertConfirmationsValue{
-				alertType:     entities.SimpleAlertType,
-				confirmations: 2,
+			alertConfirmations: newAlertConfirmations(AlertConfirmationsValue{
+				AlertType:     entities.SimpleAlertType,
+				Confirmations: 2,
 			}),
 			expectedAlertsInfo: []alertInfo{
 				{
 					vacuumQuota:      2,
 					repeats:          2,
-					backoffThreshold: defaultAlertBackoff * defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff * DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert1,
 				},
@@ -142,7 +143,7 @@ func TestAlertsStorage(t *testing.T) {
 				{
 					vacuumQuota:      2,
 					repeats:          1,
-					backoffThreshold: defaultAlertBackoff,
+					backoffThreshold: DefaultAlertBackoff,
 					confirmed:        true,
 					alert:            alert3,
 				},
@@ -167,7 +168,7 @@ func TestAlertsStorage(t *testing.T) {
 			sendAlertNow := storage.PutAlert(alert)
 			require.Equal(t, test.sendAlertNowResults[j], sendAlertNow, "test case#%d alert#%d", tcNum, j+1)
 		}
-		actualInfos := storage.internalStorage.infos()
+		actualInfos := slices.Collect(storage.internalStorage.infos())
 		require.ElementsMatch(t, test.expectedAlertsInfo, actualInfos, "test case#%d", tcNum)
 	}
 }
