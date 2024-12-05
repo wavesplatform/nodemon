@@ -146,7 +146,14 @@ func vacuumAlerts(
 	}
 }
 
-const defaultAlertVacuumQuota = int(l2NodesSameHeightTimerDuration/heightCollectorTimeout) + 1
+// defaultAlertVacuumQuota is a default value for the alerts storage vacuum quota.
+// It is calculated as the number of vacuum stages required to vacuum an alert.
+// The formula is: l2NodesSameHeightTimerDuration / heightCollectorTimeout + 1 + 4, where:
+// - l2NodesSameHeightTimerDuration is the duration of the timer that triggers the alert about the same height of an L2,
+// - heightCollectorTimeout is the timeout of the height collector,
+// - 1 is added to compensate the first vacuum stage,
+// - 2 is added to survive the vacuum stage after the last alert.
+const defaultAlertVacuumQuota = int(l2NodesSameHeightTimerDuration/heightCollectorTimeout) + 1 + 2
 
 func analyzerLoop(
 	ctx context.Context,
