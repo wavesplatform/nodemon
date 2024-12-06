@@ -2,49 +2,34 @@ package pubsub
 
 import (
 	"context"
-	"strings"
+
+	"github.com/nats-io/nats.go"
+	"github.com/pkg/errors"
+
+	"go.uber.org/zap"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
-
-	"github.com/pkg/errors"
-	"go.nanomsg.org/mangos/v3/protocol"
-	"go.nanomsg.org/mangos/v3/protocol/pub"
-	_ "go.nanomsg.org/mangos/v3/transport/all" // registers all transports
-	"go.uber.org/zap"
 )
 
 func StartPubMessagingServer(
 	ctx context.Context,
-	nanomsgURL string,
+	natsPubSubURL string, // expected nats://host:port
 	alerts <-chan entities.Alert,
 	logger *zap.Logger,
 ) error {
-	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		return errors.New("invalid nanomsg IPC URL for pub sub socket")
-	}
-
-	socketPub, sockErr := pub.NewSocket()
-	if sockErr != nil {
-		return sockErr
-	}
-	defer func(socketPub protocol.Socket) {
-		if err := socketPub.Close(); err != nil {
-			logger.Error("Failed to close pub socket", zap.Error(err))
-		}
-	}(socketPub)
-
-	if err := socketPub.Listen(nanomsgURL); err != nil {
+	socket, err := nats.Connect(natsPubSubURL)
+	if err != nil {
 		return err
 	}
-	loopErr := enterLoop(ctx, alerts, logger, socketPub)
+	loopErr := enterLoop(ctx, alerts, logger, socket)
 	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
 		return loopErr
 	}
 	return nil
 }
 
-func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, socketPub protocol.Socket) error {
+func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, nc *nats.Conn) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -62,7 +47,7 @@ func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Lo
 				logger.Error("Failed to marshal binary alert message", zap.Error(err))
 				continue
 			}
-			err = socketPub.Send(data)
+			err = nc.Publish(messaging.PubSubTopic, data)
 			if err != nil {
 				logger.Error("Failed to send alert to socket", zap.Error(err))
 			}
