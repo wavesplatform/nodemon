@@ -35,3 +35,6 @@ build-bots-linux-amd64:
 
 build-nodemon-linux-amd64:
 	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/nodemon -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/nodemon
+
+build-messaging-server-linux-amd64:
+	@CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o build/linux-amd64/messaging-server -ldflags="-X 'nodemon/internal.version=$(VERSION)'" ./cmd/messaging
