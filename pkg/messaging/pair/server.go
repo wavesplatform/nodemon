@@ -26,6 +26,7 @@ func StartPairMessagingServer(
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
 	logger *zap.Logger,
+	scheme string,
 ) error {
 	nc, err := nats.Connect(natsPairURL)
 	if err != nil {
@@ -38,15 +39,15 @@ func StartPairMessagingServer(
 		return errors.New("invalid nats URL for pair messaging")
 	}
 
-	_, subErr := nc.Subscribe(messaging.BotRequestsTopic, func(request *nats.Msg) {
+	_, subErr := nc.Subscribe(messaging.BotRequestsTopic+scheme, func(request *nats.Msg) {
 		response, handleErr := handleMessage(request.Data, ns, logger, es, pew)
 		if handleErr != nil {
 			logger.Error("failed to handle bot request", zap.Error(handleErr))
 			return
 		}
-		respndErr := request.Respond(response)
-		if respndErr != nil {
-			logger.Error("failed to respond to bot request", zap.Error(respndErr))
+		respondErr := request.Respond(response)
+		if respondErr != nil {
+			logger.Error("failed to respond to bot request", zap.Error(respondErr))
 			return
 		}
 	})

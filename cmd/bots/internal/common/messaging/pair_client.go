@@ -26,6 +26,7 @@ func StartPairMessagingClient(
 	requestPair <-chan pair.Request,
 	responsePair chan<- pair.Response,
 	logger *zap.Logger,
+	scheme string,
 ) error {
 	nc, err := nats.Connect(natsServerURL)
 	if err != nil {
@@ -34,7 +35,7 @@ func StartPairMessagingClient(
 	}
 	defer nc.Close()
 
-	done := runPairLoop(ctx, requestPair, nc, logger, responsePair)
+	done := runPairLoop(ctx, requestPair, nc, logger, responsePair, scheme)
 
 	<-ctx.Done()
 	logger.Info("stopping pair messaging service...")
@@ -49,6 +50,7 @@ func runPairLoop(
 	nc *nats.Conn,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
+	scheme string,
 ) <-chan struct{} {
 	ch := make(chan struct{})
 	go func(done chan<- struct{}) {
@@ -64,7 +66,7 @@ func runPairLoop(
 				message := &bytes.Buffer{}
 				message.WriteByte(byte(request.RequestType()))
 
-				err := handlePairRequest(ctx, request, nc, message, logger, responsePair)
+				err := handlePairRequest(ctx, request, nc, message, logger, responsePair, scheme)
 				if err != nil {
 					logger.Error("failed to handle pair request",
 						zap.String("request-type", fmt.Sprintf("(%T)", request)),
@@ -84,26 +86,21 @@ func handlePairRequest(
 	message *bytes.Buffer,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
+	scheme string,
 ) error {
 	switch r := request.(type) {
 	case *pair.NodesListRequest:
-		return handleNodesListRequest(ctx, nc, message, logger, responsePair)
+		return handleNodesListRequest(ctx, nc, message, logger, responsePair, scheme)
 	case *pair.InsertNewNodeRequest:
-		return handleInsertNewNodeRequest(r.URL, message, nc)
+		return handleInsertNewNodeRequest(r.URL, message, nc, scheme)
 	case *pair.UpdateNodeRequest:
-		return handleUpdateNodeRequest(r.URL, r.Alias, message, nc)
+		return handleUpdateNodeRequest(r.URL, r.Alias, message, nc, scheme)
 	case *pair.DeleteNodeRequest:
-		message.WriteString(r.URL)
-		// ignore response
-		_, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
-		if err != nil {
-			return errors.Wrap(err, "failed to receive message from nodemon")
-		}
-		return nil
+		return handleDeleteNodeRequest(r.URL, message, nc, scheme)
 	case *pair.NodesStatusRequest:
-		return handleNodesStatementsRequest(ctx, r.URLs, message, nc, logger, responsePair)
+		return handleNodesStatementsRequest(ctx, r.URLs, message, nc, logger, responsePair, scheme)
 	case *pair.NodeStatementRequest:
-		return handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, nc, responsePair)
+		return handleNodesStatementRequest(ctx, r.URL, r.Height, logger, message, nc, responsePair, scheme)
 	default:
 		return errors.New("unknown request type to pair socket")
 	}
@@ -117,6 +114,7 @@ func handleNodesStatementRequest(
 	message *bytes.Buffer,
 	nc *nats.Conn,
 	responsePair chan<- pair.Response,
+	scheme string,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
 	defer cancel()
@@ -128,7 +126,7 @@ func handleNodesStatementRequest(
 
 	message.Write(req)
 
-	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+	response, err := nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to receive message from nodemon")
 	}
@@ -158,13 +156,14 @@ func handleNodesStatementsRequest(
 	nc *nats.Conn,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
+	scheme string,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
 	defer cancel()
 
 	message.WriteString(strings.Join(urls, ","))
 
-	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+	response, err := nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to receive message from nodemon")
 	}
@@ -186,7 +185,7 @@ func handleNodesStatementsRequest(
 	}
 }
 
-func handleUpdateNodeRequest(url, alias string, message *bytes.Buffer, nc *nats.Conn) error {
+func handleUpdateNodeRequest(url, alias string, message *bytes.Buffer, nc *nats.Conn, scheme string) error {
 	node := entities.Node{URL: url, Enabled: true, Alias: alias}
 	nodeInfo, err := json.Marshal(node)
 	if err != nil {
@@ -194,17 +193,27 @@ func handleUpdateNodeRequest(url, alias string, message *bytes.Buffer, nc *nats.
 	}
 	message.Write(nodeInfo)
 	// ignore a response
-	_, err = nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+	_, err = nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to send message")
 	}
 	return nil
 }
 
-func handleInsertNewNodeRequest(url string, message *bytes.Buffer, nc *nats.Conn) error {
+func handleDeleteNodeRequest(url string, message *bytes.Buffer, nc *nats.Conn, scheme string) error {
+	message.WriteString(url)
+	// ignore response
+	_, err := nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
+	if err != nil {
+		return errors.Wrap(err, "failed to receive message from nodemon")
+	}
+	return nil
+}
+
+func handleInsertNewNodeRequest(url string, message *bytes.Buffer, nc *nats.Conn, scheme string) error {
 	message.WriteString(url)
 	// ignore a response
-	_, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+	_, err := nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to send message")
 	}
@@ -217,11 +226,12 @@ func handleNodesListRequest(
 	message *bytes.Buffer,
 	logger *zap.Logger,
 	responsePair chan<- pair.Response,
+	scheme string,
 ) error {
 	ctx, cancel := context.WithTimeout(ctx, defaultResponseTimeout)
 	defer cancel()
 
-	response, err := nc.Request(messaging.BotRequestsTopic, message.Bytes(), defaultResponseTimeout)
+	response, err := nc.Request(messaging.BotRequestsTopic+scheme, message.Bytes(), defaultResponseTimeout)
 	if err != nil {
 		return errors.Wrap(err, "failed to receive message")
 	}

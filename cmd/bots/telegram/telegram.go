@@ -49,6 +49,7 @@ type telegramBotConfig struct {
 	logLevel            string
 	development         bool
 	bindAddress         string
+	scheme              string
 }
 
 func newTelegramBotConfig() *telegramBotConfig {
@@ -70,6 +71,8 @@ func newTelegramBotConfig() *telegramBotConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
+	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
+		"testnet", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	return c
 }
 
@@ -81,6 +84,9 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 	if c.behavior == config.WebhookMethod && c.publicURL == "" {
 		logger.Error("public url is required for webhook method")
 		return common.ErrInvalidParameters
+	}
+	if c.scheme == "" {
+		logger.Error("the blockchain scheme must be specified")
 	}
 	if c.tgChatID == 0 {
 		logger.Error("telegram chat ID is required")
@@ -118,8 +124,7 @@ func runTelegramBot() error {
 	responseChan := make(chan pair.Response)
 
 	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
-		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan,
-	)
+		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan, cfg.scheme)
 	if initErr != nil {
 		logger.Fatal("failed to initialize telegram bot", zap.Error(initErr))
 	}
@@ -175,14 +180,14 @@ func runMessagingClients(
 	pairResponse chan<- pair.Response,
 ) {
 	go func() {
-		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
+		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger, cfg.scheme)
 		if err != nil {
 			logger.Fatal("failed to start sub messaging service", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, cfg.scheme)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging service", zap.Error(err))
 		}

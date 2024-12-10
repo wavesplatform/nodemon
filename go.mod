@@ -16,14 +16,12 @@ require (
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/buntdb v1.3.2
 	github.com/wavesplatform/gowaves v0.10.7-0.20240927070807-c256c5d98bfa
-	go.nanomsg.org/mangos/v3 v3.4.2
 	go.uber.org/zap v1.27.0
 	gopkg.in/telebot.v3 v3.3.8
 )
 
 require (
 	filippo.io/edwards25519 v1.1.0 // indirect
-	github.com/Microsoft/go-winio v0.6.2 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.14.2 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect

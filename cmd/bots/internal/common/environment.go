@@ -22,8 +22,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
-	"go.nanomsg.org/mangos/v3"
-	"go.nanomsg.org/mangos/v3/protocol"
 	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
@@ -80,12 +78,12 @@ func (s *subscriptions) MapR(f func()) {
 type DiscordBotEnvironment struct {
 	ChatID                 string
 	Bot                    *discordgo.Session
-	subSocket              protocol.Socket
 	Subscriptions          subscriptions
 	zap                    *zap.Logger
 	requestType            chan<- pair.Request
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
+	scheme                 string
 }
 
 func NewDiscordBotEnvironment(
@@ -94,6 +92,7 @@ func NewDiscordBotEnvironment(
 	zap *zap.Logger,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
+	scheme string,
 ) *DiscordBotEnvironment {
 	return &DiscordBotEnvironment{
 		Bot:    bot,
@@ -106,6 +105,7 @@ func NewDiscordBotEnvironment(
 		requestType:            requestType,
 		responsePairType:       responsePairType,
 		unhandledAlertMessages: newUnhandledAlertMessages(),
+		scheme:                 scheme,
 	}
 }
 
@@ -119,10 +119,6 @@ func (dscBot *DiscordBotEnvironment) Start() error {
 		return err
 	}
 	return nil
-}
-
-func (dscBot *DiscordBotEnvironment) SetSubSocket(subSocket protocol.Socket) {
-	dscBot.subSocket = subSocket
 }
 
 func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
@@ -194,10 +190,10 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		err := dscBot.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)})
-		if err != nil {
-			return err
-		}
+		// err := dscBot.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)}).
+		// if err != nil {
+		//	return err
+		// }
 		dscBot.Subscriptions.Add(alertType, alertName)
 		dscBot.zap.Sugar().Infof("subscribed to %s", alertName)
 	}
@@ -250,6 +246,7 @@ type TelegramBotEnvironment struct {
 	requestType            chan<- pair.Request
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
+	scheme                 string
 }
 
 func NewTelegramBotEnvironment(
@@ -259,6 +256,7 @@ func NewTelegramBotEnvironment(
 	zap *zap.Logger,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
+	scheme string,
 ) *TelegramBotEnvironment {
 	return &TelegramBotEnvironment{
 		Bot:    bot,
@@ -272,6 +270,7 @@ func NewTelegramBotEnvironment(
 		requestType:            requestType,
 		responsePairType:       responsePairType,
 		unhandledAlertMessages: newUnhandledAlertMessages(),
+		scheme:                 scheme,
 	}
 }
 

@@ -17,19 +17,21 @@ func StartPubMessagingServer(
 	natsPubSubURL string, // expected nats://host:port
 	alerts <-chan entities.Alert,
 	logger *zap.Logger,
+	scheme string,
 ) error {
-	socket, err := nats.Connect(natsPubSubURL)
+	nc, err := nats.Connect(natsPubSubURL)
 	if err != nil {
 		return err
 	}
-	loopErr := enterLoop(ctx, alerts, logger, socket)
+	loopErr := enterLoop(ctx, alerts, logger, nc, scheme)
 	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
 		return loopErr
 	}
 	return nil
 }
 
-func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Logger, nc *nats.Conn) error {
+func enterLoop(ctx context.Context, alerts <-chan entities.Alert,
+	logger *zap.Logger, nc *nats.Conn, scheme string) error {
 	for {
 		select {
 		case <-ctx.Done():
@@ -47,7 +49,7 @@ func enterLoop(ctx context.Context, alerts <-chan entities.Alert, logger *zap.Lo
 				logger.Error("Failed to marshal binary alert message", zap.Error(err))
 				continue
 			}
-			err = nc.Publish(messaging.PubSubTopic, data)
+			err = nc.Publish(messaging.PubSubTopic+scheme, data)
 			if err != nil {
 				logger.Error("Failed to send alert to socket", zap.Error(err))
 			}

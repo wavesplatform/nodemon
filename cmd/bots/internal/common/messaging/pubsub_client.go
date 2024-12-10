@@ -5,13 +5,13 @@ import (
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
-	_ "go.nanomsg.org/mangos/v3/transport/all" // registers all transports
 	"go.uber.org/zap"
 
 	"nodemon/pkg/messaging"
 )
 
-func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot, logger *zap.Logger) error {
+func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
+	logger *zap.Logger, scheme string) error {
 	// Connect to a NATS server
 	nc, err := nats.Connect(natsServerURL)
 	if err != nil {
@@ -20,7 +20,7 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 	}
 	defer nc.Close()
 
-	_, err = nc.Subscribe(messaging.PubSubTopic, func(msg *nats.Msg) {
+	_, err = nc.Subscribe(messaging.PubSubTopic+scheme, func(msg *nats.Msg) {
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {
 			zap.S().Errorf("failed to handle received message from pubsub server %v", hndlErr)
