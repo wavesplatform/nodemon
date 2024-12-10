@@ -19,17 +19,16 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 		return err
 	}
 	defer nc.Close()
-
-	_, err = nc.Subscribe(messaging.PubSubTopic+scheme, func(msg *nats.Msg) {
+	bot.SetNatsConnection(nc)
+	bot.SetTopic(messaging.PubSubTopic + scheme)
+	alertHandlerFunc := func(msg *nats.Msg) {
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {
 			zap.S().Errorf("failed to handle received message from pubsub server %v", hndlErr)
 		}
-	})
-	if err != nil {
-		zap.S().Fatalf("Failed to subscribe to block updates: %v", err)
-		return err
 	}
+	bot.SetAlertHandlerFunc(alertHandlerFunc)
+
 	if subscrErr := bot.SubscribeToAllAlerts(); subscrErr != nil {
 		return subscrErr
 	}

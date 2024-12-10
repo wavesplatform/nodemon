@@ -20,6 +20,7 @@ import (
 
 	"codnect.io/chrono"
 	"github.com/bwmarrin/discordgo"
+	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"go.uber.org/zap"
@@ -44,19 +45,25 @@ const (
 
 var errUnknownAlertType = errors.New("received unknown alert type")
 
-type subscriptions struct {
-	mu   *sync.RWMutex
-	subs map[entities.AlertType]entities.AlertName
+type AlertSubscription struct {
+	alertName    entities.AlertName
+	subscription *nats.Subscription
 }
 
-func (s *subscriptions) Add(alertType entities.AlertType, alertName entities.AlertName) {
+type subscriptions struct {
+	mu   *sync.RWMutex
+	subs map[entities.AlertType]AlertSubscription
+}
+
+func (s *subscriptions) Add(alertType entities.AlertType, alertName entities.AlertName,
+	subscription *nats.Subscription) {
 	s.mu.Lock()
-	s.subs[alertType] = alertName
+	s.subs[alertType] = AlertSubscription{alertName, subscription}
 	s.mu.Unlock()
 }
 
 // Read returns alert name.
-func (s *subscriptions) Read(alertType entities.AlertType) (entities.AlertName, bool) {
+func (s *subscriptions) Read(alertType entities.AlertType) (AlertSubscription, bool) {
 	s.mu.RLock()
 	elem, ok := s.subs[alertType]
 	s.mu.RUnlock()
@@ -84,6 +91,9 @@ type DiscordBotEnvironment struct {
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
 	scheme                 string
+	nc                     *nats.Conn
+	alertHandlerFunc       func(msg *nats.Msg)
+	topic                  string
 }
 
 func NewDiscordBotEnvironment(
@@ -98,7 +108,7 @@ func NewDiscordBotEnvironment(
 		Bot:    bot,
 		ChatID: chatID,
 		Subscriptions: subscriptions{
-			subs: make(map[entities.AlertType]entities.AlertName),
+			subs: make(map[entities.AlertType]AlertSubscription),
 			mu:   new(sync.RWMutex),
 		},
 		zap:                    zap,
@@ -185,16 +195,28 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	dscBot.unhandledAlertMessages.Add(alertID, messageID)
 }
 
+func (dscBot *DiscordBotEnvironment) SetNatsConnection(nc *nats.Conn) {
+	dscBot.nc = nc
+}
+
+func (dscBot *DiscordBotEnvironment) SetAlertHandlerFunc(alertHandlerFunc func(msg *nats.Msg)) {
+	dscBot.alertHandlerFunc = alertHandlerFunc
+}
+
+func (dscBot *DiscordBotEnvironment) SetTopic(topic string) {
+	dscBot.topic = topic
+}
+
 func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		// err := dscBot.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)}).
-		// if err != nil {
-		//	return err
-		// }
-		dscBot.Subscriptions.Add(alertType, alertName)
+		subscription, err := dscBot.nc.Subscribe(dscBot.topic+string(alertType), dscBot.alertHandlerFunc)
+		if err != nil {
+			return errors.Wrap(err, "failed to subscribe to alert")
+		}
+		dscBot.Subscriptions.Add(alertType, alertName, subscription)
 		dscBot.zap.Sugar().Infof("subscribed to %s", alertName)
 	}
 	return nil
@@ -247,6 +269,9 @@ type TelegramBotEnvironment struct {
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
 	scheme                 string
+	nc                     *nats.Conn
+	alertHandlerFunc       func(msg *nats.Msg)
+	topic                  string
 }
 
 func NewTelegramBotEnvironment(
@@ -263,7 +288,7 @@ func NewTelegramBotEnvironment(
 		ChatID: chatID,
 		Mute:   mute,
 		subscriptions: subscriptions{
-			subs: make(map[entities.AlertType]entities.AlertName),
+			subs: make(map[entities.AlertType]AlertSubscription),
 			mu:   new(sync.RWMutex),
 		},
 		zap:                    zap,
@@ -419,12 +444,11 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		// todo fix this. send (topic, handlerFunc) into this function
-		// err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)}).
-		// if err != nil {.
-		//	return err.
-		// }.
-		tgEnv.subscriptions.Add(alertType, alertName)
+		subscription, err := tgEnv.nc.Subscribe(tgEnv.topic+string(alertType), tgEnv.alertHandlerFunc)
+		if err != nil {
+			return errors.Wrap(err, "failed to subscribe to alert")
+		}
+		tgEnv.subscriptions.Add(alertType, alertName, subscription)
 		tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
 	}
 
@@ -441,13 +465,13 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 	}
 
-	// todo fix this. send (topic, handlerFunc) into this function
-	// err := tgEnv.subSocket.SetOption(mangos.OptionSubscribe, []byte{byte(alertType)}).
-	// if err != nil {.
-	//	return errors.Wrap(err, "failed to subscribe to alert").
-	// }.
-	tgEnv.subscriptions.Add(alertType, alertName)
+	subscription, err := tgEnv.nc.Subscribe(tgEnv.topic+string(alertType), tgEnv.alertHandlerFunc)
+	if err != nil {
+		return errors.Wrap(err, "failed to subscribe to alert")
+	}
+	tgEnv.subscriptions.Add(alertType, alertName, subscription)
 	tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
+
 	return nil
 }
 
@@ -460,18 +484,33 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	if !tgEnv.IsAlreadySubscribed(alertType) {
 		return errors.Errorf("failed to unsubscribe from %s, was not subscribed to it", alertName)
 	}
-	// TODO fix this
-	// err := tgEnv.subSocket.SetOption(mangos.OptionUnsubscribe, []byte{byte(alertType)})
-	// if err != nil {
-	//	return errors.Wrap(err, "failed to unsubscribe from alert")
-	// }
+	alertSub, ok := tgEnv.subscriptions.Read(alertType)
+	if !ok {
+		return errors.Errorf("subscription didn't exist even though I was subscribed to it")
+	}
+	err := alertSub.subscription.Unsubscribe()
+	if err != nil {
+		return errors.New("failed to unsubscribe from alert")
+	}
 	ok = tgEnv.IsAlreadySubscribed(alertType)
 	if !ok {
-		return errors.New("failed to unsubscribe from alert: was not subscribed to it")
+		return errors.New("tried to unsubscribe from alert, but still subscribed to it")
 	}
 	tgEnv.subscriptions.Delete(alertType)
 	tgEnv.zap.Sugar().Infof("Telegram bot unsubscribed from %s", alertName)
 	return nil
+}
+
+func (tgEnv *TelegramBotEnvironment) SetNatsConnection(nc *nats.Conn) {
+	tgEnv.nc = nc
+}
+
+func (tgEnv *TelegramBotEnvironment) SetAlertHandlerFunc(alertHandlerFunc func(msg *nats.Msg)) {
+	tgEnv.alertHandlerFunc = alertHandlerFunc
+}
+
+func (tgEnv *TelegramBotEnvironment) SetTopic(topic string) {
+	tgEnv.topic = topic
 }
 
 type subscribed struct {
@@ -497,7 +536,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	var subscribedTo []subscribed
 	tgEnv.subscriptions.MapR(func() {
 		for _, alertName := range tgEnv.subscriptions.subs {
-			s := subscribed{AlertName: string(alertName) + "\n\n"}
+			s := subscribed{AlertName: string(alertName.alertName) + "\n\n"}
 			subscribedTo = append(subscribedTo, s)
 		}
 	})
