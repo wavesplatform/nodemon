@@ -97,6 +97,9 @@ func removeCmd(
 
 func addAliasCmd(env *common.TelegramBotEnvironment, requestType chan<- pair.Request) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !env.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to change subscriptions")
+		}
 		const requiredArgsCount = 2
 		args := c.Args()
 		if len(args) != requiredArgsCount {
@@ -137,6 +140,9 @@ func onTextMsgHandler(
 	responsePairType <-chan pair.Response,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to use these commands")
+		}
 		command := strings.ToLower(c.Text())
 		switch {
 		case strings.HasPrefix(command, "add specific"):
@@ -269,6 +275,9 @@ func statementCmd(
 
 func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to change subscriptions")
+		}
 		args := c.Args()
 		if len(args) != 1 {
 			return c.Send(messages.SubscribeWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
@@ -280,6 +289,9 @@ func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.C
 
 func subscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to change subscriptions")
+		}
 		args := c.Args()
 		if len(args) != 1 {
 			return c.Send(messages.SubscribeWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
@@ -295,6 +307,9 @@ func addSpecificCmd(
 	responseChan <-chan pair.Response,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to add nodes")
+		}
 		args := c.Args()
 		if len(args) != 1 {
 			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
@@ -311,6 +326,9 @@ func addCmd(
 	responseChan <-chan pair.Response,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
+		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+			return c.Send("Sorry, you have no right to change add nodes")
+		}
 		args := c.Args()
 		if len(args) != 1 {
 			return c.Send(messages.AddWrongNumberOfNodes, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
@@ -380,6 +398,9 @@ func EditPool(
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 ) error {
+	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+		return c.Send("Sorry, you have no right to edit pool")
+	}
 	nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
@@ -418,6 +439,9 @@ func EditPool(
 func EditSubscriptions(
 	c telebot.Context,
 	environment *common.TelegramBotEnvironment) error {
+	if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+		return c.Send("Sorry, you have no right to change subscriptions")
+	}
 	msg, err := environment.SubscriptionsList()
 	if err != nil {
 		return errors.Wrap(err, "failed to request subscriptions")
