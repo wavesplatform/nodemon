@@ -6,21 +6,19 @@ import (
 	"flag"
 	"log"
 	"net/url"
+	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/pkg/errors"
-
-	"nodemon/internal"
-	"nodemon/pkg/analysis/l2"
-
 	"go.uber.org/zap"
 
+	"nodemon/internal"
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/analysis/l2"
 	"nodemon/pkg/api"
 	"nodemon/pkg/clients"
 	"nodemon/pkg/entities"
@@ -31,6 +29,9 @@ import (
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
+
+	"github.com/nats-io/nats-server/v2/server"
+	"github.com/pkg/errors"
 )
 
 const (
@@ -38,6 +39,9 @@ const (
 	defaultPollingInterval   = 60 * time.Second
 	defaultRetentionDuration = 12 * time.Hour
 	defaultAPIReadTimeout    = 30 * time.Second
+
+	natsMaxPayloadSize        int32 = 1024 * 1024 // 1 MB
+	connectionsTimeoutDefault       = 5 * server.AUTH_TIMEOUT
 )
 
 var (
@@ -142,6 +146,12 @@ type nodemonVaultConfig struct {
 	secretPath string
 }
 
+type natsOptionalConfig struct {
+	serverURL                string
+	maxPayload               int64
+	connectionTimeoutDefault time.Duration
+}
+
 func newNodemonVaultConfig() *nodemonVaultConfig {
 	c := new(nodemonVaultConfig)
 	tools.StringVarFlagWithEnv(&c.address, "vault-address", "", "Vault server address.")
@@ -151,6 +161,17 @@ func newNodemonVaultConfig() *nodemonVaultConfig {
 		"Vault mount path for nodemon nodes storage.")
 	tools.StringVarFlagWithEnv(&c.secretPath, "vault-secret-path", "",
 		"Vault secret where nodemon nodes will be saved")
+	return c
+}
+
+func newNatsOptionalConfig() *natsOptionalConfig {
+	c := new(natsOptionalConfig)
+	tools.StringVarFlagWithEnv(&c.serverURL, "nats-url",
+		"nats://127.0.0.1:4222", "NATS server URL")
+	tools.Int64VarFlagWithEnv(&c.maxPayload, "max-payload", int64(natsMaxPayloadSize),
+		"Max server payload size in bytes")
+	tools.DurationVarFlagWithEnv(&c.connectionTimeoutDefault, "connection-timeout", connectionsTimeoutDefault,
+		"HTTP API read timeout. Default value is 30s.")
 	return c
 }
 
@@ -182,23 +203,26 @@ func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
 }
 
 type nodemonConfig struct {
-	storage                string
-	nodes                  string
-	L2nodeName             string
-	L2nodeURL              string
-	bindAddress            string
-	interval               time.Duration
-	timeout                time.Duration
-	nanomsgPubSubURL       string
-	nanomsgPairTelegramURL string
-	nanomsgPairDiscordURL  string
-	retention              time.Duration
-	apiReadTimeout         time.Duration
-	baseTargetThreshold    uint64
-	logLevel               string
-	development            bool
-	vault                  *nodemonVaultConfig
-	l2                     *nodemonL2Config
+	storage             string
+	nodes               string
+	L2nodeName          string
+	L2nodeURL           string
+	bindAddress         string
+	interval            time.Duration
+	timeout             time.Duration
+	natsMessagingURL    string
+	natsPairTelegram    bool
+	natsPairDiscord     bool
+	natsTimeout         time.Duration
+	retention           time.Duration
+	apiReadTimeout      time.Duration
+	baseTargetThreshold uint64
+	logLevel            string
+	development         bool
+	vault               *nodemonVaultConfig
+	l2                  *nodemonL2Config
+	scheme              string
+	natsOptionalConfig  *natsOptionalConfig
 }
 
 func newNodemonConfig() *nodemonConfig {
@@ -215,21 +239,24 @@ func newNodemonConfig() *nodemonConfig {
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
 	tools.Uint64VarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
-	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
-		"ipc:///tmp/nano-msg-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairTelegramURL, "nano-msg-pair-telegram-url",
-		"", "Nanomsg IPC URL for pair socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairDiscordURL, "nano-msg-pair-discord-url",
-		"", "Nanomsg IPC URL for pair socket")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-pubsub-url",
+		"nats://127.0.0.1:4222", "Nats URL for pubsub socket")
+	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-server-timeout",
+		server.AUTH_TIMEOUT, "Nanomsg IPC URL for pair socket")
 	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
 		"HTTP API read timeout. Default value is 30s.")
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
+	tools.BoolVarFlagWithEnv(&c.natsPairDiscord, "bot-requests-discord", false, "Should let discord bot send commands?")
+	tools.BoolVarFlagWithEnv(&c.natsPairTelegram, "bot-requests-telegram", true, "Should let telegram bot send commands?")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
+		"testnet", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	c.vault = newNodemonVaultConfig()
 	c.l2 = newNodemonL2Config()
+	c.natsOptionalConfig = newNatsOptionalConfig()
 	return c
 }
 
@@ -259,9 +286,9 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 	return stderrs.Join(c.vault.validate(logger), c.l2.validate(logger))
 }
 
-func (c *nodemonConfig) runDiscordPairServer() bool { return c.nanomsgPairDiscordURL != "" }
+func (c *nodemonConfig) runDiscordPairServer() bool { return c.natsPairDiscord }
 
-func (c *nodemonConfig) runTelegramPairServer() bool { return c.nanomsgPairTelegramURL != "" }
+func (c *nodemonConfig) runTelegramPairServer() bool { return c.natsPairTelegram }
 
 func (c *nodemonConfig) runAnalyzers(
 	ctx context.Context,
@@ -307,26 +334,11 @@ func run() error {
 	ctx, done := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer done()
 
-	ns, err := createNodesStorage(ctx, cfg, logger)
+	ns, es, err := initializeStorages(ctx, cfg, logger)
 	if err != nil {
 		return err
 	}
-	defer func(cs nodes.Storage) {
-		if closeErr := cs.Close(); closeErr != nil {
-			logger.Error("failed to close nodes storage", zap.Error(closeErr))
-		}
-	}(ns)
-
-	es, err := events.NewStorage(cfg.retention, logger)
-	if err != nil {
-		logger.Error("failed to initialize events storage", zap.Error(err))
-		return err
-	}
-	defer func(es *events.Storage) {
-		if closeErr := es.Close(); closeErr != nil {
-			logger.Error("failed to close events storage", zap.Error(closeErr))
-		}
-	}(es)
+	defer closeStorages(ns, es, logger)
 
 	scraper, err := scraping.NewScraper(ns, es, cfg.interval, cfg.timeout, logger)
 	if err != nil {
@@ -340,26 +352,73 @@ func run() error {
 		return err
 	}
 
-	notifications := scraper.Start(ctx)
-	notifications = privateNodesHandler.Run(notifications) // wraps scrapper's notification with private nodes handler
-	pew := privateNodesHandler.PrivateNodesEventsWriter()
-
-	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, atom, cfg.development)
-	if err != nil {
-		logger.Error("failed to initialize API", zap.Error(err))
-		return err
+	a, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, atom, logger)
+	if serviceErr != nil {
+		return serviceErr
 	}
-	if apiErr := a.Start(); apiErr != nil {
-		logger.Error("failed to start API", zap.Error(apiErr))
-		return apiErr
-	}
-
-	cfg.runAnalyzers(ctx, cfg, es, ns, logger, pew, notifications)
 
 	<-ctx.Done()
 	a.Shutdown()
 	logger.Info("shutting down")
 	return nil
+}
+
+func initializeStorages(ctx context.Context, cfg *nodemonConfig,
+	logger *zap.Logger) (nodes.Storage, *events.Storage, error) {
+	ns, err := createNodesStorage(ctx, cfg, logger)
+	if err != nil {
+		logger.Error("failed to initialize nodes storage", zap.Error(err))
+		return nil, nil, err
+	}
+
+	es, err := events.NewStorage(cfg.retention, logger)
+	if err != nil {
+		logger.Error("failed to initialize events storage", zap.Error(err))
+		return nil, nil, err
+	}
+
+	return ns, es, nil
+}
+
+func closeStorages(ns nodes.Storage, es *events.Storage, logger *zap.Logger) {
+	if err := ns.Close(); err != nil {
+		logger.Error("failed to close nodes storage", zap.Error(err))
+	}
+	if err := es.Close(); err != nil {
+		logger.Error("failed to close events storage", zap.Error(err))
+	}
+}
+
+func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es *events.Storage,
+	scraper *scraping.Scraper, privateNodesHandler *specific.PrivateNodesHandler,
+	atom *zap.AtomicLevel, logger *zap.Logger) (*api.API, error) {
+	notifications := scraper.Start(ctx)
+	notifications = privateNodesHandler.Run(notifications) // wraps scraper's notifications
+
+	pew := privateNodesHandler.PrivateNodesEventsWriter()
+	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, atom, cfg.development)
+	if err != nil {
+		logger.Error("failed to initialize API", zap.Error(err))
+		return nil, err
+	}
+
+	if apiErr := a.Start(); apiErr != nil {
+		logger.Error("failed to start API", zap.Error(apiErr))
+		return a, apiErr
+	}
+
+	cfg.runAnalyzers(ctx, cfg, es, ns, logger, pew, notifications)
+
+	if cfg.natsOptionalConfig.serverURL != "" {
+		err = messaging.RunNatsMessagingServer(cfg.natsOptionalConfig.serverURL, logger,
+			cfg.natsOptionalConfig.maxPayload, cfg.natsOptionalConfig.connectionTimeoutDefault)
+		if err != nil {
+			logger.Error("failed to start NATS server", zap.Error(err))
+			return a, err
+		}
+	}
+
+	return a, err
 }
 
 func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Logger) (nodes.Storage, error) {
@@ -415,7 +474,7 @@ func runMessagingServices(
 	pew specific.PrivateNodesEventsWriter,
 ) {
 	go func() {
-		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.nanomsgPubSubURL, alerts, logger)
+		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.natsMessagingURL, alerts, logger, cfg.scheme)
 		if pubSubErr != nil {
 			logger.Fatal("failed to start pub messaging server", zap.Error(pubSubErr))
 		}
@@ -423,7 +482,7 @@ func runMessagingServices(
 
 	if cfg.runTelegramPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairTelegramURL, ns, es, pew, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, cfg.scheme)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
@@ -432,7 +491,7 @@ func runMessagingServices(
 
 	if cfg.runDiscordPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.nanomsgPairDiscordURL, ns, es, pew, logger)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, cfg.scheme)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
