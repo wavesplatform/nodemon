@@ -1,4 +1,4 @@
-FROM golang:1.23.4-alpine3.20 as builder
+FROM golang:1.23.3-alpine3.20 as builder
 ARG APP=/app
 WORKDIR ${APP}
 
@@ -16,9 +16,9 @@ COPY cmd cmd
 COPY pkg pkg
 COPY internal internal
 
-RUN make build-nodemon-linux-amd64
+RUN make build-messaging-server-linux-amd64
 
-FROM alpine:3.21
+FROM alpine:3.20
 ARG APP=/app
 ENV TZ=Etc/UTC \
     APP_USER=appuser
@@ -32,9 +32,9 @@ RUN apk add --no-cache bind-tools
 
 USER $APP_USER
 WORKDIR ${APP}
-# Considered as a default HTTP API Port, NATS embedded server port
-EXPOSE 8080, 4222
+# Considered as a default HTTP API Port
+EXPOSE 8080
 
-COPY --from=builder ${APP}/build/linux-amd64/nodemon ${APP}/nodemon
+COPY --from=builder ${APP}/build/linux-amd64/messaging-server ${APP}/messaging-server
 
-ENTRYPOINT ["./nodemon"]
+ENTRYPOINT ["./messaging-server"]
