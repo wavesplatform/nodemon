@@ -31,7 +31,6 @@ import (
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
 
-	"github.com/nats-io/nats-server/v2/server"
 	"github.com/pkg/errors"
 )
 
@@ -41,8 +40,8 @@ const (
 	defaultRetentionDuration = 12 * time.Hour
 	defaultAPIReadTimeout    = 30 * time.Second
 
-	natsMaxPayloadSize        int32 = 1024 * 1024 // 1 MB
-	connectionsTimeoutDefault       = 5 * server.AUTH_TIMEOUT
+	natsMaxPayloadSize            int32 = 1024 * 1024 // 1 MB
+	natsConnectionsTimeoutDefault       = 5 * time.Second
 )
 
 var (
@@ -174,7 +173,7 @@ func newNatsOptionalConfig() *natsOptionalConfig {
 	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-server-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
 	tools.DurationVarFlagWithEnv(&c.readyForConnectionsTimeout, "nats-server-ready-timeout",
-		connectionsTimeoutDefault, "NATS server 'ready for connections' timeout")
+		natsConnectionsTimeoutDefault, "NATS server 'ready for connections' timeout")
 	return c
 }
 
@@ -245,7 +244,7 @@ func newNodemonConfig() *nodemonConfig {
 	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
 		"nats://127.0.0.1:4222", "Nats URL for messaging")
 	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-connection-timeout",
-		server.AUTH_TIMEOUT, "NATS connection to server timeout")
+		natsConnectionsTimeoutDefault, "NATS connection to server timeout")
 	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
