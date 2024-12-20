@@ -296,11 +296,9 @@ func (c *nodemonConfig) runAnalyzers(
 	ctx context.Context,
 	cfg *nodemonConfig,
 	es *events.Storage,
-	ns nodes.Storage,
 	logger *zap.Logger,
-	pew specific.PrivateNodesEventsWriter,
 	notifications <-chan entities.NodesGatheringNotification,
-) {
+) <-chan entities.Alert {
 	alerts := runAnalyzer(cfg, es, logger, notifications)
 	// L2 analyzer will only be run if the arguments are set
 	if cfg.l2.present() {
@@ -309,7 +307,7 @@ func (c *nodemonConfig) runAnalyzers(
 		mergedAlerts := tools.FanIn(alerts, alertL2)
 		alerts = mergedAlerts
 	}
-	runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
+	return alerts
 }
 
 func run() error {
@@ -409,8 +407,6 @@ func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es
 		return a, apiErr
 	}
 
-	cfg.runAnalyzers(ctx, cfg, es, ns, logger, pew, notifications)
-
 	if cfg.natsOptionalConfig.enable {
 		err = messaging.RunNatsMessagingServer(cfg.natsOptionalConfig.serverURL, logger,
 			cfg.natsOptionalConfig.maxPayload, cfg.natsOptionalConfig.readyForConnectionsTimeout)
@@ -419,6 +415,10 @@ func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es
 			return a, err
 		}
 	}
+
+	alerts := cfg.runAnalyzers(ctx, cfg, es, logger, notifications)
+
+	runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
 
 	return a, err
 }
