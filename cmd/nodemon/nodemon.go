@@ -484,7 +484,8 @@ func runMessagingServices(
 
 	if cfg.runTelegramPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, cfg.scheme)
+			telegramTopic := messaging.TelegramBotRequestsTopic(cfg.scheme)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, telegramTopic)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}
@@ -493,7 +494,8 @@ func runMessagingServices(
 
 	if cfg.runDiscordPairServer() {
 		go func() {
-			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, cfg.scheme)
+			discordTopic := messaging.DiscordBotRequestsTopic(cfg.scheme)
+			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, discordTopic)
 			if pairErr != nil {
 				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
 			}

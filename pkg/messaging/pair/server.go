@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"nodemon/pkg/entities"
-	"nodemon/pkg/messaging"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
@@ -26,7 +25,7 @@ func StartPairMessagingServer(
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
 	logger *zap.Logger,
-	scheme string,
+	botRequestsTopic string,
 ) error {
 	nc, err := nats.Connect(natsPairURL)
 	if err != nil {
@@ -39,7 +38,7 @@ func StartPairMessagingServer(
 		return errors.New("invalid nats URL for pair messaging")
 	}
 
-	_, subErr := nc.Subscribe(messaging.BotRequestsTopic+scheme, func(request *nats.Msg) {
+	_, subErr := nc.Subscribe(botRequestsTopic, func(request *nats.Msg) {
 		response, handleErr := handleMessage(request.Data, ns, logger, es, pew)
 		if handleErr != nil {
 			logger.Error("failed to handle bot request", zap.Error(handleErr))

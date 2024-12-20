@@ -11,7 +11,6 @@ type Bot interface {
 	SendMessage(msg string)
 	SetNatsConnection(nc *nats.Conn)
 	SetAlertHandlerFunc(alertHandlerFunc func(msg *nats.Msg))
-	SetTopic(topic string)
 	SubscribeToAllAlerts() error
 	IsEligibleForAction(chatID string) bool
 }

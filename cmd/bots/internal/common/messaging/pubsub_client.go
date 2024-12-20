@@ -10,8 +10,7 @@ import (
 	"nodemon/pkg/messaging"
 )
 
-func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
-	logger *zap.Logger, scheme string) error {
+func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot, logger *zap.Logger) error {
 	// Connect to a NATS server
 	nc, err := nats.Connect(natsServerURL, nats.Timeout(nats.DefaultTimeout))
 	if err != nil {
@@ -20,7 +19,6 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 	}
 	defer nc.Close()
 	bot.SetNatsConnection(nc)
-	bot.SetTopic(messaging.PubSubTopic + scheme)
 	alertHandlerFunc := func(msg *nats.Msg) {
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {

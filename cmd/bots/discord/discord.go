@@ -15,6 +15,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
 	"nodemon/internal"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -183,7 +184,7 @@ func runMessagingClients(
 	responseChan chan pair.Response,
 ) {
 	go func() {
-		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger, cfg.scheme)
+		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if clientErr != nil {
 			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
 			return
@@ -191,7 +192,8 @@ func runMessagingClients(
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, cfg.scheme)
+		topic := generalMessaging.DiscordBotRequestsTopic(cfg.scheme)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging client", zap.Error(err))
 			return

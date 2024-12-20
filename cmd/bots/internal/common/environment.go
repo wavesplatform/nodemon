@@ -93,7 +93,6 @@ type DiscordBotEnvironment struct {
 	scheme                 string
 	nc                     *nats.Conn
 	alertHandlerFunc       func(msg *nats.Msg)
-	topic                  string
 }
 
 func NewDiscordBotEnvironment(
@@ -203,16 +202,13 @@ func (dscBot *DiscordBotEnvironment) SetAlertHandlerFunc(alertHandlerFunc func(m
 	dscBot.alertHandlerFunc = alertHandlerFunc
 }
 
-func (dscBot *DiscordBotEnvironment) SetTopic(topic string) {
-	dscBot.topic = topic
-}
-
 func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		if dscBot.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		subscription, err := dscBot.nc.Subscribe(dscBot.topic+string(alertType), dscBot.alertHandlerFunc)
+		topic := generalMessaging.PubSubMsgTopic(dscBot.scheme, alertType)
+		subscription, err := dscBot.nc.Subscribe(topic, dscBot.alertHandlerFunc)
 		if err != nil {
 			return errors.Wrap(err, "failed to subscribe to alert")
 		}
@@ -271,7 +267,6 @@ type TelegramBotEnvironment struct {
 	scheme                 string
 	nc                     *nats.Conn
 	alertHandlerFunc       func(msg *nats.Msg)
-	topic                  string
 }
 
 func NewTelegramBotEnvironment(
@@ -444,7 +439,8 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 		if tgEnv.IsAlreadySubscribed(alertType) {
 			return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 		}
-		subscription, err := tgEnv.nc.Subscribe(tgEnv.topic+string(alertType), tgEnv.alertHandlerFunc)
+		topic := generalMessaging.PubSubMsgTopic(tgEnv.scheme, alertType)
+		subscription, err := tgEnv.nc.Subscribe(topic, tgEnv.alertHandlerFunc)
 		if err != nil {
 			return errors.Wrap(err, "failed to subscribe to alert")
 		}
@@ -465,7 +461,8 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Errorf("failed to subscribe to %s, already subscribed to it", alertName)
 	}
 
-	subscription, err := tgEnv.nc.Subscribe(tgEnv.topic+string(alertType), tgEnv.alertHandlerFunc)
+	topic := generalMessaging.PubSubMsgTopic(tgEnv.scheme, alertType)
+	subscription, err := tgEnv.nc.Subscribe(topic, tgEnv.alertHandlerFunc)
 	if err != nil {
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
@@ -507,10 +504,6 @@ func (tgEnv *TelegramBotEnvironment) SetNatsConnection(nc *nats.Conn) {
 
 func (tgEnv *TelegramBotEnvironment) SetAlertHandlerFunc(alertHandlerFunc func(msg *nats.Msg)) {
 	tgEnv.alertHandlerFunc = alertHandlerFunc
-}
-
-func (tgEnv *TelegramBotEnvironment) SetTopic(topic string) {
-	tgEnv.topic = topic
 }
 
 type subscribed struct {

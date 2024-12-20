@@ -50,8 +50,8 @@ func enterLoop(ctx context.Context, alerts <-chan entities.Alert,
 				logger.Error("Failed to marshal binary alert message", zap.Error(err))
 				continue
 			}
-			topic := messaging.PubSubTopic + scheme
-			err = nc.Publish(topic+string(alert.Type()), data)
+			topic := messaging.PubSubMsgTopic(scheme, alert.Type())
+			err = nc.Publish(topic, data)
 			if err != nil {
 				logger.Error("Failed to send alert to socket", zap.Error(err))
 			}

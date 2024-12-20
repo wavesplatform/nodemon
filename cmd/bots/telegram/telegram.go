@@ -17,6 +17,7 @@ import (
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/internal"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -181,14 +182,15 @@ func runMessagingClients(
 	pairResponse chan<- pair.Response,
 ) {
 	go func() {
-		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger, cfg.scheme)
+		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
 			logger.Fatal("failed to start sub messaging service", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, cfg.scheme)
+		topic := generalMessaging.TelegramBotRequestsTopic(cfg.scheme)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging service", zap.Error(err))
 		}
