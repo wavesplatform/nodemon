@@ -13,8 +13,12 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RunNatsMessagingServer(serverURL string, logger *zap.Logger,
-	maxPayload int64, connectionTimeout time.Duration) error {
+func RunNatsMessagingServer(
+	serverURL string,
+	logger *zap.Logger,
+	maxPayload uint64,
+	connectionTimeout time.Duration,
+) error {
 	host, portString, err := net.SplitHostPort(serverURL)
 	if err != nil {
 		return errors.Errorf("failed to parse host and port: %v", err)
@@ -24,9 +28,16 @@ func RunNatsMessagingServer(serverURL string, logger *zap.Logger,
 	if err != nil {
 		return errors.Errorf("failed to parse port from the URL: %v", err)
 	}
+	if port <= 0 || port > math.MaxUint16 {
+		return errors.Errorf("invalid port number (%d)", port)
+	}
 
-	if maxPayload > math.MaxInt32 || maxPayload < math.MinInt32 {
-		return errors.Errorf("max payload is too big or too small, must be in range of int32")
+	if connectionTimeout <= 0 {
+		return errors.Errorf("connection timeout must be positive")
+	}
+
+	if maxPayload > math.MaxInt32 {
+		return errors.Errorf("max payload is too big, must be in range of int32")
 	}
 
 	opts := &server.Options{
