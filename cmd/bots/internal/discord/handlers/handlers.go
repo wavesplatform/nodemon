@@ -20,6 +20,16 @@ func InitDscHandlers(
 	responsePairType <-chan pair.Response,
 	logger *zap.Logger,
 ) {
+	isEligibleForAction := func(m *discordgo.MessageCreate) bool {
+		if environment.IsEligibleForAction(m.ChannelID) {
+			return true
+		}
+		_, err := environment.Bot.ChannelMessageSend(m.ChannelID, "Sorry, you have no right to use this command")
+		if err != nil {
+			logger.Error("Failed to send a message to discord", zap.Error(err), zap.String("channelID", m.ChannelID))
+		}
+		return false
+	}
 	environment.Bot.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
 		switch {
 		case m.Author.ID == s.State.User.ID: // ignore self messages
@@ -31,9 +41,13 @@ func InitDscHandlers(
 		case m.Content == "/status":
 			handleStatusCmd(s, requestType, responsePairType, logger, environment)
 		case strings.Contains(m.Content, "/add"):
-			handleAddCmd(s, m, environment, logger, requestType)
+			if isEligibleForAction(m) {
+				handleAddCmd(s, m, environment, logger, requestType)
+			}
 		case strings.Contains(m.Content, "/remove"):
-			handleRemoveCmd(s, m, environment, logger, requestType)
+			if isEligibleForAction(m) {
+				handleRemoveCmd(s, m, environment, logger, requestType)
+			}
 		}
 	})
 }

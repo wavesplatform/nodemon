@@ -23,15 +23,24 @@ func InitTgHandlers(
 	requestCh chan<- pair.Request,
 	responseCh <-chan pair.Response,
 ) {
+	isEligibleForActionMiddleware := func(next telebot.HandlerFunc) telebot.HandlerFunc {
+		return func(c telebot.Context) error {
+			if !env.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
+				return c.Send("Sorry, you have no right to use this command")
+			}
+			return next(c)
+		}
+	}
+
 	env.Bot.Handle("/chat", func(c telebot.Context) error {
 		return c.Send(fmt.Sprintf("I am sending alerts through %d chat id", env.ChatID))
 	})
 
 	env.Bot.Handle("/ping", pingCmd(env))
 
-	env.Bot.Handle("/start", startCmd(env))
+	env.Bot.Handle("/start", startCmd(env), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/mute", muteCmd(env))
+	env.Bot.Handle("/mute", muteCmd(env), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/help", func(c telebot.Context) error {
 		return c.Send(messages.HelpInfoText, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
@@ -51,29 +60,29 @@ func InitTgHandlers(
 	})
 
 	env.Bot.Handle("/pool", func(c telebot.Context) error {
-		return EditPool(c, env, requestCh, responseCh)
-	})
+		return editPool(c, env, requestCh, responseCh)
+	}, isEligibleForActionMiddleware)
 	env.Bot.Handle("/subscriptions", func(c telebot.Context) error {
-		return EditSubscriptions(c, env)
-	})
+		return editSubscriptions(c, env)
+	}, isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/add", addCmd(env, requestCh, responseCh))
+	env.Bot.Handle("/add", addCmd(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/add_specific", addSpecificCmd(env, requestCh, responseCh))
+	env.Bot.Handle("/add_specific", addSpecificCmd(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/remove", removeCmd(env, requestCh, responseCh))
+	env.Bot.Handle("/remove", removeCmd(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/add_alias", addAliasCmd(env, requestCh))
+	env.Bot.Handle("/add_alias", addAliasCmd(env, requestCh), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/aliases", aliasesCmd(requestCh, responseCh, zapLogger))
 
-	env.Bot.Handle("/subscribe", subscribeCmd(env))
+	env.Bot.Handle("/subscribe", subscribeCmd(env), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/unsubscribe", unsubscribeCmd(env))
+	env.Bot.Handle("/unsubscribe", unsubscribeCmd(env), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/statement", statementCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 
-	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh))
+	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
 
@@ -341,9 +350,6 @@ func addCmd(
 
 func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
-		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
-			return c.Send("Sorry, you have no right to mute me")
-		}
 		if environment.Mute {
 			return c.Send("I had already been sleeping, continue sleeping.." + messaging.SleepingMsg)
 		}
@@ -354,9 +360,6 @@ func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context)
 
 func startCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
-		if !environment.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
-			return c.Send("Sorry, you have no right to start me")
-		}
 		if environment.Mute {
 			environment.Mute = false
 			return c.Send("I had been asleep, but started monitoring now... " + messaging.MonitoringMsg)
@@ -374,7 +377,7 @@ func pingCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context)
 	}
 }
 
-func EditPool(
+func editPool(
 	c telebot.Context,
 	environment *common.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
@@ -415,9 +418,10 @@ func EditPool(
 	)
 }
 
-func EditSubscriptions(
+func editSubscriptions(
 	c telebot.Context,
-	environment *common.TelegramBotEnvironment) error {
+	environment *common.TelegramBotEnvironment,
+) error {
 	msg, err := environment.SubscriptionsList()
 	if err != nil {
 		return errors.Wrap(err, "failed to request subscriptions")
