@@ -32,8 +32,8 @@ RUN apk add --no-cache bind-tools
 
 USER $APP_USER
 WORKDIR ${APP}
-# Considered as a default HTTP API Port
-EXPOSE 8080
+# Considered as a default HTTP API Port, NATS embedded server port
+EXPOSE 8080, 4222
 
 COPY --from=builder ${APP}/build/linux-amd64/messaging-server ${APP}/messaging-server
 
