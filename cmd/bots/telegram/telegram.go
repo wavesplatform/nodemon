@@ -54,8 +54,8 @@ type telegramBotConfig struct {
 
 func newTelegramBotConfig() *telegramBotConfig {
 	c := new(telegramBotConfig)
-	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-pubsub-url",
-		"nats://127.0.0.1:4222", "Nats URL for pubsub socket")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
+		"nats://127.0.0.1:4222", "NATS server URL for messaging")
 	tools.StringVarFlagWithEnv(&c.behavior, "behavior", "webhook",
 		"Behavior is either webhook or polling")
 	tools.StringVarFlagWithEnv(&c.webhookLocalAddress, "webhook-local-address",

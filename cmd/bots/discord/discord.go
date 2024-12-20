@@ -38,22 +38,19 @@ func main() {
 }
 
 type discordBotConfig struct {
-	natsPubSubURL   string
-	natsPairURL     string
-	discordBotToken string
-	discordChatID   string
-	logLevel        string
-	development     bool
-	bindAddress     string
-	scheme          string
+	natsMessagingURL string
+	discordBotToken  string
+	discordChatID    string
+	logLevel         string
+	development      bool
+	bindAddress      string
+	scheme           string
 }
 
 func newDiscordBotConfigConfig() *discordBotConfig {
 	c := new(discordBotConfig)
-	tools.StringVarFlagWithEnv(&c.natsPubSubURL, "nats-pubsub-url",
-		"nats://127.0.0.1:4222", "NATS server URL for pubsub messaging")
-	tools.StringVarFlagWithEnv(&c.natsPairURL, "nats-pair-discord-url",
-		"nats://127.0.0.1:4222", "NATS server URL for pair messaging")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
+		"nats://127.0.0.1:4222", "NATS server URL for messaging")
 	tools.StringVarFlagWithEnv(&c.discordBotToken, "discord-bot-token",
 		"", "The secret token used to authenticate the bot")
 	tools.StringVarFlagWithEnv(&c.discordChatID, "discord-chat-id",
@@ -186,7 +183,7 @@ func runMessagingClients(
 	responseChan chan pair.Response,
 ) {
 	go func() {
-		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsPubSubURL, discordBotEnv, logger, cfg.scheme)
+		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger, cfg.scheme)
 		if clientErr != nil {
 			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
 			return
@@ -194,7 +191,7 @@ func runMessagingClients(
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.natsPairURL, requestChan, responseChan, logger, cfg.scheme)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, cfg.scheme)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging client", zap.Error(err))
 			return
