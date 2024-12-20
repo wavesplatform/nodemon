@@ -255,7 +255,7 @@ func newNodemonConfig() *nodemonConfig {
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
-		"testnet", "Blockchain scheme i.e. mainnet, testnet, stagenet")
+		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	c.vault = newNodemonVaultConfig()
 	c.l2 = newNodemonL2Config()
 	c.natsOptionalConfig = newNatsOptionalConfig()
