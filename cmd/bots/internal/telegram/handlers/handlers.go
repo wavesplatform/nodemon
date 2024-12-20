@@ -70,7 +70,7 @@ func InitTgHandlers(
 
 	env.Bot.Handle("/add_specific", addSpecificCmd(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/remove", removeCmd(env, requestCh, responseCh))
+	env.Bot.Handle("/remove", removeCmd(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/add_alias", addAliasCmd(env, requestCh), isEligibleForActionMiddleware)
 
