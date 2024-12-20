@@ -273,6 +273,10 @@ func (c *nodemonConfig) validate(logger *zap.Logger) error {
 		logger.Error("Invalid polling interval", zap.Stringer("interval", c.interval))
 		return errInvalidParameters
 	}
+	if c.scheme == "" {
+		logger.Error("Empty blockchain scheme", zap.String("scheme", c.scheme))
+		return errInvalidParameters
+	}
 	if c.timeout <= 0 {
 		logger.Error("Invalid network timeout", zap.Stringer("timeout", c.timeout))
 		return errInvalidParameters
