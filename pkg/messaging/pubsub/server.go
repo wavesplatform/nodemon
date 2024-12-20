@@ -23,6 +23,7 @@ func StartPubMessagingServer(
 	if err != nil {
 		return err
 	}
+	defer nc.Close()
 	loopErr := enterLoop(ctx, alerts, logger, nc, scheme)
 	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
 		return loopErr

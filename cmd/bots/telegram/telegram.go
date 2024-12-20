@@ -72,7 +72,7 @@ func newTelegramBotConfig() *telegramBotConfig {
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
 	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
-		"testnet", "Blockchain scheme i.e. mainnet, testnet, stagenet")
+		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	return c
 }
 
@@ -87,6 +87,7 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 	}
 	if c.scheme == "" {
 		logger.Error("the blockchain scheme must be specified")
+		return common.ErrInvalidParameters
 	}
 	if c.tgChatID == 0 {
 		logger.Error("telegram chat ID is required")

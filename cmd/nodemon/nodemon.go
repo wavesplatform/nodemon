@@ -6,12 +6,13 @@ import (
 	"flag"
 	"log"
 	"net/url"
-	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
+
+	"nodemon/pkg/messaging"
 
 	"go.uber.org/zap"
 
@@ -148,7 +149,7 @@ type nodemonVaultConfig struct {
 
 type natsOptionalConfig struct {
 	serverURL                string
-	maxPayload               int64
+	maxPayload               uint64
 	connectionTimeoutDefault time.Duration
 }
 
@@ -166,12 +167,12 @@ func newNodemonVaultConfig() *nodemonVaultConfig {
 
 func newNatsOptionalConfig() *natsOptionalConfig {
 	c := new(natsOptionalConfig)
-	tools.StringVarFlagWithEnv(&c.serverURL, "nats-url",
-		"nats://127.0.0.1:4222", "NATS server URL")
-	tools.Int64VarFlagWithEnv(&c.maxPayload, "max-payload", int64(natsMaxPayloadSize),
+	tools.StringVarFlagWithEnv(&c.serverURL, "nats-server-url",
+		"nats://127.0.0.1:4222", "NATS embedded server URL")
+	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
-	tools.DurationVarFlagWithEnv(&c.connectionTimeoutDefault, "connection-timeout", connectionsTimeoutDefault,
-		"HTTP API read timeout. Default value is 30s.")
+	tools.DurationVarFlagWithEnv(&c.connectionTimeoutDefault, "nats-connection-timeout", connectionsTimeoutDefault,
+		"NATS connection timeout")
 	return c
 }
 

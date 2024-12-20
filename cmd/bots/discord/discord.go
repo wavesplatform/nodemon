@@ -63,8 +63,8 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
-	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
-		"testnet", "Blockchain scheme i.e. mainnet, testnet, stagenet. Used in messaging service")
+	tools.StringVarFlagWithEnv(&c.scheme, "scheme", "",
+		"Blockchain scheme i.e. mainnet, testnet, stagenet. Used in messaging service")
 	return c
 }
 
@@ -75,6 +75,7 @@ func (c *discordBotConfig) validate(zap *zap.Logger) error {
 	}
 	if c.scheme == "" {
 		zap.Error("the blockchain scheme must be specified")
+		return common.ErrInvalidParameters
 	}
 	if c.discordChatID == "" {
 		zap.Error("discord chat ID is required")

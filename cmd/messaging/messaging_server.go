@@ -4,11 +4,12 @@ import (
 	"context"
 	"flag"
 	"log"
-	"nodemon/pkg/messaging"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"nodemon/pkg/messaging"
 
 	"go.uber.org/zap"
 
@@ -22,7 +23,7 @@ const connectionsTimeoutDefault = 5 * server.AUTH_TIMEOUT
 
 type natsConfig struct {
 	serverURL         string
-	maxPayload        int64
+	maxPayload        uint64
 	logLevel          string
 	development       bool
 	connectionTimeout time.Duration
@@ -32,13 +33,13 @@ func parseNatsConfig() *natsConfig {
 	c := new(natsConfig)
 	tools.StringVarFlagWithEnv(&c.serverURL, "nats-url",
 		"nats://127.0.0.1:4222", "NATS server URL")
-	tools.Int64VarFlagWithEnv(&c.maxPayload, "max-payload", int64(natsMaxPayloadSize),
+	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
+	tools.DurationVarFlagWithEnv(&c.connectionTimeout, "nats-connection-timeout", connectionsTimeoutDefault,
+		"NATS connection timeout")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
-	tools.DurationVarFlagWithEnv(&c.connectionTimeout, "connection-timeout", connectionsTimeoutDefault,
-		"HTTP API read timeout. Default value is 30s.")
 	return c
 }
 
