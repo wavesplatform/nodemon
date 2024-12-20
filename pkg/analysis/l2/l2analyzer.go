@@ -11,13 +11,17 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/pkg/analysis/storage"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/tools"
 
 	"go.uber.org/zap"
 )
 
-const l2NodesSameHeightTimerDuration = 5 * time.Minute
+const (
+	heightCollectorTimeout         = 1 * time.Minute
+	l2NodesSameHeightTimerDuration = 5 * time.Minute
+)
 const l2HeightRequestTimeout = 5 * time.Second
 
 type Response struct {
@@ -106,7 +110,7 @@ func runCollector(ctx context.Context, nodeURL string, logger *zap.Logger) <-cha
 	}
 	collector := func(heightCh chan<- uint64) {
 		defer close(heightCh)
-		ticker := time.NewTicker(time.Minute)
+		ticker := time.NewTicker(heightCollectorTimeout)
 		defer ticker.Stop()
 		collectAndSend(heightCh) // collect height just after starting
 		for {
@@ -123,43 +127,82 @@ func runCollector(ctx context.Context, nodeURL string, logger *zap.Logger) <-cha
 	return heightCh
 }
 
-func RunL2Analyzer(ctx context.Context, zap *zap.Logger, node Node) <-chan entities.Alert {
-	analyzer := func(alertsL2 chan<- entities.Alert, heightCh <-chan uint64) {
-		alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
-		defer alertTimer.Stop()
-		defer close(alertsL2)
+func vacuumAlerts(
+	ctx context.Context,
+	alertsL2 chan<- entities.Alert,
+	s *storage.AlertsStorage,
+) {
+	vacuumedAlerts := s.Vacuum()
+	for _, alert := range vacuumedAlerts {
+		fixedAlert := &entities.AlertFixed{
+			Timestamp: time.Now().Unix(),
+			Fixed:     alert,
+		}
+		select {
+		case alertsL2 <- fixedAlert:
+		case <-ctx.Done():
+			return
+		}
+	}
+}
 
-		var lastHeight uint64
-		for {
-			select {
-			case height, ok := <-heightCh:
-				if !ok { // chan is closed, same as ctx.Done()
-					return
-				}
-				if height != lastHeight {
-					lastHeight = height
-					alertTimer.Reset(l2NodesSameHeightTimerDuration)
-				}
-			case <-alertTimer.C:
-				zap.Sugar().Infof("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s",
-					node.Name, node.URL,
-				)
-				alert := entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, node.Name)
+// defaultAlertVacuumQuota is a default value for the alerts storage vacuum quota.
+// It is calculated as the number of vacuum stages required to vacuum an alert.
+// The formula is: l2NodesSameHeightTimerDuration / heightCollectorTimeout + 1 + 4, where:
+// - l2NodesSameHeightTimerDuration is the duration of the timer that triggers the alert about the same height of an L2,
+// - heightCollectorTimeout is the timeout of the height collector,
+// - 1 is added to compensate the first vacuum stage,
+// - 2 is added to survive the vacuum stage after the last alert.
+const defaultAlertVacuumQuota = int(l2NodesSameHeightTimerDuration/heightCollectorTimeout) + 1 + 2
+
+func analyzerLoop(
+	ctx context.Context,
+	zap *zap.Logger,
+	node Node,
+	alertsL2 chan<- entities.Alert,
+	heightCh <-chan uint64,
+) {
+	defer close(alertsL2)
+	alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
+	defer alertTimer.Stop()
+	s := storage.NewAlertsStorage(zap, storage.AlertVacuumQuota(defaultAlertVacuumQuota))
+
+	var lastHeight uint64
+	for {
+		select {
+		case height, ok := <-heightCh:
+			if !ok { // chan is closed, same as ctx.Done()
+				return
+			}
+			if height != lastHeight {
+				lastHeight = height
+				alertTimer.Reset(l2NodesSameHeightTimerDuration)
+			}
+		case <-alertTimer.C:
+			zap.Sugar().Infof("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s",
+				node.Name, node.URL,
+			)
+			alert := entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, node.Name)
+			sendNow := s.PutAlert(alert)
+			if sendNow {
 				select {
 				case alertsL2 <- alert:
 				case <-ctx.Done():
 					return
 				}
-				alertTimer.Reset(l2NodesSameHeightTimerDuration)
-			case <-ctx.Done():
-				return
 			}
+			alertTimer.Reset(l2NodesSameHeightTimerDuration)
+		case <-ctx.Done():
+			return
 		}
+		vacuumAlerts(ctx, alertsL2, s)
 	}
+}
 
+func RunL2Analyzer(ctx context.Context, zap *zap.Logger, node Node) <-chan entities.Alert {
 	heightCh := runCollector(ctx, node.URL, zap)
 	alertsL2 := make(chan entities.Alert)
-	go analyzer(alertsL2, heightCh)
+	go analyzerLoop(ctx, zap, node, alertsL2, heightCh)
 	return alertsL2
 }
 

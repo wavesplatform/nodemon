@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"nodemon/pkg/analysis/criteria"
+	"nodemon/pkg/analysis/storage"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
@@ -17,7 +18,7 @@ import (
 type AnalyzerOptions struct {
 	AlertBackoff            int
 	AlertVacuumQuota        int
-	AlertConfirmations      map[entities.AlertType]int
+	AlertConfirmations      []storage.AlertConfirmationsValue
 	UnreachableCriteriaOpts *criteria.UnreachableCriterionOptions
 	IncompleteCriteriaOpts  *criteria.IncompleteCriterionOptions
 	HeightCriteriaOpts      *criteria.HeightCriterionOptions
@@ -28,29 +29,39 @@ type AnalyzerOptions struct {
 
 type Analyzer struct {
 	es   *events.Storage
-	as   *alertsStorage
+	as   *storage.AlertsStorage
 	opts *AnalyzerOptions
 	zap  *zap.Logger
 }
+
+const (
+	heightAlertConfirmationsDefault = 2
+)
 
 func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) *Analyzer {
 	if opts == nil {
 		opts = &AnalyzerOptions{}
 	}
 	if opts.AlertBackoff == 0 {
-		opts.AlertBackoff = defaultAlertBackoff
+		opts.AlertBackoff = storage.DefaultAlertBackoff
 	}
 	if opts.AlertVacuumQuota == 0 {
-		opts.AlertVacuumQuota = defaultAlertVacuumQuota
+		opts.AlertVacuumQuota = storage.DefaultAlertVacuumQuota
 	}
 	if opts.AlertConfirmations == nil {
-		opts.AlertConfirmations = newAlertConfirmations(alertConfirmationsValue{
-			alertType:     entities.HeightAlertType,
-			confirmations: heightAlertConfirmationsDefault,
-		})
+		opts.AlertConfirmations = []storage.AlertConfirmationsValue{
+			{
+				AlertType:     entities.HeightAlertType,
+				Confirmations: heightAlertConfirmationsDefault,
+			},
+		}
 	}
 
-	as := newAlertsStorage(opts.AlertBackoff, opts.AlertVacuumQuota, opts.AlertConfirmations, logger)
+	as := storage.NewAlertsStorage(logger,
+		storage.AlertBackoff(opts.AlertBackoff),
+		storage.AlertVacuumQuota(opts.AlertVacuumQuota),
+		storage.AlertConfirmations(opts.AlertConfirmations...),
+	)
 	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
 }
 

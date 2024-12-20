@@ -1,6 +1,6 @@
 module nodemon
 
-go 1.23
+go 1.23.0
 
 require (
 	codnect.io/chrono v1.1.3
@@ -13,7 +13,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.20.5
 	github.com/stoewer/go-strcase v1.3.0
-	github.com/stretchr/testify v1.9.0
+	github.com/stretchr/testify v1.10.0
 	github.com/tidwall/buntdb v1.3.2
 	github.com/wavesplatform/gowaves v0.10.7-0.20240927070807-c256c5d98bfa
 	go.uber.org/zap v1.27.0
