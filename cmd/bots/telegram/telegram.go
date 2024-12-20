@@ -17,6 +17,7 @@ import (
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/internal"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -40,8 +41,7 @@ func main() {
 }
 
 type telegramBotConfig struct {
-	nanomsgPubSubURL    string
-	nanomsgPairURL      string
+	natsMessagingURL    string
 	behavior            string
 	webhookLocalAddress string // only for webhook method
 	publicURL           string // only for webhook method
@@ -50,14 +50,13 @@ type telegramBotConfig struct {
 	logLevel            string
 	development         bool
 	bindAddress         string
+	scheme              string
 }
 
 func newTelegramBotConfig() *telegramBotConfig {
 	c := new(telegramBotConfig)
-	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
-		"ipc:///tmp/telegram/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairURL, "nano-msg-pair-telegram-url",
-		"ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
+		"nats://127.0.0.1:4222", "NATS server URL for messaging")
 	tools.StringVarFlagWithEnv(&c.behavior, "behavior", "webhook",
 		"Behavior is either webhook or polling")
 	tools.StringVarFlagWithEnv(&c.webhookLocalAddress, "webhook-local-address",
@@ -73,6 +72,8 @@ func newTelegramBotConfig() *telegramBotConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
+	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
+		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	return c
 }
 
@@ -83,6 +84,10 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 	}
 	if c.behavior == config.WebhookMethod && c.publicURL == "" {
 		logger.Error("public url is required for webhook method")
+		return common.ErrInvalidParameters
+	}
+	if c.scheme == "" {
+		logger.Error("the blockchain scheme must be specified")
 		return common.ErrInvalidParameters
 	}
 	if c.tgChatID == 0 {
@@ -121,8 +126,7 @@ func runTelegramBot() error {
 	responseChan := make(chan pair.Response)
 
 	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
-		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan,
-	)
+		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan, cfg.scheme)
 	if initErr != nil {
 		logger.Fatal("failed to initialize telegram bot", zap.Error(initErr))
 	}
@@ -178,14 +182,15 @@ func runMessagingClients(
 	pairResponse chan<- pair.Response,
 ) {
 	go func() {
-		err := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, tgBotEnv, logger)
+		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
 			logger.Fatal("failed to start sub messaging service", zap.Error(err))
 		}
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, pairRequest, pairResponse, logger)
+		topic := generalMessaging.TelegramBotRequestsTopic(cfg.scheme)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging service", zap.Error(err))
 		}

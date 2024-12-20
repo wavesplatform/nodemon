@@ -15,6 +15,7 @@ import (
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
 	"nodemon/internal"
+	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
 
@@ -38,21 +39,19 @@ func main() {
 }
 
 type discordBotConfig struct {
-	nanomsgPubSubURL string
-	nanomsgPairURL   string
+	natsMessagingURL string
 	discordBotToken  string
 	discordChatID    string
 	logLevel         string
 	development      bool
 	bindAddress      string
+	scheme           string
 }
 
 func newDiscordBotConfigConfig() *discordBotConfig {
 	c := new(discordBotConfig)
-	tools.StringVarFlagWithEnv(&c.nanomsgPubSubURL, "nano-msg-pubsub-url",
-		"ipc:///tmp/discord/nano-msg-nodemon-pubsub.ipc", "Nanomsg IPC URL for pubsub socket")
-	tools.StringVarFlagWithEnv(&c.nanomsgPairURL, "nano-msg-pair-discord-url",
-		"ipc:///tmp/nano-msg-nodemon-pair.ipc", "Nanomsg IPC URL for pair socket")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
+		"nats://127.0.0.1:4222", "NATS server URL for messaging")
 	tools.StringVarFlagWithEnv(&c.discordBotToken, "discord-bot-token",
 		"", "The secret token used to authenticate the bot")
 	tools.StringVarFlagWithEnv(&c.discordChatID, "discord-chat-id",
@@ -62,12 +61,18 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
+	tools.StringVarFlagWithEnv(&c.scheme, "scheme", "",
+		"Blockchain scheme i.e. mainnet, testnet, stagenet. Used in messaging service")
 	return c
 }
 
 func (c *discordBotConfig) validate(zap *zap.Logger) error {
 	if c.discordBotToken == "" {
 		zap.Error("discord bot token is required")
+		return common.ErrInvalidParameters
+	}
+	if c.scheme == "" {
+		zap.Error("the blockchain scheme must be specified")
 		return common.ErrInvalidParameters
 	}
 	if c.discordChatID == "" {
@@ -111,6 +116,7 @@ func runDiscordBot() error {
 		logger,
 		requestChan,
 		responseChan,
+		cfg.scheme,
 	)
 	if initErr != nil {
 		return errors.Wrap(initErr, "failed to init discord bot")
@@ -178,7 +184,7 @@ func runMessagingClients(
 	responseChan chan pair.Response,
 ) {
 	go func() {
-		clientErr := messaging.StartSubMessagingClient(ctx, cfg.nanomsgPubSubURL, discordBotEnv, logger)
+		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if clientErr != nil {
 			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
 			return
@@ -186,7 +192,8 @@ func runMessagingClients(
 	}()
 
 	go func() {
-		err := messaging.StartPairMessagingClient(ctx, cfg.nanomsgPairURL, requestChan, responseChan, logger)
+		topic := generalMessaging.DiscordBotRequestsTopic(cfg.scheme)
+		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
 			logger.Fatal("failed to start pair messaging client", zap.Error(err))
 			return

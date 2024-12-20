@@ -11,81 +11,62 @@ import (
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 
+	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
-	"go.nanomsg.org/mangos/v3/protocol"
-	"go.nanomsg.org/mangos/v3/protocol/pair"
 	"go.uber.org/zap"
 )
 
+const okMessage = "ok"
+
 func StartPairMessagingServer(
 	ctx context.Context,
-	nanomsgURL string,
+	natsPairURL string,
 	ns nodes.Storage,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
 	logger *zap.Logger,
+	botRequestsTopic string,
 ) error {
-	if len(nanomsgURL) == 0 || len(strings.Fields(nanomsgURL)) > 1 {
-		return errors.New("invalid nanomsg IPC URL for pair socket")
-	}
-	socket, sockErr := pair.NewSocket()
-	if sockErr != nil {
-		return sockErr
-	}
-	defer func(socketPair protocol.Socket) {
-		if err := socketPair.Close(); err != nil {
-			logger.Error("Failed to close pair socket", zap.Error(err))
-		}
-	}(socket)
-
-	if err := socket.Listen(nanomsgURL); err != nil {
+	nc, err := nats.Connect(natsPairURL)
+	if err != nil {
+		logger.Fatal("Failed to connect to nats server", zap.Error(err))
 		return err
 	}
+	defer nc.Close()
 
-	loopErr := enterLoop(ctx, socket, logger, ns, es, pew)
-	if loopErr != nil && !errors.Is(loopErr, context.Canceled) {
-		return loopErr
+	if len(natsPairURL) == 0 {
+		return errors.New("invalid nats URL for pair messaging")
 	}
-	return nil
-}
 
-func enterLoop(
-	ctx context.Context,
-	socket protocol.Socket,
-	logger *zap.Logger,
-	ns nodes.Storage,
-	es *events.Storage,
-	pew specific.PrivateNodesEventsWriter,
-) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		default:
-			rawMsg, recvErr := socket.Recv()
-			if recvErr != nil {
-				logger.Error("Failed to receive a message from pair socket", zap.Error(recvErr))
-				return recvErr
-			}
-			err := handleMessage(rawMsg, ns, logger, socket, es, pew)
-			if err != nil {
-				return err
-			}
+	_, subErr := nc.Subscribe(botRequestsTopic, func(request *nats.Msg) {
+		response, handleErr := handleMessage(request.Data, ns, logger, es, pew)
+		if handleErr != nil {
+			logger.Error("failed to handle bot request", zap.Error(handleErr))
+			return
 		}
+		respondErr := request.Respond(response)
+		if respondErr != nil {
+			logger.Error("failed to respond to bot request", zap.Error(respondErr))
+			return
+		}
+	})
+	if subErr != nil {
+		return subErr
 	}
+	<-ctx.Done()
+	return nil
 }
 
 func handleMessage(
 	rawMsg []byte,
 	ns nodes.Storage,
 	logger *zap.Logger,
-	socket protocol.Socket,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
-) error {
+) ([]byte, error) {
 	if len(rawMsg) == 0 {
 		logger.Warn("empty raw message received from pair socket")
-		return nil
+		return nil, nil
 	}
 	var (
 		t   = RequestPairType(rawMsg[0])
@@ -93,13 +74,17 @@ func handleMessage(
 	)
 	switch t {
 	case RequestNodeListType:
-		if err := handleNodesRequest(ns, false, logger, socket); err != nil {
-			return err
+		response, err := handleNodesRequest(ns, false, logger)
+		if err != nil {
+			return nil, err
 		}
+		return response, nil
 	case RequestSpecificNodeListType:
-		if err := handleNodesRequest(ns, true, logger, socket); err != nil {
-			return err
+		response, err := handleNodesRequest(ns, true, logger)
+		if err != nil {
+			return nil, err
 		}
+		return response, nil
 	case RequestInsertNewNodeType:
 		insertRegularNodeIfNew(msg, ns, logger)
 	case RequestInsertSpecificNewNodeType:
@@ -109,11 +94,13 @@ func handleMessage(
 	case RequestDeleteNodeType:
 		handleDeleteNodeRequest(msg, ns, logger)
 	case RequestNodesStatusType, RequestNodeStatementType:
-		handleNodesStatementsRequest(msg, es, logger, socket)
+		response := handleNodesStatementsRequest(msg, es, logger)
+		return response, nil
 	default:
 		logger.Error("Unknown request type", zap.Int("type", int(t)), zap.Binary("message", msg))
 	}
-	return nil
+	// nats considers a message delivered only if there was a not nil response
+	return []byte(okMessage), nil
 }
 
 func insertNodeIfNew(url string, ns nodes.Storage, specific bool, logger *zap.Logger) bool {
@@ -160,27 +147,24 @@ func handleUpdateNodeRequest(msg []byte, logger *zap.Logger, ns nodes.Storage) {
 	}
 }
 
-func handleNodesRequest(ns nodes.Storage, specific bool, logger *zap.Logger, socketPair protocol.Socket) error {
+func handleNodesRequest(ns nodes.Storage, specific bool, logger *zap.Logger) ([]byte, error) {
 	nodesList, err := ns.Nodes(specific)
 	if err != nil {
 		logger.Error("Failed to get list of nodes from storage",
 			zap.Error(err), zap.Bool("specific", specific),
 		)
-		return err
+		return nil, err
 	}
 	response := NodesListResponse{Nodes: nodesList}
 	marshaledResponse, err := json.Marshal(response)
 	if err != nil {
 		logger.Error("Failed to marshal node list to json", zap.Error(err))
+		return nil, errors.Wrapf(err, "Failed to marshal node list to json")
 	}
-	err = socketPair.Send(marshaledResponse)
-	if err != nil {
-		logger.Error("Failed to send a node list to pair socket", zap.Error(err))
-	}
-	return nil
+	return marshaledResponse, nil
 }
 
-func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Logger, socketPair protocol.Socket) {
+func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Logger) []byte {
 	listOfNodes := strings.Split(string(msg), ",")
 	var nodesStatusResp NodesStatementsResponse
 
@@ -211,8 +195,5 @@ func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Lo
 	if err != nil {
 		logger.Error("Failed to marshal node status to json", zap.Error(err))
 	}
-	err = socketPair.Send(response)
-	if err != nil {
-		logger.Error("Failed to send a response from pair socket", zap.Error(err))
-	}
+	return response
 }
