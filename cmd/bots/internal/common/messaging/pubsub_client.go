@@ -13,7 +13,7 @@ import (
 func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 	logger *zap.Logger, scheme string) error {
 	// Connect to a NATS server
-	nc, err := nats.Connect(natsServerURL)
+	nc, err := nats.Connect(natsServerURL, nats.Timeout(nats.DefaultTimeout))
 	if err != nil {
 		zap.S().Fatalf("Failed to connect to nats server: %v", err)
 		return err

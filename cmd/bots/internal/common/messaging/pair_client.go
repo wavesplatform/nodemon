@@ -28,7 +28,7 @@ func StartPairMessagingClient(
 	logger *zap.Logger,
 	scheme string,
 ) error {
-	nc, err := nats.Connect(natsServerURL)
+	nc, err := nats.Connect(natsServerURL, nats.Timeout(nats.DefaultTimeout))
 	if err != nil {
 		zap.S().Fatalf("Failed to connect to nats server: %v", err)
 		return err
