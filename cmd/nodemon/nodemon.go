@@ -148,7 +148,7 @@ type nodemonVaultConfig struct {
 
 type natsOptionalConfig struct {
 	enable                     bool
-	serverURL                  string
+	serverAddress              string
 	maxPayload                 uint64
 	readyForConnectionsTimeout time.Duration
 }
@@ -168,8 +168,8 @@ func newNodemonVaultConfig() *nodemonVaultConfig {
 func newNatsOptionalConfig() *natsOptionalConfig {
 	c := new(natsOptionalConfig)
 	tools.BoolVarFlagWithEnv(&c.enable, "nats-server-enable", false, "Enable NATS embedded server")
-	tools.StringVarFlagWithEnv(&c.serverURL, "nats-server-url",
-		"nats://127.0.0.1:4222", "NATS embedded server URL")
+	tools.StringVarFlagWithEnv(&c.serverAddress, "nats-server-address",
+		"127.0.0.1:4222", "NATS embedded server address in form 'host:port'")
 	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-server-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
 	tools.DurationVarFlagWithEnv(&c.readyForConnectionsTimeout, "nats-server-ready-timeout",
@@ -352,14 +352,14 @@ func run() error {
 		return err
 	}
 
-	a, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, atom, logger)
+	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, atom, logger)
 	if serviceErr != nil {
 		return serviceErr
 	}
+	defer shutdownFn()
 
 	<-ctx.Done()
-	a.Shutdown()
-	logger.Info("shutting down")
+	logger.Info("Shutting down")
 	return nil
 }
 
@@ -389,9 +389,18 @@ func closeStorages(ns nodes.Storage, es *events.Storage, logger *zap.Logger) {
 	}
 }
 
-func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es *events.Storage,
-	scraper *scraping.Scraper, privateNodesHandler *specific.PrivateNodesHandler,
-	atom *zap.AtomicLevel, logger *zap.Logger) (*api.API, error) {
+type shutdownFunc func()
+
+func startServices( //nolint:nonamedreturns // needs in defer
+	ctx context.Context,
+	cfg *nodemonConfig,
+	ns nodes.Storage,
+	es *events.Storage,
+	scraper *scraping.Scraper,
+	privateNodesHandler *specific.PrivateNodesHandler,
+	atom *zap.AtomicLevel,
+	logger *zap.Logger,
+) (_ shutdownFunc, runErr error) {
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scraper's notifications
 
@@ -404,23 +413,47 @@ func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es
 
 	if apiErr := a.Start(); apiErr != nil {
 		logger.Error("failed to start API", zap.Error(apiErr))
-		return a, apiErr
+		return nil, apiErr
 	}
-
-	if cfg.natsOptionalConfig.enable {
-		err = messaging.RunNatsMessagingServer(cfg.natsOptionalConfig.serverURL, logger,
-			cfg.natsOptionalConfig.maxPayload, cfg.natsOptionalConfig.readyForConnectionsTimeout)
-		if err != nil {
-			logger.Error("failed to start NATS server", zap.Error(err))
-			return a, err
+	defer func() {
+		if runErr != nil { // stop API if any error occurred
+			a.Shutdown()
 		}
+	}()
+
+	shutdownFn := a.Shutdown
+	if nCfg := cfg.natsOptionalConfig; nCfg.enable {
+		natsShutdown, nErr := messaging.RunNatsMessagingServer(
+			nCfg.serverAddress,
+			logger,
+			nCfg.maxPayload,
+			nCfg.readyForConnectionsTimeout,
+		)
+		if nErr != nil {
+			logger.Error("failed to start NATS server", zap.Error(nErr))
+			return nil, nErr
+		}
+		defer func() {
+			if runErr != nil { // stop NATS server if any error occurred
+				natsShutdown()
+			}
+		}()
+		shutdownFn = chainShutdownFuncs(shutdownFn, natsShutdown) // add NATS server shutdown to the chain
 	}
 
 	alerts := cfg.runAnalyzers(ctx, cfg, es, logger, notifications)
 
 	runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
 
-	return a, err
+	return shutdownFn, err
+}
+
+func chainShutdownFuncs(fns ...shutdownFunc) shutdownFunc {
+	return func() {
+		for _, fn := range fns {
+			fn()
+		}
+	}
 }
 
 func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Logger) (nodes.Storage, error) {

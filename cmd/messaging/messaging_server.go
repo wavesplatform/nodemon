@@ -22,7 +22,7 @@ const natsMaxPayloadSize int32 = 1024 * 1024 // 1 MB
 const connectionsTimeoutDefault = 5 * server.AUTH_TIMEOUT
 
 type natsConfig struct {
-	serverURL         string
+	serverAddress     string
 	maxPayload        uint64
 	logLevel          string
 	development       bool
@@ -31,8 +31,8 @@ type natsConfig struct {
 
 func parseNatsConfig() *natsConfig {
 	c := new(natsConfig)
-	tools.StringVarFlagWithEnv(&c.serverURL, "nats-url",
-		"nats://127.0.0.1:4222", "NATS server URL")
+	tools.StringVarFlagWithEnv(&c.serverAddress, "nats-address",
+		"127.0.0.1:4222", "NATS server address in form 'host:port'")
 	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
 	tools.DurationVarFlagWithEnv(&c.connectionTimeout, "nats-connection-timeout", connectionsTimeoutDefault,
@@ -61,11 +61,12 @@ func main() {
 		}
 	}(logger)
 
-	err = messaging.RunNatsMessagingServer(cfg.serverURL, logger, cfg.maxPayload, cfg.connectionTimeout)
+	shutdownFn, err := messaging.RunNatsMessagingServer(cfg.serverAddress, logger, cfg.maxPayload, cfg.connectionTimeout)
 	if err != nil {
 		log.Printf("Failed run nats messaging server: %v", err)
 		return
 	}
+	defer shutdownFn()
 	<-ctx.Done()
 	logger.Info("NATS Server finished")
 }

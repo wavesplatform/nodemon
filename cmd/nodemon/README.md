@@ -38,7 +38,7 @@ To do the same as environment variable form use _**UPPER_SNAKE_CASE**_ option na
 - _-vault-user_ (string) — Vault user.
 
 - _-nats-server-enable_ (bool) — Enable NATS embedded server (default _false_)
-- _-nats-server-url_ (string) — NATS embedded server URL (default "nats://127.0.0.1:4222")
+- _-nats-server-address_ (string) — NATS embedded server address in form 'host:port' (default "127.0.0.1:4222")
 - _-nats-server-max-payload_ (uint64) — NATS embedded server URL (default 1MB)
 - _-nats-server-ready-timeout_ (duration) — NATS server 'ready for connections' timeout (default 10s)
 
