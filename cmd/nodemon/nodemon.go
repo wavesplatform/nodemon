@@ -148,9 +148,10 @@ type nodemonVaultConfig struct {
 }
 
 type natsOptionalConfig struct {
-	serverURL                string
-	maxPayload               uint64
-	connectionTimeoutDefault time.Duration
+	enable                     bool
+	serverURL                  string
+	maxPayload                 uint64
+	readyForConnectionsTimeout time.Duration
 }
 
 func newNodemonVaultConfig() *nodemonVaultConfig {
@@ -167,12 +168,13 @@ func newNodemonVaultConfig() *nodemonVaultConfig {
 
 func newNatsOptionalConfig() *natsOptionalConfig {
 	c := new(natsOptionalConfig)
+	tools.BoolVarFlagWithEnv(&c.enable, "nats-server-enable", false, "Enable NATS embedded server")
 	tools.StringVarFlagWithEnv(&c.serverURL, "nats-server-url",
 		"nats://127.0.0.1:4222", "NATS embedded server URL")
-	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-max-payload", uint64(natsMaxPayloadSize),
+	tools.Uint64VarFlagWithEnv(&c.maxPayload, "nats-server-max-payload", uint64(natsMaxPayloadSize),
 		"Max server payload size in bytes")
-	tools.DurationVarFlagWithEnv(&c.connectionTimeoutDefault, "nats-connection-timeout", connectionsTimeoutDefault,
-		"NATS connection timeout")
+	tools.DurationVarFlagWithEnv(&c.readyForConnectionsTimeout, "nats-server-ready-timeout",
+		connectionsTimeoutDefault, "NATS server 'ready for connections' timeout")
 	return c
 }
 
@@ -240,10 +242,10 @@ func newNodemonConfig() *nodemonConfig {
 		defaultNetworkTimeout, "Network timeout, seconds. Default value is 15")
 	tools.Uint64VarFlagWithEnv(&c.baseTargetThreshold, "base-target-threshold",
 		0, "Base target threshold. Must be specified")
-	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-pubsub-url",
-		"nats://127.0.0.1:4222", "Nats URL for pubsub socket")
-	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-server-timeout",
-		server.AUTH_TIMEOUT, "Nanomsg IPC URL for pair socket")
+	tools.StringVarFlagWithEnv(&c.natsMessagingURL, "nats-msg-url",
+		"nats://127.0.0.1:4222", "Nats URL for messaging")
+	tools.DurationVarFlagWithEnv(&c.natsTimeout, "nats-connection-timeout",
+		server.AUTH_TIMEOUT, "NATS connection to server timeout")
 	tools.DurationVarFlagWithEnv(&c.retention, "retention", defaultRetentionDuration,
 		"Events retention duration. Default value is 12h")
 	tools.DurationVarFlagWithEnv(&c.apiReadTimeout, "api-read-timeout", defaultAPIReadTimeout,
@@ -410,9 +412,9 @@ func startServices(ctx context.Context, cfg *nodemonConfig, ns nodes.Storage, es
 
 	cfg.runAnalyzers(ctx, cfg, es, ns, logger, pew, notifications)
 
-	if cfg.natsOptionalConfig.serverURL != "" {
+	if cfg.natsOptionalConfig.enable {
 		err = messaging.RunNatsMessagingServer(cfg.natsOptionalConfig.serverURL, logger,
-			cfg.natsOptionalConfig.maxPayload, cfg.natsOptionalConfig.connectionTimeoutDefault)
+			cfg.natsOptionalConfig.maxPayload, cfg.natsOptionalConfig.readyForConnectionsTimeout)
 		if err != nil {
 			logger.Error("failed to start NATS server", zap.Error(err))
 			return a, err
