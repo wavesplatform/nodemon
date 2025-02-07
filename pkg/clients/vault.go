@@ -128,7 +128,7 @@ func vaultLogin(ctx context.Context, client *vault.Client, user, pass string) (*
 		return nil, errors.Wrap(err, "unable to login to userpass auth method")
 	}
 	if authInfo == nil {
-		return nil, errors.Wrap(err, "no auth info was returned after login")
+		return nil, errors.New("no auth info was returned after login")
 	}
 
 	return authInfo, nil
