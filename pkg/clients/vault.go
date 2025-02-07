@@ -15,15 +15,20 @@ const (
 
 func NewVaultSimpleClient(ctx context.Context, logger *zap.Logger, addr, user, pass string) (*vault.Client, error) {
 	config := vault.DefaultConfig()
-	config.Address = addr
+	if _, err := config.ParseAddress(addr); err != nil { // change and check the vault address
+		return nil, errors.Wrap(err, "failed to parse vault address")
+	}
+	if err := config.Error; err != nil {
+		return nil, errors.Wrap(err, "failed to create vault config")
+	}
 
-	client, err := vault.NewClient(config)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create vault client from config")
+	client, clErr := vault.NewClient(config)
+	if clErr != nil {
+		return nil, errors.Wrap(clErr, "failed to create vault client from config")
 	}
 
 	if _, loginErr := vaultLogin(ctx, client, user, pass); loginErr != nil { // check for creds and other stuff
-		return nil, errors.Wrap(err, "failed to initially login to vault")
+		return nil, errors.Wrap(loginErr, "failed to initially login to vault")
 	}
 	go renewToken(ctx, logger, client, user, pass) // run renewal goroutine
 	return client, nil
@@ -123,7 +128,7 @@ func vaultLogin(ctx context.Context, client *vault.Client, user, pass string) (*
 		return nil, errors.Wrap(err, "unable to login to userpass auth method")
 	}
 	if authInfo == nil {
-		return nil, errors.Wrap(err, "no auth info was returned after login")
+		return nil, errors.New("no auth info was returned after login")
 	}
 
 	return authInfo, nil
