@@ -518,7 +518,7 @@ func genEvents(es ...entities.Event) []entities.Event {
 }
 
 func she(n string, h uint64, ts int64) entities.Event {
-	return fshe(n, h, ts, &proto.StateHash{})
+	return fshe(n, h, ts, &proto.StateHash{BlockID: proto.NewBlockIDFromDigest(crypto.Digest{88})})
 }
 
 func fshe(n string, h uint64, ts int64, sh *proto.StateHash) entities.Event {
