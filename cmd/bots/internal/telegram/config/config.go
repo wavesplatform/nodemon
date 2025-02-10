@@ -2,11 +2,13 @@ package config
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/pkg/errors"
+	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
 
@@ -23,34 +25,53 @@ const (
 
 func NewTgBotSettings(
 	behavior string,
-	webhookLocalAddress string,
 	publicURL string,
 	botToken string,
-) (*telebot.Settings, error) {
+	logger *zap.Logger,
+) (*telebot.Settings, http.Handler, error) {
 	switch behavior {
 	case WebhookMethod:
 		if publicURL == "" {
-			return nil, errors.New("no public url for webhook method was provided")
+			return nil, nil, errors.New("no public url for webhook method was provided")
 		}
 		webhook := &telebot.Webhook{
-			Listen:   webhookLocalAddress,
+			Listen:   "", // In this case it is up to the caller to add the Webhook to a http-mux.
 			Endpoint: &telebot.WebhookEndpoint{PublicURL: publicURL},
 		}
 		botSettings := telebot.Settings{
 			Token:  botToken,
 			Poller: webhook}
-		return &botSettings, nil
+		return &botSettings, http.Handler(webhook), nil
 	case PollingMethod:
 		if err := tryRemoveWebhookIfExists(botToken); err != nil {
-			return nil, errors.Wrap(err, "failed to remove webhook if exists")
+			return nil, nil, errors.Wrap(err, "failed to remove webhook if exists")
 		}
 		botSettings := telebot.Settings{
 			Token:  botToken,
 			Poller: &telebot.LongPoller{Timeout: longPollingTimeout},
 		}
-		return &botSettings, nil
+		// TODO: is this shutdown necessary?
+		httpNoWebhookInformer := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if m := r.Method; m != http.MethodGet && m != http.MethodPost {
+				const httpCode = http.StatusMethodNotAllowed
+				http.Error(w, http.StatusText(httpCode), httpCode)
+				return
+			}
+			type jsonResp struct {
+				Error string `json:"error"`
+			}
+			w.Header().Set("Content-Type", "application/json")
+			msg := jsonResp{Error: "bot uses polling method for receiving updates"}
+			if err := json.NewEncoder(w).Encode(msg); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				logger.Error("Failed to encode json response", zap.Error(err))
+				return
+			}
+			w.WriteHeader(http.StatusForbidden)
+		})
+		return &botSettings, httpNoWebhookInformer, nil
 	default:
-		return nil, errors.Errorf("wrong type of bot behavior %q was provided", behavior)
+		return nil, nil, errors.Errorf("wrong type of bot behavior %q was provided", behavior)
 	}
 }
 

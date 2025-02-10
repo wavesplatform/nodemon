@@ -2,13 +2,17 @@ package main
 
 import (
 	"context"
-	"errors"
+	stderrs "errors"
 	"flag"
 	"log"
+	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/common/api"
@@ -32,7 +36,7 @@ func main() {
 
 	if err := runTelegramBot(); err != nil {
 		switch {
-		case errors.Is(err, context.Canceled):
+		case stderrs.Is(err, context.Canceled):
 			os.Exit(contextCanceledExitCode)
 		default:
 			log.Fatal(err)
@@ -86,6 +90,10 @@ func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 		logger.Error("public url is required for webhook method")
 		return common.ErrInvalidParameters
 	}
+	if c.behavior == config.WebhookMethod && c.webhookLocalAddress == "" {
+		logger.Error("webhook local address is required for webhook method")
+		return common.ErrInvalidParameters
+	}
 	if c.scheme == "" {
 		logger.Error("the blockchain scheme must be specified")
 		return common.ErrInvalidParameters
@@ -125,7 +133,7 @@ func runTelegramBot() error {
 	requestChan := make(chan pair.Request)
 	responseChan := make(chan pair.Response)
 
-	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
+	tgBotEnv, webhookHandler, initErr := initial.InitTgBot(cfg.behavior, cfg.publicURL,
 		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan, cfg.scheme)
 	if initErr != nil {
 		logger.Fatal("failed to initialize telegram bot", zap.Error(initErr))
@@ -135,20 +143,11 @@ func runTelegramBot() error {
 
 	runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
 
-	if cfg.bindAddress != "" {
-		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
-			logger, atom, cfg.development,
-		)
-		if apiErr != nil {
-			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
-			return apiErr
-		}
-		if startErr := botAPI.Start(); startErr != nil {
-			logger.Error("Failed to start API", zap.Error(startErr))
-			return startErr
-		}
-		defer botAPI.Shutdown()
+	shutdownFn, err := handleHTTPEndpoints(cfg, webhookHandler, logger, atom, requestChan, responseChan)
+	if err != nil {
+		logger.Fatal("failed to handle HTTP endpoints", zap.Error(err))
 	}
+	defer shutdownFn()
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
 	err = common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
@@ -171,6 +170,94 @@ func runTelegramBot() error {
 	}
 	logger.Info("Telegram bot finished")
 	return nil
+}
+
+type shutdownFunc func()
+
+func chainShutdownFuncs(fns ...shutdownFunc) shutdownFunc {
+	return func() {
+		for _, fn := range fns {
+			if fn != nil {
+				fn()
+			}
+		}
+	}
+}
+
+func handleHTTPEndpoints( //nolint:nonamedreturns // needs in defer
+	cfg *telegramBotConfig,
+	botWebhookHandler http.Handler,
+	logger *zap.Logger,
+	atom *zap.AtomicLevel,
+	requestChan chan<- pair.Request,
+	responseChan <-chan pair.Response,
+) (_ shutdownFunc, runErr error) {
+	shutdownFn := func() {}
+	if botWebhookHandler != nil {
+		whShutdown, err := runWebhookServer(cfg, logger, botWebhookHandler)
+		if err != nil {
+			return nil, errors.Wrap(err, "Failed to run webhook server")
+		}
+		shutdownFn = chainShutdownFuncs(shutdownFn, whShutdown)
+		defer func() {
+			if runErr != nil {
+				whShutdown()
+			}
+		}()
+	}
+	if cfg.bindAddress != "" {
+		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
+			logger, atom, cfg.development,
+		)
+		if apiErr != nil {
+			return nil, errors.Wrapf(apiErr, "Failed to initialize API at '%s'", cfg.bindAddress)
+		}
+		if startErr := botAPI.Start(); startErr != nil {
+			return nil, errors.Wrapf(startErr, "Failed to start API at '%s'", cfg.bindAddress)
+		}
+		defer func() {
+			if runErr != nil {
+				botAPI.Shutdown()
+			}
+		}()
+		shutdownFn = chainShutdownFuncs(shutdownFn, botAPI.Shutdown)
+	}
+	return shutdownFn, nil
+}
+
+func runWebhookServer(
+	cfg *telegramBotConfig,
+	logger *zap.Logger,
+	botWebhookHandler http.Handler,
+) (shutdownFunc, error) {
+	if botWebhookHandler == nil {
+		return nil, errors.New("webhook handler is nil")
+	}
+	const webhookShutdownTimeout = 5 * time.Second
+	addr := cfg.webhookLocalAddress
+	l, listenErr := net.Listen("tcp", addr)
+	if listenErr != nil {
+		return nil, errors.Wrapf(listenErr, "Failed to start webhook server at '%s'", addr)
+	}
+	srv := &http.Server{
+		Addr:              addr,
+		Handler:           botWebhookHandler,
+		ReadHeaderTimeout: defaultAPIReadTimeout,
+		ReadTimeout:       defaultAPIReadTimeout,
+	}
+	go func() {
+		if err := srv.Serve(l); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			logger.Fatal("Failed to serve webhook endpoint", zap.String("address", addr), zap.Error(err))
+		}
+	}()
+	shutdownFn := func() {
+		sdCtx, cancel := context.WithTimeout(context.Background(), webhookShutdownTimeout)
+		defer cancel()
+		if err := srv.Shutdown(sdCtx); err != nil {
+			logger.Error("Failed to shutdown webhook server", zap.Error(err))
+		}
+	}
+	return shutdownFn, nil
 }
 
 func runMessagingClients(

@@ -1,6 +1,8 @@
 package initial
 
 import (
+	"net/http"
+
 	"nodemon/cmd/bots/internal/common"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/pkg/messaging/pair"
@@ -11,8 +13,8 @@ import (
 	"gopkg.in/telebot.v3"
 )
 
-func InitTgBot(behavior string,
-	webhookLocalAddress string,
+func InitTgBot(
+	behavior string,
 	publicURL string,
 	botToken string,
 	chatID int64,
@@ -20,20 +22,29 @@ func InitTgBot(behavior string,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	scheme string,
-) (*common.TelegramBotEnvironment, error) {
-	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
+) (*common.TelegramBotEnvironment, http.Handler, error) {
+	// optionalWebhookHandler can be nil if the behavior is not WebhookMethod
+	botSettings, optionalWebhookHandler, err := config.NewTgBotSettings(behavior, publicURL, botToken, logger)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to set up bot configuration")
+		return nil, nil, errors.Wrap(err, "failed to set up bot configuration")
 	}
 	bot, err := telebot.NewBot(*botSettings)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to start telegram bot")
+		return nil, nil, errors.Wrap(err, "failed to start telegram bot")
 	}
 
 	logger.Sugar().Debugf("telegram chat id for sending alerts is %d", chatID)
 
-	tgBotEnv := common.NewTelegramBotEnvironment(bot, chatID, false, logger, requestType, responsePairType, scheme)
-	return tgBotEnv, nil
+	tgBotEnv := common.NewTelegramBotEnvironment(
+		bot,
+		chatID,
+		false,
+		logger,
+		requestType,
+		responsePairType,
+		scheme,
+	)
+	return tgBotEnv, optionalWebhookHandler, nil
 }
 
 func InitDiscordBot(
