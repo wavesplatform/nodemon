@@ -619,11 +619,7 @@ func ScheduleNodesStatus(
 		}
 		bot.SendMessage(msg)
 	}, scheduledTimeExpression)
-
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 type NodeStatus struct {

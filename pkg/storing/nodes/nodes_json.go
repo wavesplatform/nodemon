@@ -76,18 +76,20 @@ type dbStruct struct {
 
 func newDBStructFromJSON(data []byte) (*dbStruct, error) {
 	db := new(dbStruct)
-	if unmarshalErr := db.unmarshalJSON(data); unmarshalErr != nil {
+	if unmarshalErr := db.UnmarshalJSON(data); unmarshalErr != nil {
 		return nil, errors.Wrap(unmarshalErr, "failed to create nodes db")
 	}
 	return db, nil
 }
 
-func (db *dbStruct) marshalJSON() ([]byte, error) {
-	return json.MarshalIndent(db, "", " ")
+func (db *dbStruct) MarshalJSON() ([]byte, error) {
+	type alias dbStruct
+	return json.MarshalIndent((*alias)(db), "", " ")
 }
 
-func (db *dbStruct) unmarshalJSON(data []byte) error {
-	return json.Unmarshal(data, db)
+func (db *dbStruct) UnmarshalJSON(data []byte) error {
+	type alias dbStruct
+	return json.Unmarshal(data, (*alias)(db))
 }
 
 func (db *dbStruct) Nodes(specific bool) nodes {
@@ -100,7 +102,7 @@ func (db *dbStruct) Nodes(specific bool) nodes {
 type syncDBStructFn func(db *dbStruct) error
 
 func syncToFile(db *dbStruct, path string) error {
-	data, err := db.marshalJSON()
+	data, err := db.MarshalJSON()
 	if err != nil {
 		return errors.Wrapf(err, "failed to marshal nodes db as json")
 	}
@@ -116,7 +118,7 @@ func createDBFileIfNotExist(path string) error {
 		return nil
 	case errors.Is(err, os.ErrNotExist):
 		var empty dbStruct
-		data, marshalErr := empty.marshalJSON()
+		data, marshalErr := empty.MarshalJSON()
 		if marshalErr != nil {
 			return errors.Wrap(marshalErr, "failed to marshal empty db struct to json")
 		}
