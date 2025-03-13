@@ -2,6 +2,7 @@ package messaging
 
 import (
 	"context"
+	stderrs "errors"
 	"fmt"
 
 	"nodemon/pkg/entities"
@@ -33,7 +34,7 @@ func AddNewNodeHandler(
 
 	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectURLMsg, ErrIncorrectURL
+		return incorrectURLMsg, stderrs.Join(ErrIncorrectURL, err)
 	}
 	requestChan <- &pair.InsertNewNodeRequest{URL: updatedURL, Specific: specific}
 
@@ -55,7 +56,7 @@ func UpdateAliasHandler(
 
 	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectURLMsg, ErrIncorrectURL
+		return incorrectURLMsg, stderrs.Join(ErrIncorrectURL, err)
 	}
 	requestChan <- &pair.UpdateNodeRequest{URL: updatedURL, Alias: alias}
 
@@ -69,7 +70,7 @@ func RemoveNodeHandler(chatID string, bot Bot, requestType chan<- pair.Request, 
 
 	updatedURL, err := entities.CheckAndUpdateURL(url)
 	if err != nil {
-		return incorrectURLMsg, ErrIncorrectURL
+		return incorrectURLMsg, stderrs.Join(ErrIncorrectURL, err)
 	}
 	requestType <- &pair.DeleteNodeRequest{URL: updatedURL}
 

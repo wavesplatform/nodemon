@@ -88,7 +88,7 @@ func (f *ForkFinder) tryLinearStateHashSearch(
 	if f.linearSearchParams == nil {
 		return 0, proto.StateHash{}, errors.Wrap(errNotFound, "no linear search params provided")
 	}
-	for i := uint64(0); i < f.linearSearchParams.searchDepth && stop-start-i > 0; i++ {
+	for i := uint64(0); i < f.linearSearchParams.searchDepth && stop-start > i; i++ {
 		h := stop - i
 		different, err := f.differentStateHashesAt(nodeA, nodeB, h)
 		if err != nil {
