@@ -58,6 +58,8 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, false
 	}
+	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
+
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	resp, err := httpClient.Do(req)
 	if err != nil {
@@ -72,16 +74,27 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		return 0, false
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("Received non-200 response from l2 node", zap.Int("statusCode", resp.StatusCode),
+			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		)
+		return 0, false
+	}
+
 	var response Response
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		logger.Error("Failed unmarshalling response", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed unmarshalling response", zap.Error(err),
+			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		)
 		return 0, false
 	}
 
 	height, err := hexStringToInt(response.Result)
 	if err != nil {
-		logger.Error("Failed converting hex string to integer", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed converting hex string to integer", zap.Error(err),
+			zap.String("nodeURL", url), zap.String("resultHeight", response.Result),
+		)
 		return 0, false
 	}
 	if height < 0 {
