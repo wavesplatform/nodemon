@@ -58,6 +58,8 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, false
 	}
+	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
+
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	resp, err := httpClient.Do(req)
 	if err != nil {
