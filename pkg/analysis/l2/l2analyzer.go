@@ -84,13 +84,17 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 	var response Response
 	err = json.Unmarshal(body, &response)
 	if err != nil {
-		logger.Error("Failed unmarshalling response", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed unmarshalling response", zap.Error(err),
+			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		)
 		return 0, false
 	}
 
 	height, err := hexStringToInt(response.Result)
 	if err != nil {
-		logger.Error("Failed converting hex string to integer", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed converting hex string to integer", zap.Error(err),
+			zap.String("nodeURL", url), zap.String("resultHeight", response.Result),
+		)
 		return 0, false
 	}
 	if height < 0 {
