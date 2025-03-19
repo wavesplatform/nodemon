@@ -74,6 +74,13 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		return 0, false
 	}
 
+	if resp.StatusCode != http.StatusOK {
+		logger.Error("Received non-200 response from l2 node", zap.Int("statusCode", resp.StatusCode),
+			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		)
+		return 0, false
+	}
+
 	var response Response
 	err = json.Unmarshal(body, &response)
 	if err != nil {
