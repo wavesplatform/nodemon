@@ -25,7 +25,7 @@ const (
 )
 const l2HeightRequestTimeout = 5 * time.Second
 
-type Response struct {
+type response struct {
 	Jsonrpc string `json:"jsonrpc"`
 	ID      string `json:"id"`
 	Result  string `json:"result"`
@@ -82,8 +82,8 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		return 0, fmt.Errorf("received non-200 response, body=%q", body)
 	}
 
-	var response Response
-	err = json.Unmarshal(body, &response)
+	var res response
+	err = json.Unmarshal(body, &res)
 	if err != nil {
 		logger.Error("Failed unmarshalling response", zap.Error(err),
 			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
@@ -91,10 +91,10 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		return 0, fmt.Errorf("failed to unmarshal response: %w", err)
 	}
 
-	height, err := hexStringToInt(response.Result)
+	height, err := hexStringToInt(res.Result)
 	if err != nil {
 		logger.Error("Failed converting hex string to integer", zap.Error(err),
-			zap.String("nodeURL", url), zap.String("resultHeight", response.Result),
+			zap.String("nodeURL", url), zap.String("resultHeight", res.Result),
 		)
 		return 0, fmt.Errorf("failed to convert hex string heightto integer: %w", err)
 	}
