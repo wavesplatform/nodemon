@@ -25,6 +25,8 @@ const (
 )
 const l2HeightRequestTimeout = 5 * time.Second
 
+const maxResponseSize = 1024 // 1 KB
+
 type response struct {
 	Jsonrpc string `json:"jsonrpc"`
 	ID      string `json:"id"`
@@ -69,7 +71,14 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
+	if resp.ContentLength > maxResponseSize { // Content length can be -1 if not set, so use limited reader below
+		logger.Error("Response body from l2 node is too large", zap.Int64("contentLength", resp.ContentLength),
+			zap.Int("maxResponseSize", maxResponseSize), zap.String("nodeURL", url),
+		)
+		return 0, fmt.Errorf("response body is too large (%d bytes, max is %d)", resp.ContentLength, maxResponseSize)
+	}
+
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize)) // Read the body, limit to maxResponseSize
 	if err != nil {
 		logger.Error("Failed to read response body from l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to read response body: %w", err)
