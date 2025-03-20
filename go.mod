@@ -8,7 +8,7 @@ require (
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/hashicorp/vault/api v1.16.0
 	github.com/hashicorp/vault/api/auth/userpass v0.9.0
-	github.com/nats-io/nats-server/v2 v2.10.26
+	github.com/nats-io/nats-server/v2 v2.11.0
 	github.com/nats-io/nats.go v1.39.1
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.21.1
@@ -37,6 +37,7 @@ require (
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.0.5 // indirect
+	github.com/google/go-tpm v0.9.3 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20240727154555-813a5fbdbec8 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
@@ -90,7 +91,7 @@ require (
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
-	golang.org/x/time v0.10.0 // indirect
+	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250115164207-1a7da9e5054f // indirect
 	google.golang.org/grpc v1.71.0 // indirect
 	google.golang.org/protobuf v1.36.5 // indirect
