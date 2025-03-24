@@ -13,7 +13,9 @@ RUN go mod download
 
 # Copy the .git directory and restore the worktree, also handle current possible changes in go.mod and go.sum
 COPY .git .git
-RUN git add go.mod go.sum && git restore --source=HEAD --worktree . && git restore go.mod go.sum
+RUN git restore --source=HEAD --worktree .
+COPY go.mod .
+COPY go.sum .
 
 # Copy the necessary files for building and override the restored worktree
 COPY Makefile .
