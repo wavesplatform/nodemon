@@ -1,8 +1,8 @@
-FROM golang:1.24.1-alpine3.20 as builder
+FROM golang:1.24.1-alpine3.20 AS builder
 ARG APP=/app
 WORKDIR ${APP}
 
-RUN apk add --no-cache make
+RUN apk add --no-cache make git
 # disable cgo for go build
 ENV CGO_ENABLED=0
 
@@ -11,10 +11,17 @@ COPY go.sum .
 
 RUN go mod download
 
+# Copy the .git directory and restore the worktree, also handle current possible changes in go.mod and go.sum
+COPY .git .git
+RUN git restore --source=HEAD --worktree .
+COPY go.mod .
+COPY go.sum .
+
+# Copy the necessary files for building and override the restored worktree
 COPY Makefile .
-COPY cmd cmd
-COPY pkg pkg
-COPY internal internal
+COPY cmd .
+COPY pkg .
+COPY internal .
 
 RUN make build-bots-linux-amd64
 
