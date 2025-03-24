@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	stderrs "errors"
 	"flag"
 	"log"
 	"os"
@@ -89,7 +90,7 @@ func runDiscordBot() error {
 	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
-		return common.ErrInvalidParameters
+		return stderrs.Join(common.ErrInvalidParameters, err)
 	}
 
 	defer func(zap *zap.Logger) {
@@ -156,8 +157,7 @@ func runDiscordBot() error {
 		return err
 	}
 	defer func() {
-		closeErr := discordBotEnv.Bot.Close()
-		if err != nil {
+		if closeErr := discordBotEnv.Bot.Close(); closeErr != nil {
 			logger.Error("failed to close discord bot web socket", zap.Error(closeErr))
 		}
 	}()

@@ -2,6 +2,7 @@ package clients
 
 import (
 	"context"
+	stderrs "errors"
 
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/userpass"
@@ -34,6 +35,8 @@ func NewVaultSimpleClient(ctx context.Context, logger *zap.Logger, addr, user, p
 	return client, nil
 }
 
+var errWatcherRenewFailed = errors.New("token renewal failed")
+
 // Once you've set the token for your Vault client, you will need to
 // periodically renew its lease.
 //
@@ -58,7 +61,7 @@ func renewToken(ctx context.Context, logger *zap.Logger, client *vault.Client, u
 		}
 		logger.Info("Successfully authenticated to Vault", zap.String("request_id", vaultLoginResp.RequestID))
 		tokenErr := manageTokenLifecycle(ctx, logger, client, vaultLoginResp)
-		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) {
+		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) && !errors.Is(tokenErr, errWatcherRenewFailed) {
 			logger.Fatal("unable to start managing token lifecycle", zap.Error(tokenErr))
 		}
 	}
@@ -99,7 +102,7 @@ func manageTokenLifecycle(ctx context.Context, logger *zap.Logger, client *vault
 		case renewErr := <-watcher.DoneCh():
 			if renewErr != nil {
 				logger.Error("Failed to renew vault token. Re-attempting login.", zap.Error(renewErr))
-				return nil
+				return stderrs.Join(errWatcherRenewFailed, renewErr)
 			}
 			// This occurs once the token has reached max TTL.
 			logger.Info("Vault token can no longer be renewed. Re-attempting login.")
