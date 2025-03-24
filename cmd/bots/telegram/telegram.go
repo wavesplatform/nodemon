@@ -104,7 +104,7 @@ func runTelegramBot() error {
 	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
-		return common.ErrInvalidParameters
+		return errors.Join(common.ErrInvalidParameters, err)
 	}
 
 	defer func(zap *zap.Logger) {

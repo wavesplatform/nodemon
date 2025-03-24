@@ -127,7 +127,7 @@ func (c *nodemonL2Config) validate(logger *zap.Logger) error {
 	}
 	if err := validateURLs(urls); err != nil {
 		logger.Error("Invalid L2 node URL", zap.Error(err))
-		return errInvalidParameters
+		return stderrs.Join(errInvalidParameters, err)
 	}
 	for i, nodeName := range names {
 		if nodeName == "" {
@@ -321,7 +321,7 @@ func run() error {
 	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
-		return errInvalidParameters
+		return stderrs.Join(errInvalidParameters, err)
 	}
 	defer func(zap *zap.Logger) {
 		if syncErr := zap.Sync(); syncErr != nil {

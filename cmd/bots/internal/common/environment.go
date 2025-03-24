@@ -487,7 +487,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 	}
 	err := alertSub.subscription.Unsubscribe()
 	if err != nil {
-		return errors.New("failed to unsubscribe from alert")
+		return errors.Wrap(err, "failed to unsubscribe from alert")
 	}
 	ok = tgEnv.IsAlreadySubscribed(alertType)
 	if !ok {
