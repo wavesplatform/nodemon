@@ -19,8 +19,8 @@ COPY go.sum .
 
 # Copy the necessary files for building and override the restored worktree
 COPY Makefile .
-COPY cmd cmd
-COPY pkg pkg
+COPY cmd .
+COPY pkg .
 COPY internal internal
 
 RUN make build-nodemon-linux-amd64

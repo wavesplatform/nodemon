@@ -19,9 +19,9 @@ COPY go.sum .
 
 # Copy the necessary files for building and override the restored worktree
 COPY Makefile .
-COPY cmd cmd
-COPY pkg pkg
-COPY internal internal
+COPY cmd .
+COPY pkg .
+COPY internal .
 
 RUN make build-bots-linux-amd64
 
