@@ -40,6 +40,15 @@ func hexStringToInt(hexString string) (int64, error) {
 	return strconv.ParseInt(hexString, 16, 64)
 }
 
+func setHeaders(req *http.Request, userAgent, requestID, timeSend, timeoutStr string) {
+	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("X-Request-ID", requestID)
+	req.Header.Set("X-Request-Time", timeSend)
+	req.Header.Set("X-Request-Timeout", timeoutStr)
+}
+
 func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uint64, runErr error) {
 	// Validate the URL
 	if _, err := urlPackage.ParseRequestURI(url); err != nil {
@@ -74,12 +83,7 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 			)
 		}
 	}()
-	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", userAgent)
-	req.Header.Set("X-Request-ID", requestID)
-	req.Header.Set("X-Request-Time", timeSend)
-	req.Header.Set("X-Request-Timeout", timeoutStr)
+	setHeaders(req, userAgent, requestID, timeSend, timeoutStr)
 
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	resp, err := httpClient.Do(req)
