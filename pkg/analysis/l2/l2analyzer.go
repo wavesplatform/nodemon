@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"nodemon/internal"
 	"nodemon/pkg/analysis/storage"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/tools"
@@ -39,7 +40,16 @@ func hexStringToInt(hexString string) (int64, error) {
 	return strconv.ParseInt(hexString, 16, 64)
 }
 
-func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint64, error) {
+func setHeaders(req *http.Request, userAgent, requestID, timeSend, timeoutStr string) {
+	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("X-Request-ID", requestID)
+	req.Header.Set("X-Request-Time", timeSend)
+	req.Header.Set("X-Request-Timeout", timeoutStr)
+}
+
+func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uint64, runErr error) {
 	// Validate the URL
 	if _, err := urlPackage.ParseRequestURI(url); err != nil {
 		logger.Error("Invalid node URL", zap.Error(err), zap.String("nodeURL", url))
@@ -61,7 +71,19 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (uint6
 		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to build a HTTP request to l2 node: %w", err)
 	}
-	req.Header.Set("Content-Type", "application/json") // Set the content type to JSON
+	now := time.Now().UTC()
+	userAgent := fmt.Sprintf("nodemon/%s", internal.Version())
+	requestID := fmt.Sprintf("%s-%s-%d", userAgent, url, now.UnixNano())
+	timeSend := now.Format(http.TimeFormat)
+	timeoutStr := l2HeightRequestTimeout.String()
+	defer func() {
+		if runErr != nil {
+			runErr = fmt.Errorf("failed to collect l2 height by '%s' at '%s' with '%s' timeout: %w",
+				userAgent, timeoutStr, requestID, runErr,
+			)
+		}
+	}()
+	setHeaders(req, userAgent, requestID, timeSend, timeoutStr)
 
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	resp, err := httpClient.Do(req)
