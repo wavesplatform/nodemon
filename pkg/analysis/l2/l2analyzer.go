@@ -71,18 +71,18 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to build a HTTP request to l2 node: %w", err)
 	}
-	now := time.Now().UTC()
 	userAgent := fmt.Sprintf("nodemon/%s", internal.Version())
-	requestID := fmt.Sprintf("%s-%s-%d", userAgent, url, now.UnixNano())
-	timeSend := now.Format(http.TimeFormat)
 	timeoutStr := l2HeightRequestTimeout.String()
 	defer func() {
 		if runErr != nil {
-			runErr = fmt.Errorf("failed to collect l2 height by '%s' at '%s' with '%s' timeout: %w",
-				userAgent, timeoutStr, requestID, runErr,
+			runErr = fmt.Errorf("failed to collect l2 height by '%s' with '%s' timeout: %w",
+				userAgent, timeoutStr, runErr,
 			)
 		}
 	}()
+	now := time.Now().UTC()
+	requestID := fmt.Sprintf("%s-%s-%d", userAgent, url, now.UnixNano())
+	timeSend := now.Format(http.TimeFormat)
 	setHeaders(req, userAgent, requestID, timeSend, timeoutStr)
 
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
