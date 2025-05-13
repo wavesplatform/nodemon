@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -91,7 +92,11 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 		logger.Error("Failed to send a request to l2 node", zap.Error(err), zap.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to send request to l2 node: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() {
+		if clErr := resp.Body.Close(); clErr != nil {
+			runErr = errors.Join(runErr, fmt.Errorf("failed to close L2 height response body: %w", clErr))
+		}
+	}()
 
 	if resp.ContentLength > maxResponseSize { // Content length can be -1 if not set, so use limited reader below
 		logger.Error("Response body from l2 node is too large", zap.Int64("contentLength", resp.ContentLength),
@@ -114,12 +119,11 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 	}
 
 	var res response
-	err = json.Unmarshal(body, &res)
-	if err != nil {
-		logger.Error("Failed unmarshalling response", zap.Error(err),
+	if uErr := json.Unmarshal(body, &res); uErr != nil {
+		logger.Error("Failed unmarshalling response", zap.Error(uErr),
 			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
 		)
-		return 0, fmt.Errorf("failed to unmarshal response: %w", err)
+		return 0, fmt.Errorf("failed to unmarshal response: %w", uErr)
 	}
 
 	height, err := hexStringToInt(res.Result)
@@ -196,7 +200,7 @@ func vacuumAlerts(
 	}
 }
 
-// defaultAlertVacuumQuota is a default value for the alerts storage vacuum quota.
+// defaultAlertVacuumQuota is a default value for the [storage.AlertsStorage] vacuum quota.
 // It is calculated as the number of vacuum stages required to vacuum an alert.
 // The formula is: l2NodesSameHeightTimerDuration / heightCollectorTimeout + 1 + 4, where:
 // - l2NodesSameHeightTimerDuration is the duration of the timer that triggers the alert about the same height of an L2,
@@ -221,6 +225,8 @@ func putAndSendAlert(
 	}
 }
 
+const collectorErrorAlertConfirmations = 3
+
 func analyzerLoop(
 	ctx context.Context,
 	zap *zap.Logger,
@@ -231,7 +237,13 @@ func analyzerLoop(
 	defer close(alertsL2)
 	alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
 	defer alertTimer.Stop()
-	s := storage.NewAlertsStorage(zap, storage.AlertVacuumQuota(defaultAlertVacuumQuota))
+	s := storage.NewAlertsStorage(zap,
+		storage.AlertVacuumQuota(defaultAlertVacuumQuota),
+		storage.AlertConfirmations(storage.AlertConfirmationsValue{
+			AlertType:     entities.SimpleAlertType,
+			Confirmations: collectorErrorAlertConfirmations,
+		}),
+	)
 
 	var lastHeight uint64
 	for ctx.Err() == nil {
@@ -241,8 +253,8 @@ func analyzerLoop(
 				return
 			}
 			if response.err != nil {
-				errMsg := fmt.Errorf("failed to update height for L2 node %q: %w", node.Name, response.err)
-				alert := entities.NewInternalErrorAlert(time.Now().Unix(), errMsg)
+				errMsg := fmt.Sprintf("Failed to update height for L2 node %q: %v", node.Name, response.err)
+				alert := entities.NewSimpleAlert(time.Now().Unix(), errMsg)
 				putAndSendAlert(ctx, s, alertsL2, alert)
 				alertTimer.Reset(l2NodesSameHeightTimerDuration) // reset timer
 				continue                                         // continue to the next iteration

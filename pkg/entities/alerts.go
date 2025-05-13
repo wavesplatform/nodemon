@@ -151,6 +151,13 @@ type SimpleAlert struct {
 	Description string `json:"description"`
 }
 
+func NewSimpleAlert(timestamp int64, description string) *SimpleAlert {
+	return &SimpleAlert{
+		Timestamp:   timestamp,
+		Description: description,
+	}
+}
+
 func (a *SimpleAlert) Name() AlertName {
 	return SimpleAlertName
 }
