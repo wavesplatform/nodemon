@@ -6,12 +6,12 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"html/template"
+	htmltmpl "html/template"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
-	textTemplate "text/template"
+	textmpl "text/template"
 
 	"nodemon/cmd/bots/internal/common/messaging"
 	"nodemon/pkg/entities"
@@ -418,7 +418,7 @@ func nodesToUrls(nodes []entities.Node) []string {
 
 func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (string, error) {
 	urls := nodesToUrls(nodes)
-	tmpl, err := template.ParseFS(templateFiles, "templates/nodes_list.html")
+	tmpl, err := htmltmpl.ParseFS(templateFiles, "templates/nodes_list.html")
 	if err != nil {
 		tgEnv.zap.Error("failed to parse nodes list template", zap.Error(err))
 		return "", err
@@ -521,7 +521,7 @@ type subscriptionsList struct {
 }
 
 func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
-	tmpl, err := template.ParseFS(templateFiles, "templates/subscriptions.html")
+	tmpl, err := htmltmpl.ParseFS(templateFiles, "templates/subscriptions.html")
 
 	if err != nil {
 		tgEnv.zap.Error("failed to parse subscriptions template", zap.Error(err))
@@ -640,7 +640,7 @@ func sortNodesStatuses(statuses []NodeStatus) {
 func executeTemplate(templateName string, data any, extension ExpectedExtension) (string, error) {
 	switch extension {
 	case HTML:
-		tmpl, err := template.ParseFS(templateFiles, templateName+string(extension))
+		tmpl, err := htmltmpl.ParseFS(templateFiles, templateName+string(extension))
 		if err != nil {
 			return "", err
 		}
@@ -651,7 +651,7 @@ func executeTemplate(templateName string, data any, extension ExpectedExtension)
 		}
 		return buffer.String(), nil
 	case Markdown:
-		tmpl, err := textTemplate.ParseFS(templateFiles, templateName+string(extension))
+		tmpl, err := textmpl.ParseFS(templateFiles, templateName+string(extension))
 		if err != nil {
 			return "", err
 		}
