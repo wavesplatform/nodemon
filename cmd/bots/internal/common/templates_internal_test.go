@@ -59,7 +59,7 @@ func goldenValue(t *testing.T, goldenFile string, expectedExtension ExpectedExte
 func TestSimpleAlertTemplate(t *testing.T) {
 	data := entities.SimpleAlert{
 		Timestamp:   100500,
-		Description: "Simple alert !!!",
+		Description: "\"!<Simple alert>!\"",
 	}
 	for _, f := range expectedFormats() {
 		const template = "templates/alerts/simple_alert"
