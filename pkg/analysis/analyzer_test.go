@@ -1,6 +1,7 @@
 package analysis_test
 
 import (
+	"context"
 	"encoding/binary"
 	"fmt"
 	"log"
@@ -163,6 +164,9 @@ func runTestCase(zap *zap.Logger, test testCase) func(t *testing.T) {
 		}()
 		fillEventsStorage(t, es, test.historyData)
 
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+
 		alerts := make(chan entities.Alert)
 		go func() {
 			defer close(done)
@@ -173,7 +177,11 @@ func runTestCase(zap *zap.Logger, test testCase) func(t *testing.T) {
 			notifications <- event
 			close(notifications)
 			for alert := range analyzerOut {
-				alerts <- alert
+				select {
+				case alerts <- alert:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}()
 		for j := range test.expectedAlerts {
