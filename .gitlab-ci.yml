@@ -2,22 +2,19 @@ default:
   tags:
     - docker
 image:
-  name: amazon/aws-cli
-  entrypoint: [""]
+  name: docker:28
 services:
   - docker:dind
 
 before_script:
-  - amazon-linux-extras install docker
-  - aws --version
-  - docker --version
-  - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $CONTAINER_REGISTRY
+  - echo "$REGISTRY_PASSWORD" | docker login $CONTAINER_REGISTRY -u $REGISTRY_USER --password-stdin
 
 stages:
   - build
 
 variables:
-  CONTAINER_REGISTRY: $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com
+  CONTAINER_REGISTRY: registrywp.wvservices.com
+  PROJECT_NAMESPACE: waves
 
 build-and-push:
   stage: build
@@ -27,10 +24,10 @@ build-and-push:
   only:
     - tags
   script: |-
-    docker build -t $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME \
-                 -t $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA \
-                 -t $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:latest . \
+    docker build -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME \
+                 -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA \
+                 -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:latest . \
                  -f Dockerfile-$IMAGE_NAME
-    docker push $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
-    docker push $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
-    docker push $CONTAINER_REGISTRY/$CI_PROJECT_NAMESPACE/$IMAGE_NAME:latest
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:latest
