@@ -11,7 +11,7 @@ before_script:
   - amazon-linux-extras install docker
   - aws --version
   - docker --version
-  - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $CONTAINER_REGISTRY
+  - aws ecr get-login-password --region $AWS_REGION | docker login --username AWS --password-stdin $CONTAINER_REGISTRY
 
 stages:
   - build
