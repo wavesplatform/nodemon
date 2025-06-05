@@ -12,10 +12,6 @@ before_script:
 stages:
   - build
 
-variables:
-  CONTAINER_REGISTRY: registrywp.wvservices.com
-  PROJECT_NAMESPACE: waves
-
 build-and-push:
   stage: build
   parallel:
@@ -31,3 +27,29 @@ build-and-push:
     docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
     docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
     docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:latest
+
+deploy:
+  needs: ["build-and-push"]
+  stage: deploy
+  variables:
+    TAG_PATH: "image.tag"
+    TAG: $CI_COMMIT_REF_NAME
+  parallel:
+    matrix:
+      - TARGET: [stagenet, telegram-stagenet, discord-stagenet]
+  image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
+  before_script:
+    - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
+    - git config --global user.email "ci@wavesplatform.com"
+    - git config --global user.name "GitLab CI"
+    - git fetch
+    - git switch main
+    - git reset --hard origin/main
+  script:
+    - yq -i ''$TAG_PATH' = "'$TAG'"' $VALUES_FILE
+    - git add $VALUES_FILE
+    - git commit -m "CI Deploy $TAG_PATH to $TAG"
+    - git push -o ci.skip origin HEAD:main
+  only:
+    - tags
+
