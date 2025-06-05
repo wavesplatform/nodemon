@@ -35,6 +35,7 @@ deploy:
   variables:
     TAG_PATH: ".image.tag"
     TAG: $CI_COMMIT_REF_NAME
+    CI_NODE_TOTAL: 1
     BRANCH: master
   parallel:
     matrix:
