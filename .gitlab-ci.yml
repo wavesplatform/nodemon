@@ -69,7 +69,6 @@ deploy-testnet:
     NET: testnet
   image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
   before_script:
-  before_script:
     - mkdir -p $HOME/.docker
     - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
     - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
