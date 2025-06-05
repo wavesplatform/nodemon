@@ -54,6 +54,6 @@ deploy:
     - yq -i ''$TAG_PATH' = "'$TAG'"' $VALUES_FILE
     - git add $VALUES_FILE
     - git commit -m "CI Deploy $TAG_PATH to $TAG"
-    - git push -o ci.skip origin HEAD:BRANCH
+    - git push -o ci.skip origin HEAD:$BRANCH
   only:
     - tags
