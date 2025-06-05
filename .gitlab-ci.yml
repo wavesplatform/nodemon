@@ -47,7 +47,7 @@ deploy:
     - git config --global user.email "ci@wavesplatform.com"
     - git config --global user.name "GitLab CI"
     - git fetch
-    - git switch main
+    - git switch master
     - git reset --hard origin/main
   script:
     - yq -i ''$TAG_PATH' = "'$TAG'"' $VALUES_FILE
