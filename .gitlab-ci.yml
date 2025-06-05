@@ -33,7 +33,7 @@ deploy:
   needs: ["build-and-push"]
   stage: deploy
   variables:
-    TAG_PATH: "image.tag"
+    TAG_PATH: ".image.tag"
     TAG: $CI_COMMIT_REF_NAME
     BRANCH: master
   parallel:
