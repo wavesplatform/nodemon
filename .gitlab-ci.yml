@@ -35,11 +35,7 @@ deploy:
   variables:
     TAG_PATH: ".image.tag"
     TAG: $CI_COMMIT_REF_NAME
-    CI_NODE_TOTAL: 1
     BRANCH: master
-  parallel:
-    matrix:
-      - TARGET: [stagenet, telegram-stagenet, discord-stagenet]
   image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
   before_script:
   before_script:
@@ -51,10 +47,14 @@ deploy:
     - git fetch
     - git switch $BRANCH
     - git reset --hard origin/$BRANCH
-  script:
-    - yq -i ''$TAG_PATH' = "'$TAG'"' $VALUES_FILE
-    - git add $VALUES_FILE
-    - git commit -m "CI Deploy $TAG_PATH to $TAG"
-    - git push -o ci.skip origin HEAD:$BRANCH
+  script: 
+    - |+
+      for values_file in stagenet telegram-stagenet discord-stagenet
+      do
+        yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
+        git add ${VALUES_PATH}-${values_file}.yaml
+      done
+      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git push -o ci.skip origin HEAD:$BRANCH
   only:
     - tags
