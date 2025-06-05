@@ -17,6 +17,9 @@ build-and-push:
       - IMAGE_NAME: [nodemon, nodemon-telegram, nodemon-discord]
   only:
     - tags
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
   script: |-
     docker build -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME \
                  -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA \
@@ -37,6 +40,9 @@ deploy:
       - TARGET: [stagenet, telegram-stagenet, discord-stagenet]
   image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
   before_script:
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
     - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
     - git config --global user.email "ci@wavesplatform.com"
     - git config --global user.name "GitLab CI"
