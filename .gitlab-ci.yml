@@ -6,9 +6,6 @@ image:
 services:
   - docker:dind
 
-before_script:
-  - echo "$REGISTRY_PASSWORD" | docker login $CONTAINER_REGISTRY -u $REGISTRY_USER --password-stdin
-
 stages:
   - build
   - deploy
@@ -53,4 +50,3 @@ deploy:
     - git push -o ci.skip origin HEAD:main
   only:
     - tags
-
