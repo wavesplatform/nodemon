@@ -1,0 +1,122 @@
+default:
+  tags:
+    - docker
+image:
+  name: docker:28
+services:
+  - docker:dind
+
+stages:
+  - build
+  - deploy
+
+build-and-push:
+  stage: build
+  parallel:
+    matrix:
+      - IMAGE_NAME: [nodemon, nodemon-telegram, nodemon-discord]
+  only:
+    - tags
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+  script: |-
+    docker build -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME \
+                 -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA \
+                 -t $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:latest . \
+                 -f Dockerfile-$IMAGE_NAME
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_REF_NAME
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:$CI_COMMIT_SHORT_SHA
+    docker push $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/$IMAGE_NAME:latest
+
+deploy-stagenet:
+  needs: ["build-and-push"]
+  stage: deploy
+  variables:
+    TAG_PATH: ".image.tag"
+    TAG: $CI_COMMIT_REF_NAME
+    BRANCH: master
+    NET: stagenet
+  image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+    - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
+    - git config --global user.email "ci@wavesplatform.com"
+    - git config --global user.name "GitLab CI"
+    - git fetch
+    - git switch $BRANCH
+    - git reset --hard origin/$BRANCH
+  script: 
+    - |+
+      for values_file in $NET telegram-$NET discord-$NET
+      do
+        yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
+        git add ${VALUES_PATH}-${values_file}.yaml
+      done
+      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git push -o ci.skip origin HEAD:$BRANCH
+  only:
+    - tags
+
+deploy-testnet:
+  needs: ["build-and-push", "deploy-stagenet"]
+  stage: deploy
+  variables:
+    TAG_PATH: ".image.tag"
+    TAG: $CI_COMMIT_REF_NAME
+    BRANCH: master
+    NET: testnet
+  image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+    - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
+    - git config --global user.email "ci@wavesplatform.com"
+    - git config --global user.name "GitLab CI"
+    - git fetch
+    - git switch $BRANCH
+    - git reset --hard origin/$BRANCH
+  script: 
+    - |+
+      for values_file in $NET telegram-$NET discord-$NET
+      do
+        yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
+        git add ${VALUES_PATH}-${values_file}.yaml
+      done
+      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git push -o ci.skip origin HEAD:$BRANCH
+  only:
+    - tags
+  when: manual
+
+deploy-mainnet:
+  needs: ["build-and-push", "deploy-stagenet"]
+  stage: deploy
+  variables:
+    TAG_PATH: ".image.tag"
+    TAG: $CI_COMMIT_REF_NAME
+    BRANCH: master
+    NET: mainnet
+  image: $CONTAINER_REGISTRY/$PROJECT_NAMESPACE/ci-utils
+  before_script:
+    - mkdir -p $HOME/.docker
+    - echo $DOCKER_AUTH_CONFIG > $HOME/.docker/config.json
+    - git remote set-url origin "https://$CI_TOKEN_NAME:$CI_TOKEN@$CI_SERVER_HOST/$CI_REPO"
+    - git config --global user.email "ci@wavesplatform.com"
+    - git config --global user.name "GitLab CI"
+    - git fetch
+    - git switch $BRANCH
+    - git reset --hard origin/$BRANCH
+  script: 
+    - |+
+      for values_file in $NET telegram-$NET discord-$NET
+      do
+        yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
+        git add ${VALUES_PATH}-${values_file}.yaml
+      done
+      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git push -o ci.skip origin HEAD:$BRANCH
+  only:
+    - tags
+  when: manual
