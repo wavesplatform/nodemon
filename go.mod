@@ -7,7 +7,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/hashicorp/vault/api v1.20.0
-	github.com/hashicorp/vault/api/auth/userpass v0.9.0
+	github.com/hashicorp/vault/api/auth/userpass v0.10.0
 	github.com/nats-io/nats-server/v2 v2.11.4
 	github.com/nats-io/nats.go v1.43.0
 	github.com/pkg/errors v0.9.1
