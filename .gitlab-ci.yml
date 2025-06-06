@@ -54,7 +54,7 @@ deploy-stagenet:
         yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
         git add ${VALUES_PATH}-${values_file}.yaml
       done
-      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git commit -m "CI Deploy $TAG_PATH on $NET to $TAG"
       git push -o ci.skip origin HEAD:$BRANCH
   only:
     - tags
@@ -84,7 +84,7 @@ deploy-testnet:
         yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
         git add ${VALUES_PATH}-${values_file}.yaml
       done
-      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git commit -m "CI Deploy $TAG_PATH on $NET to $TAG"
       git push -o ci.skip origin HEAD:$BRANCH
   only:
     - tags
@@ -115,7 +115,7 @@ deploy-mainnet:
         yq -i ''$TAG_PATH' = "'$TAG'"' ${VALUES_PATH}-${values_file}.yaml
         git add ${VALUES_PATH}-${values_file}.yaml
       done
-      git commit -m "CI Deploy $TAG_PATH on stagenet to $TAG"
+      git commit -m "CI Deploy $TAG_PATH on $NET to $TAG"
       git push -o ci.skip origin HEAD:$BRANCH
   only:
     - tags
