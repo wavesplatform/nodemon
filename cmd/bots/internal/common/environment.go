@@ -1249,11 +1249,16 @@ func HandleNodeStatement(resp *pair.NodeStatementResponse, extension ExpectedExt
 		return resp.ErrMessage, nil
 	}
 
+	shSum := "<nil>"
+	if sh := resp.NodeStatement.StateHash; sh != nil {
+		shSum = sh.SumHash.Hex()
+	}
+
 	statement := nodeStatement{
 		Node:      resp.NodeStatement.Node,
 		Height:    resp.NodeStatement.Height,
 		Timestamp: resp.NodeStatement.Timestamp,
-		StateHash: resp.NodeStatement.StateHash.SumHash.Hex(),
+		StateHash: shSum,
 		Version:   resp.NodeStatement.Version,
 	}
 
