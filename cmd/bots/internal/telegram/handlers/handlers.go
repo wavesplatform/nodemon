@@ -245,7 +245,7 @@ func statementCmd(
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		args := c.Args()
-		if len(args) > 2 || len(args) < 1 {
+		if len(args) != 2 {
 			return c.Send(messages.StatementWrongFormat, &telebot.SendOptions{ParseMode: telebot.ModeDefault})
 		}
 		url := args[0]
