@@ -1,7 +1,7 @@
 package initial
 
 import (
-	"nodemon/cmd/bots/internal/common"
+	"nodemon/cmd/bots/internal/bots"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/pkg/messaging/pair"
 
@@ -20,7 +20,7 @@ func InitTgBot(behavior string,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	scheme string,
-) (*common.TelegramBotEnvironment, error) {
+) (*bots.TelegramBotEnvironment, error) {
 	botSettings, err := config.NewTgBotSettings(behavior, webhookLocalAddress, publicURL, botToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to set up bot configuration")
@@ -32,7 +32,7 @@ func InitTgBot(behavior string,
 
 	logger.Sugar().Debugf("telegram chat id for sending alerts is %d", chatID)
 
-	tgBotEnv := common.NewTelegramBotEnvironment(bot, chatID, false, logger, requestType, responsePairType, scheme)
+	tgBotEnv := bots.NewTelegramBotEnvironment(bot, chatID, false, logger, requestType, responsePairType, scheme)
 	return tgBotEnv, nil
 }
 
@@ -43,7 +43,7 @@ func InitDiscordBot(
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	scheme string,
-) (*common.DiscordBotEnvironment, error) {
+) (*bots.DiscordBotEnvironment, error) {
 	bot, err := discordgo.New("Bot " + botToken)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start discord bot")
@@ -51,6 +51,6 @@ func InitDiscordBot(
 	logger.Sugar().Debugf("discord chat id for sending alerts is %s", chatID)
 
 	bot.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
-	dscBotEnv := common.NewDiscordBotEnvironment(bot, chatID, logger, requestType, responsePairType, scheme)
+	dscBotEnv := bots.NewDiscordBotEnvironment(bot, chatID, logger, requestType, responsePairType, scheme)
 	return dscBotEnv, nil
 }

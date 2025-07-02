@@ -1,4 +1,4 @@
-package common
+package bots
 
 import (
 	"encoding/binary"
@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/assert"

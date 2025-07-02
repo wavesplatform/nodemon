@@ -1,4 +1,4 @@
-package common
+package bots
 
 import "github.com/pkg/errors"
 
