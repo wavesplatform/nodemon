@@ -12,7 +12,7 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
 
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/internal"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"

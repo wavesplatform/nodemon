@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/cmd/bots/internal/discord/messages"
 	"nodemon/pkg/messaging/pair"
 
@@ -15,7 +15,7 @@ import (
 )
 
 func InitDscHandlers(
-	environment *common.DiscordBotEnvironment,
+	environment *bots.DiscordBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	logger *zap.Logger,
@@ -55,7 +55,7 @@ func InitDscHandlers(
 func handleRemoveCmd(
 	s *discordgo.Session,
 	m *discordgo.MessageCreate,
-	environment *common.DiscordBotEnvironment,
+	environment *bots.DiscordBotEnvironment,
 	logger *zap.Logger,
 	requestType chan<- pair.Request,
 ) {
@@ -79,7 +79,7 @@ func handleRemoveCmd(
 func handleAddCmd(
 	s *discordgo.Session,
 	m *discordgo.MessageCreate,
-	environment *common.DiscordBotEnvironment,
+	environment *bots.DiscordBotEnvironment,
 	logger *zap.Logger,
 	requestType chan<- pair.Request,
 ) {
@@ -105,7 +105,7 @@ func handleStatusCmd(
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	logger *zap.Logger,
-	env *common.DiscordBotEnvironment,
+	env *bots.DiscordBotEnvironment,
 ) {
 	nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
@@ -117,7 +117,7 @@ func handleStatusCmd(
 	if err != nil {
 		logger.Error("failed to request nodes status", zap.Error(err))
 	}
-	msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, env.TemplatesExtension(), nodes)
+	msg, statusCondition, err := bots.HandleNodesStatus(nodesStatus, env.TemplatesExtension(), nodes)
 	if err != nil {
 		logger.Error("failed to handle nodes status", zap.Error(err))
 	}
@@ -132,14 +132,14 @@ func handleStatusCmd(
 	}
 }
 
-func handleHelpCmd(s *discordgo.Session, environment *common.DiscordBotEnvironment, logger *zap.Logger) {
+func handleHelpCmd(s *discordgo.Session, environment *bots.DiscordBotEnvironment, logger *zap.Logger) {
 	_, err := s.ChannelMessageSend(environment.ChatID, messages.HelpInfoText)
 	if err != nil {
 		logger.Error("failed to send a message to discord", zap.Error(err))
 	}
 }
 
-func handlePingCmd(s *discordgo.Session, environment *common.DiscordBotEnvironment, logger *zap.Logger) {
+func handlePingCmd(s *discordgo.Session, environment *bots.DiscordBotEnvironment, logger *zap.Logger) {
 	_, err := s.ChannelMessageSend(environment.ChatID, "Pong!")
 	if err != nil {
 		logger.Error("failed to send a message to discord", zap.Error(err))

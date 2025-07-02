@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/common/api"
-	"nodemon/cmd/bots/internal/common/initial"
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots"
+	"nodemon/cmd/bots/internal/bots/api"
+	"nodemon/cmd/bots/internal/bots/initial"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/cmd/bots/internal/discord/handlers"
 	"nodemon/internal"
 	generalMessaging "nodemon/pkg/messaging"
@@ -70,15 +70,15 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 func (c *discordBotConfig) validate(zap *zap.Logger) error {
 	if c.discordBotToken == "" {
 		zap.Error("discord bot token is required")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	if c.scheme == "" {
 		zap.Error("the blockchain scheme must be specified")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	if c.discordChatID == "" {
 		zap.Error("discord chat ID is required")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func runDiscordBot() error {
 	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
-		return stderrs.Join(common.ErrInvalidParameters, err)
+		return stderrs.Join(bots.ErrInvalidParameters, err)
 	}
 
 	defer func(zap *zap.Logger) {
@@ -142,7 +142,7 @@ func runDiscordBot() error {
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err = common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
+	err = bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
 		logger.Fatal("failed to schedule nodes status", zap.Error(err))
@@ -178,7 +178,7 @@ func waitScheduler(taskScheduler chrono.TaskScheduler, logger *zap.Logger) {
 func runMessagingClients(
 	ctx context.Context,
 	cfg *discordBotConfig,
-	discordBotEnv *common.DiscordBotEnvironment,
+	discordBotEnv *bots.DiscordBotEnvironment,
 	logger *zap.Logger,
 	requestChan chan pair.Request,
 	responseChan chan pair.Response,
