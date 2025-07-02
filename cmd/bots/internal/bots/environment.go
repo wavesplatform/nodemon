@@ -1,4 +1,4 @@
-package common
+package bots
 
 import (
 	"bytes"
@@ -13,7 +13,7 @@ import (
 	"sync"
 	textmpl "text/template"
 
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/pkg/entities"
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"

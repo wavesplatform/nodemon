@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"strings"
 
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/cmd/bots/internal/telegram/buttons"
 	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
@@ -18,7 +18,7 @@ import (
 )
 
 func InitTgHandlers(
-	env *common.TelegramBotEnvironment,
+	env *bots.TelegramBotEnvironment,
 	zapLogger *zap.Logger,
 	requestCh chan<- pair.Request,
 	responseCh <-chan pair.Response,
@@ -90,7 +90,7 @@ func InitTgHandlers(
 }
 
 func removeCmd(
-	env *common.TelegramBotEnvironment,
+	env *bots.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 ) func(c telebot.Context) error {
@@ -104,7 +104,7 @@ func removeCmd(
 	}
 }
 
-func addAliasCmd(env *common.TelegramBotEnvironment, requestType chan<- pair.Request) func(c telebot.Context) error {
+func addAliasCmd(env *bots.TelegramBotEnvironment, requestType chan<- pair.Request) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		const requiredArgsCount = 2
 		args := c.Args()
@@ -141,7 +141,7 @@ func aliasesCmd(
 }
 
 func onTextMsgHandler(
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 ) func(c telebot.Context) error {
@@ -172,7 +172,7 @@ func onTextMsgHandler(
 func viewChains(
 	requestChan chan<- pair.Request,
 	responsePairType <-chan pair.Response,
-	ext common.ExpectedExtension,
+	ext bots.ExpectedExtension,
 	zapLogger *zap.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
@@ -194,7 +194,7 @@ func viewChains(
 			return c.Send(nodesStatements.ErrMessage, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 		}
 
-		msg, err := common.HandleNodesChains(nodesStatements, ext)
+		msg, err := bots.HandleNodesChains(nodesStatements, ext)
 		if err != nil {
 			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
@@ -207,7 +207,7 @@ func viewChains(
 func statusCmd(
 	requestChan chan<- pair.Request,
 	responsePairType <-chan pair.Response,
-	ext common.ExpectedExtension,
+	ext bots.ExpectedExtension,
 	zapLogger *zap.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
@@ -223,7 +223,7 @@ func statusCmd(
 			return err
 		}
 
-		msg, statusCondition, err := common.HandleNodesStatus(nodesStatus, ext, nodes)
+		msg, statusCondition, err := bots.HandleNodesStatus(nodesStatus, ext, nodes)
 		if err != nil {
 			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
@@ -240,7 +240,7 @@ func statusCmd(
 func statementCmd(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
-	ext common.ExpectedExtension,
+	ext bots.ExpectedExtension,
 	zapLogger *zap.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
@@ -266,7 +266,7 @@ func statementCmd(
 			return err
 		}
 
-		msg, err := common.HandleNodeStatement(statement, ext)
+		msg, err := bots.HandleNodeStatement(statement, ext)
 		if err != nil {
 			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
 			return err
@@ -276,7 +276,7 @@ func statementCmd(
 	}
 }
 
-func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+func unsubscribeCmd(environment *bots.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
@@ -287,7 +287,7 @@ func unsubscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.C
 	}
 }
 
-func subscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+func subscribeCmd(environment *bots.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		args := c.Args()
 		if len(args) != 1 {
@@ -299,7 +299,7 @@ func subscribeCmd(environment *common.TelegramBotEnvironment) func(c telebot.Con
 }
 
 func addSpecificCmd(
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 ) func(c telebot.Context) error {
@@ -315,7 +315,7 @@ func addSpecificCmd(
 }
 
 func addCmd(
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 ) func(c telebot.Context) error {
@@ -348,7 +348,7 @@ func addCmd(
 	}
 }
 
-func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+func muteCmd(environment *bots.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		if environment.Mute {
 			return c.Send("I had already been sleeping, continue sleeping.." + messaging.SleepingMsg)
@@ -358,7 +358,7 @@ func muteCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context)
 	}
 }
 
-func startCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+func startCmd(environment *bots.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		if environment.Mute {
 			environment.Mute = false
@@ -368,7 +368,7 @@ func startCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context
 	}
 }
 
-func pingCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context) error {
+func pingCmd(environment *bots.TelegramBotEnvironment) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		if environment.Mute {
 			return c.Send(messages.PongText + " I am currently sleeping" + messaging.SleepingMsg)
@@ -379,7 +379,7 @@ func pingCmd(environment *common.TelegramBotEnvironment) func(c telebot.Context)
 
 func editPool(
 	c telebot.Context,
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 ) error {
@@ -420,7 +420,7 @@ func editPool(
 
 func editSubscriptions(
 	c telebot.Context,
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 ) error {
 	msg, err := environment.SubscriptionsList()
 	if err != nil {
