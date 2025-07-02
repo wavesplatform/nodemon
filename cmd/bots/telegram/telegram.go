@@ -10,10 +10,10 @@ import (
 	"syscall"
 	"time"
 
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/common/api"
-	"nodemon/cmd/bots/internal/common/initial"
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots"
+	"nodemon/cmd/bots/internal/bots/api"
+	"nodemon/cmd/bots/internal/bots/initial"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/cmd/bots/internal/telegram/config"
 	"nodemon/cmd/bots/internal/telegram/handlers"
 	"nodemon/internal"
@@ -80,19 +80,19 @@ func newTelegramBotConfig() *telegramBotConfig {
 func (c *telegramBotConfig) validate(logger *zap.Logger) error {
 	if c.tgBotToken == "" {
 		logger.Error("telegram bot token is required")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	if c.behavior == config.WebhookMethod && c.publicURL == "" {
 		logger.Error("public url is required for webhook method")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	if c.scheme == "" {
 		logger.Error("the blockchain scheme must be specified")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	if c.tgChatID == 0 {
 		logger.Error("telegram chat ID is required")
-		return common.ErrInvalidParameters
+		return bots.ErrInvalidParameters
 	}
 	return nil
 }
@@ -104,7 +104,7 @@ func runTelegramBot() error {
 	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
-		return errors.Join(common.ErrInvalidParameters, err)
+		return errors.Join(bots.ErrInvalidParameters, err)
 	}
 
 	defer func(zap *zap.Logger) {
@@ -151,7 +151,7 @@ func runTelegramBot() error {
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err = common.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
+	err = bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
 		logger.Fatal("failed to schedule nodes status alert", zap.Error(err))
@@ -176,7 +176,7 @@ func runTelegramBot() error {
 func runMessagingClients(
 	ctx context.Context,
 	cfg *telegramBotConfig,
-	tgBotEnv *common.TelegramBotEnvironment,
+	tgBotEnv *bots.TelegramBotEnvironment,
 	logger *zap.Logger,
 	pairRequest <-chan pair.Request,
 	pairResponse chan<- pair.Response,

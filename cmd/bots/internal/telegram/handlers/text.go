@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strconv"
 
-	"nodemon/cmd/bots/internal/common"
-	"nodemon/cmd/bots/internal/common/messaging"
+	"nodemon/cmd/bots/internal/bots"
+	"nodemon/cmd/bots/internal/bots/messaging"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
 
@@ -15,7 +15,7 @@ import (
 
 func AddNewNodeHandler(
 	c telebot.Context,
-	env *common.TelegramBotEnvironment,
+	env *bots.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	url string,
@@ -46,7 +46,7 @@ func AddNewNodeHandler(
 
 func RemoveNodeHandler(
 	c telebot.Context,
-	environment *common.TelegramBotEnvironment,
+	environment *bots.TelegramBotEnvironment,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	url string,
@@ -55,7 +55,7 @@ func RemoveNodeHandler(
 	if err != nil {
 		return errors.Wrap(err, "failed to request nodes list buttons")
 	}
-	url = common.GetNodeURLByAlias(url, nodes)
+	url = bots.GetNodeURLByAlias(url, nodes)
 
 	response, err := messaging.RemoveNodeHandler(strconv.FormatInt(c.Chat().ID, 10), environment, requestType, url)
 	if err != nil {
@@ -89,7 +89,7 @@ func RemoveNodeHandler(
 
 func UpdateAliasHandler(
 	c telebot.Context,
-	env *common.TelegramBotEnvironment,
+	env *bots.TelegramBotEnvironment,
 	requestChan chan<- pair.Request,
 	url string,
 	alias string,
@@ -104,7 +104,7 @@ func UpdateAliasHandler(
 	return c.Send(response, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 }
 
-func SubscribeHandler(c telebot.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
+func SubscribeHandler(c telebot.Context, env *bots.TelegramBotEnvironment, alertName entities.AlertName) error {
 	if !env.IsEligibleForAction(strconv.FormatInt(c.Chat().ID, 10)) {
 		return c.Send("Sorry, you have no right to subscribe to alerts")
 	}
@@ -133,7 +133,7 @@ func SubscribeHandler(c telebot.Context, env *common.TelegramBotEnvironment, ale
 	return c.Send(msg, &telebot.SendOptions{ParseMode: telebot.ModeHTML})
 }
 
-func UnsubscribeHandler(c telebot.Context, env *common.TelegramBotEnvironment, alertName entities.AlertName) error {
+func UnsubscribeHandler(c telebot.Context, env *bots.TelegramBotEnvironment, alertName entities.AlertName) error {
 	chatID := strconv.FormatInt(c.Chat().ID, 10)
 	if !env.IsEligibleForAction(chatID) {
 		return c.Send("Sorry, you have no right to unsubscribe from alerts")
