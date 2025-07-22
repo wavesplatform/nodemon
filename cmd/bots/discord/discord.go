@@ -134,7 +134,7 @@ func runDiscordBot() error {
 			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
 			return apiErr
 		}
-		if startErr := botAPI.Start(); startErr != nil {
+		if startErr := botAPI.StartCtx(ctx); startErr != nil {
 			logger.Error("Failed to start API", zap.Error(startErr))
 			return startErr
 		}

@@ -415,7 +415,7 @@ func startServices( //nolint:nonamedreturns // needs in defer
 		return nil, err
 	}
 
-	if apiErr := a.Start(); apiErr != nil {
+	if apiErr := a.StartCtx(ctx); apiErr != nil {
 		logger.Error("failed to start API", zap.Error(apiErr))
 		return nil, apiErr
 	}
