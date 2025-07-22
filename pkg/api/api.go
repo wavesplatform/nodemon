@@ -79,8 +79,13 @@ func NewAPI(
 	return a, nil
 }
 
-func (a *API) Start() error {
-	l, listenErr := net.Listen("tcp", a.srv.Addr)
+func (a *API) Start() error { // left for compatibility
+	return a.StartCtx(context.Background())
+}
+
+func (a *API) StartCtx(ctx context.Context) error {
+	var cfg net.ListenConfig
+	l, listenErr := cfg.Listen(ctx, "tcp", a.srv.Addr)
 	if listenErr != nil {
 		return errors.Errorf("Failed to start REST API at '%s': %v", a.srv.Addr, listenErr)
 	}

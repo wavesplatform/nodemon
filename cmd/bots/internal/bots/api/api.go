@@ -88,8 +88,9 @@ func (a *BotAPI) health(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (a *BotAPI) Start() error {
-	l, listenErr := net.Listen("tcp", a.srv.Addr)
+func (a *BotAPI) StartCtx(ctx context.Context) error {
+	var cfg net.ListenConfig
+	l, listenErr := cfg.Listen(ctx, "tcp", a.srv.Addr)
 	if listenErr != nil {
 		return errors.Errorf("Failed to start REST API at '%s': %v", a.srv.Addr, listenErr)
 	}
