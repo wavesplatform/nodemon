@@ -2,16 +2,16 @@ package criteria_test
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
@@ -23,16 +23,7 @@ func mkUnreachableEvents(node string, startHeight, count int) []entities.Event {
 }
 
 func TestUnreachableCriterion_Analyze(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		err := zap.Sync()
-		if err != nil {
-			log.Println(err)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	commonStateHashes := generateFiveStateHashes(250)
 	tests := []struct {
