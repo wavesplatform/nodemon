@@ -318,7 +318,7 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
+	logger, _, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return stderrs.Join(errInvalidParameters, err)
@@ -356,7 +356,7 @@ func run() error {
 		return err
 	}
 
-	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, atom, logger)
+	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, logger)
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -402,14 +402,13 @@ func startServices( //nolint:nonamedreturns // needs in defer
 	es *events.Storage,
 	scraper *scraping.Scraper,
 	privateNodesHandler *specific.PrivateNodesHandler,
-	atom *zap.AtomicLevel,
 	logger *zap.Logger,
 ) (_ shutdownFunc, runErr error) {
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scraper's notifications
 
 	pew := privateNodesHandler.PrivateNodesEventsWriter()
-	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, atom, cfg.development)
+	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, cfg.development)
 	if err != nil {
 		logger.Error("failed to initialize API", zap.Error(err))
 		return nil, err
