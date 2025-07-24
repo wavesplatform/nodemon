@@ -36,3 +36,9 @@ func (b byteStringPrinter) MarshalText() ([]byte, error) { return b, nil }
 func ByteString(key string, value []byte) slog.Attr {
 	return textMarshaler(key, byteStringPrinter(value))
 }
+
+// Stringer is a helper function that formats a value as a slog.Attr by calling slog.Any
+// with the provided key and value. It is intended for use with values that implement fmt.Stringer.
+func Stringer(key string, value fmt.Stringer) slog.Attr {
+	return slog.Any(key, value) // can use slog.Any because value will be printer with fmt.Sprintf internally
+}
