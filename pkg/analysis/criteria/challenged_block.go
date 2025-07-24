@@ -2,11 +2,12 @@ package criteria
 
 import (
 	"iter"
+	"log/slog"
 
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 
 	"nodemon/pkg/entities"
+	"nodemon/pkg/tools/logging/attrs"
 )
 
 type ChallengedBlockCriterionOptions struct {
@@ -15,10 +16,10 @@ type ChallengedBlockCriterionOptions struct {
 
 type ChallengedBlockCriterion struct {
 	opts   *ChallengedBlockCriterionOptions
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
-func NewChallengedBlockCriterion(opts *ChallengedBlockCriterionOptions, logger *zap.Logger) *ChallengedBlockCriterion {
+func NewChallengedBlockCriterion(opts *ChallengedBlockCriterionOptions, logger *slog.Logger) *ChallengedBlockCriterion {
 	if opts == nil { // default
 		opts = &ChallengedBlockCriterionOptions{}
 	}
@@ -38,8 +39,8 @@ func (c *ChallengedBlockCriterion) Analyze(alerts chan<- entities.Alert, timesta
 	for blockID, nodes := range challengedBlocks {
 		sortedNodes := nodes.Sort()
 		c.logger.Info("ChallengedBlockCriterion: challenged block detected",
-			zap.Stringer("block-id", blockID),
-			zap.Strings("nodes", sortedNodes),
+			attrs.Stringer("block_id", blockID),
+			attrs.Strings("nodes", sortedNodes),
 		)
 		alerts <- &entities.ChallengedBlockAlert{
 			Timestamp: timestamp,
