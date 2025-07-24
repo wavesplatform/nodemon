@@ -2,6 +2,7 @@ package specific
 
 import (
 	stderrs "errors"
+	"log/slog"
 	"maps"
 	"sync"
 	"time"
@@ -9,9 +10,9 @@ import (
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type PrivateNodesEventsWriter interface {
@@ -79,21 +80,21 @@ func (p *privateNodesEvents) filterPrivateNodes(ns nodes.Storage) error {
 type PrivateNodesHandler struct {
 	es            *events.Storage
 	ns            nodes.Storage
-	zap           *zap.Logger
+	logger        *slog.Logger
 	privateEvents *privateNodesEvents
 }
 
 func NewPrivateNodesHandlerWithUnreachableInitialState(
 	es *events.Storage,
 	ns nodes.Storage,
-	zap *zap.Logger,
+	logger *slog.Logger,
 ) (*PrivateNodesHandler, error) {
 	privateNodes, err := ns.EnabledSpecificNodes() // get private nodes aka specific nodes
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get specific nodes")
 	}
 	ts := time.Now().Unix()
-	h := NewPrivateNodesHandler(es, ns, zap)
+	h := NewPrivateNodesHandler(es, ns, logger)
 	for _, node := range privateNodes {
 		h.privateEvents.unsafeWriteInitialStateForSpecificNodes(node.URL, ts)
 	}
@@ -103,13 +104,13 @@ func NewPrivateNodesHandlerWithUnreachableInitialState(
 func NewPrivateNodesHandler(
 	es *events.Storage,
 	ns nodes.Storage,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	initial ...entities.EventProducerWithTimestamp,
 ) *PrivateNodesHandler {
 	return &PrivateNodesHandler{
 		es:            es,
 		ns:            ns,
-		zap:           zap,
+		logger:        logger,
 		privateEvents: newPrivateNodesEvents(initial...),
 	}
 }
@@ -134,25 +135,23 @@ func (h *PrivateNodesHandler) putPrivateNodesEvents(ts int64) (entities.Nodes, e
 	return nodesList, stderrs.Join(errs...)
 }
 
-func (h *PrivateNodesHandler) putPrivateNodesEvent(e entities.Event) error {
-	if err := h.es.PutEvent(e); err != nil {
-		return errors.Wrapf(err, "failed to put event (%T) for node %s", e, e.Node())
+func (h *PrivateNodesHandler) putPrivateNodesEvent(ev entities.Event) error {
+	if err := h.es.PutEvent(ev); err != nil {
+		return errors.Wrapf(err, "failed to put event (%T) for node %s", ev, ev.Node())
 	}
-	switch e := e.(type) {
+	const msg = "Statement produced for private node has been put into the storage"
+	switch e := ev.(type) {
 	case *entities.InvalidHeightEvent:
-		h.zap.Sugar().Infof(
-			"Statement produced by (%T) for private node %s has been put into the storage, height %d",
-			e, e.Node(), e.Height(),
-		)
+		h.logger.Info(msg, attrs.Type(e), slog.String("node", e.Node()), slog.Uint64("height", e.Height()))
 	case *entities.StateHashEvent:
-		h.zap.Sugar().Infof(
-			"Statement produced by (%T) for private node %s has been put into the storage, height %d, statehash %s",
-			e, e.Node(), e.Height(), e.StateHash().SumHash.Hex(),
+		h.logger.Info(msg,
+			attrs.Type(e), slog.String("node", e.Node()), slog.Uint64("height", e.Height()),
+			slog.String("statehash", e.StateHash().SumHash.Hex()),
 		)
 	default:
-		h.zap.Sugar().Warnf(
-			"Statement produced by unexpected (%T) for private node %s has been put into the storage",
-			e, e.Node(),
+		h.logger.Warn(
+			"Unexpected statement produced for private node has been put into the storage",
+			attrs.Type(e), slog.String("node", e.Node()),
 		)
 	}
 	return nil
@@ -178,19 +177,19 @@ func (h *PrivateNodesHandler) handlePrivateEvents(
 		}
 		ts := notification.Timestamp()
 		if err := h.privateEvents.filterPrivateNodes(h.ns); err != nil {
-			h.zap.Error("Failed to filter private nodes", zap.Error(err))
+			h.logger.Error("Failed to filter private nodes", attrs.Error(err))
 			output <- entities.NewNodesGatheringError(err, ts) // pass through error, but continue processing
 		}
 		storedPrivateNodes, err := h.putPrivateNodesEvents(ts)
-		h.zap.Sugar().Infof("Total count of stored private nodes statements is %d at timestamp %d",
-			len(storedPrivateNodes), ts,
+		h.logger.Info("Total private nodes events stored",
+			slog.Int("private_nodes_count", len(storedPrivateNodes)), slog.Int64("timestamp", ts),
 		)
 		if len(storedPrivateNodes) > 0 {
 			polledNodes := notification.Nodes()
 			notification = entities.NewNodesGatheringComplete(append(polledNodes, storedPrivateNodes...), ts)
 		}
 		if err != nil {
-			h.zap.Error("Failed to put some private nodes events", zap.Error(err))
+			h.logger.Error("Failed to put some private nodes events", attrs.Error(err))
 			notification = entities.NewNodesGatheringWithError(notification, err) // pass through error
 		}
 		output <- notification
