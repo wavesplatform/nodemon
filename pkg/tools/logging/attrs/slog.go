@@ -27,3 +27,12 @@ func Type(value any) slog.Attr {
 	const key = "type"
 	return textMarshaler(key, typenamePrinter{v: value})
 }
+
+type byteStringPrinter []byte
+
+func (b byteStringPrinter) MarshalText() ([]byte, error) { return b, nil }
+
+// ByteString returns a slog.Attr that contains the byte slice as a string.
+func ByteString(key string, value []byte) slog.Attr {
+	return textMarshaler(key, byteStringPrinter(value))
+}
