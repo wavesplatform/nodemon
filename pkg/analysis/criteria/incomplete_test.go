@@ -17,7 +17,7 @@ import (
 
 func mkIncompleteEvents(node string, startHeight, count int) []entities.Event {
 	out := make([]entities.Event, count)
-	for i := 0; i < count; i++ {
+	for i := range count {
 		out[i] = entities.NewVersionEvent(node, mkTimestamp(uint64(startHeight+i)), node+strconv.Itoa(i+1))
 	}
 	return out

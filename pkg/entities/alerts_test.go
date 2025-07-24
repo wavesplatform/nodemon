@@ -13,17 +13,17 @@ func TestFixedAlertJSON(t *testing.T) {
 	t.Run("ShadowedTypeDoesNotImplementUnmarshaler", func(t *testing.T) {
 		type shadowed entities.AlertFixed
 		var v shadowed // see trick in AlertFixed.UnmarshalJSON
-		_, typeImplements := interface{}(v).(json.Unmarshaler)
+		_, typeImplements := any(v).(json.Unmarshaler)
 		require.False(t, typeImplements, "type must not implement Unmarshaler")
-		_, pointerImplements := interface{}(&v).(json.Unmarshaler)
+		_, pointerImplements := any(&v).(json.Unmarshaler)
 		require.False(t, pointerImplements, "pointer must not implement Unmarshaler")
 	})
 	t.Run("ShadowedTypeDoesNotImplementMarshaler", func(t *testing.T) {
 		type shadowed entities.AlertFixed
 		var v shadowed // see trick in AlertFixed.UnmarshalJSON
-		_, typeImplements := interface{}(v).(json.Marshaler)
+		_, typeImplements := any(v).(json.Marshaler)
 		require.False(t, typeImplements, "type must not implement Marshaler")
-		_, pointerImplements := interface{}(&v).(json.Marshaler)
+		_, pointerImplements := any(&v).(json.Marshaler)
 		require.False(t, pointerImplements, "pointer must not implement Marshaler")
 	})
 	var (

@@ -32,7 +32,7 @@ func (s *nodesJSONVaultStorage) putNodes(ctx context.Context, db *dbStruct) erro
 	if err != nil {
 		return err
 	}
-	_, err = s.client.KVv2(s.mountPath).Put(ctx, s.secretPath, map[string]interface{}{s.dataKey: string(value)})
+	_, err = s.client.KVv2(s.mountPath).Put(ctx, s.secretPath, map[string]any{s.dataKey: string(value)})
 	return err
 }
 

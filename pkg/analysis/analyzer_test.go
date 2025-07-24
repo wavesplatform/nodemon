@@ -49,7 +49,7 @@ func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
 
 func generateStateHashes(o, n int) []shInfo {
 	r := make([]shInfo, n)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		id := sequentialBlockID(o + i + 1)
 		sh := sequentialStateHash(id, o+i+101)
 		r[i] = shInfo{id: id, sh: sh}
