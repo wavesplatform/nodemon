@@ -273,7 +273,7 @@ func (s *Storage) FindAllStatementsOnCommonHeight(nodes []string) ([]entities.No
 		return nodesHeights, ErrBigHeightDifference
 	}
 
-	for i := 0; i < depthCommonHeightSearch; i++ {
+	for i := range depthCommonHeightSearch {
 		sameHeight := true
 		for _, node := range nodesHeights {
 			if node.Height != minHeight && nodesList[node.Node] {

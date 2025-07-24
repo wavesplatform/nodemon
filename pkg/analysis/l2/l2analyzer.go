@@ -57,11 +57,11 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 		return 0, fmt.Errorf("invalid node URL: %w", err)
 	}
 
-	requestBody, err := json.Marshal(map[string]interface{}{
+	requestBody, err := json.Marshal(map[string]any{
 		"jsonrpc": "2.0",
 		"id":      "1",
 		"method":  "eth_blockNumber",
-		"params":  []interface{}{},
+		"params":  []any{},
 	})
 	if err != nil {
 		logger.Error("Failed to build a request body for l2 node", zap.Error(err), zap.String("nodeURL", url))
