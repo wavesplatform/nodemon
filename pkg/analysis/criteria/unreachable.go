@@ -1,11 +1,12 @@
 package criteria
 
 import (
+	"log/slog"
+
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type UnreachableCriterionOptions struct {
@@ -14,9 +15,9 @@ type UnreachableCriterionOptions struct {
 }
 
 type UnreachableCriterion struct {
-	opts *UnreachableCriterionOptions
-	es   *events.Storage
-	zap  *zap.Logger
+	opts   *UnreachableCriterionOptions
+	es     *events.Storage
+	logger *slog.Logger
 }
 
 const (
@@ -27,7 +28,7 @@ const (
 func NewUnreachableCriterion(
 	es *events.Storage,
 	opts *UnreachableCriterionOptions,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) *UnreachableCriterion {
 	if opts == nil { // by default
 		opts = &UnreachableCriterionOptions{
@@ -35,7 +36,7 @@ func NewUnreachableCriterion(
 			Depth:  unreachableDepthDefault,
 		}
 	}
-	return &UnreachableCriterion{opts: opts, es: es, zap: logger}
+	return &UnreachableCriterion{opts: opts, es: es, logger: logger}
 }
 
 func (c *UnreachableCriterion) Analyze(
@@ -72,8 +73,8 @@ func (c *UnreachableCriterion) analyzeNode(alerts chan<- entities.Alert, timesta
 		return errors.Wrapf(err, "failed to analyze %q by unreachable criterion", node)
 	}
 	if streak > 0 {
-		c.zap.Info("UnreachableCriterion: unreachable statement",
-			zap.String("node", node), zap.Int("streak", streak),
+		c.logger.Info("UnreachableCriterion: unreachable statement",
+			slog.String("node", node), slog.Int("streak", streak),
 		)
 	}
 	if streak >= c.opts.Streak {

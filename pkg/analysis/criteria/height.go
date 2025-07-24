@@ -1,11 +1,10 @@
 package criteria
 
 import (
-	"strings"
+	"log/slog"
 
 	"nodemon/pkg/entities"
-
-	"go.uber.org/zap"
+	"nodemon/pkg/tools/logging/attrs"
 )
 
 const (
@@ -18,10 +17,10 @@ type HeightCriterionOptions struct {
 
 type HeightCriterion struct {
 	opts   *HeightCriterionOptions
-	logger *zap.Logger
+	logger *slog.Logger
 }
 
-func NewHeightCriterion(opts *HeightCriterionOptions, logger *zap.Logger) *HeightCriterion {
+func NewHeightCriterion(opts *HeightCriterionOptions, logger *slog.Logger) *HeightCriterion {
 	if opts == nil { // default
 		opts = &HeightCriterionOptions{
 			MaxHeightDiff: defaultMaxHeightDiff,
@@ -41,11 +40,11 @@ func (c *HeightCriterion) Analyze(alerts chan<- entities.Alert, timestamp int64,
 		heightDiff := maxHeight - height
 		if heightDiff > 0 {
 			c.logger.Info("HeightCriterion: height difference detected",
-				zap.Uint64("height difference", heightDiff),
-				zap.String("first group", strings.Join(sortedMaxGroup, ", ")),
-				zap.Uint64("first group height", maxHeight),
-				zap.String("second group", strings.Join(nodeStatements.Nodes().Sort(), ", ")),
-				zap.Uint64("second group height", height),
+				slog.Uint64("height difference", heightDiff),
+				attrs.Strings("first group", sortedMaxGroup),
+				slog.Uint64("first group height", maxHeight),
+				attrs.Strings("second group", nodeStatements.Nodes().Sort()),
+				slog.Uint64("second group height", height),
 			)
 		}
 		if heightDiff > c.opts.MaxHeightDiff {

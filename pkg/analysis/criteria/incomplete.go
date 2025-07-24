@@ -1,11 +1,12 @@
 package criteria
 
 import (
+	"log/slog"
+
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type IncompleteCriterionOptions struct {
@@ -15,9 +16,9 @@ type IncompleteCriterionOptions struct {
 }
 
 type IncompleteCriterion struct {
-	opts *IncompleteCriterionOptions
-	es   *events.Storage
-	zap  *zap.Logger
+	opts   *IncompleteCriterionOptions
+	es     *events.Storage
+	logger *slog.Logger
 }
 
 const (
@@ -29,7 +30,7 @@ const (
 func NewIncompleteCriterion(
 	es *events.Storage,
 	opts *IncompleteCriterionOptions,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) *IncompleteCriterion {
 	if opts == nil { // by default
 		opts = &IncompleteCriterionOptions{
@@ -38,7 +39,7 @@ func NewIncompleteCriterion(
 			ConsiderPrevUnreachableAsIncomplete: incompleteConsiderPrevUnreachableAsIncompleteDefault,
 		}
 	}
-	return &IncompleteCriterion{opts: opts, es: es, zap: logger}
+	return &IncompleteCriterion{opts: opts, es: es, logger: logger}
 }
 
 func (c *IncompleteCriterion) Analyze(alerts chan<- entities.Alert, statements entities.NodeStatements) error {
@@ -72,7 +73,9 @@ func (c *IncompleteCriterion) analyzeNode(alerts chan<- entities.Alert, statemen
 		return errors.Wrapf(err, "failed to analyze %q by incomplete criterion", statement.Node)
 	}
 	if streak > 0 {
-		c.zap.Info("IncompleteCriterion: incomplete statement", zap.String("node", statement.Node), zap.Int("streak", streak))
+		c.logger.Info("IncompleteCriterion: incomplete statement",
+			slog.String("node", statement.Node), slog.Int("streak", streak),
+		)
 	}
 	if streak >= c.opts.Streak {
 		alerts <- &entities.IncompleteAlert{NodeStatement: statement}
