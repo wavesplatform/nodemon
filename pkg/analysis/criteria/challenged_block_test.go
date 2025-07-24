@@ -3,15 +3,14 @@ package criteria_test
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"slices"
 	"testing"
 	"time"
 
+	"github.com/neilotoole/slogt"
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
@@ -25,15 +24,7 @@ func mkBlockID(i int) *proto.BlockID {
 }
 
 func TestChallengedBlockCriterion_Analyze(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	tests := []struct {
 		opts           *criteria.ChallengedBlockCriterionOptions
