@@ -2,12 +2,13 @@ package storage
 
 import (
 	"iter"
+	"log/slog"
 	"maps"
 
 	"nodemon/pkg/entities"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/wavesplatform/gowaves/pkg/crypto"
-	"go.uber.org/zap"
 )
 
 const (
@@ -38,7 +39,7 @@ type AlertsStorage struct {
 	alertVacuumQuota      int
 	requiredConfirmations alertConfirmations
 	internalStorage       alertsInternalStorage
-	logger                *zap.Logger
+	logger                *slog.Logger
 }
 
 type alertConfirmations map[entities.AlertType]int
@@ -70,7 +71,7 @@ func AlertConfirmations(confirmations ...AlertConfirmationsValue) AlertsStorageO
 	return func(s *AlertsStorage) { s.requiredConfirmations = newAlertConfirmations(confirmations...) }
 }
 
-func NewAlertsStorage(logger *zap.Logger, opts ...AlertsStorageOption) *AlertsStorage {
+func NewAlertsStorage(logger *slog.Logger, opts ...AlertsStorageOption) *AlertsStorage {
 	s := newAlertsStorage(DefaultAlertBackoff, DefaultAlertVacuumQuota, newAlertConfirmations(), logger)
 	for _, opt := range opts {
 		opt(s)
@@ -81,7 +82,7 @@ func NewAlertsStorage(logger *zap.Logger, opts ...AlertsStorageOption) *AlertsSt
 func newAlertsStorage(
 	alertBackoff, alertVacuumQuota int,
 	requiredConfirmations alertConfirmations,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) *AlertsStorage {
 	return &AlertsStorage{
 		alertBackoff:          alertBackoff,
@@ -104,10 +105,10 @@ func (s *AlertsStorage) PutAlert(alert entities.Alert) bool {
 	defer func() {
 		info := s.internalStorage[alertID]
 		s.logger.Info("An alert was put into storage",
-			zap.Stringer("alert", info.alert),
-			zap.Int("backoffThreshold", info.backoffThreshold),
-			zap.Int("repeats", info.repeats),
-			zap.Bool("confirmed", info.confirmed),
+			attrs.Stringer("alert", info.alert),
+			slog.Int("backoffThreshold", info.backoffThreshold),
+			slog.Int("repeats", info.repeats),
+			slog.Bool("confirmed", info.confirmed),
 		)
 	}()
 
