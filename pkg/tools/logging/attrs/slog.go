@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"fmt"
 	"log/slog"
+	"strings"
 )
 
 // Error returns a slog.Attr that contains the error value with the key "error".
@@ -41,4 +42,15 @@ func ByteString(key string, value []byte) slog.Attr {
 // with the provided key and value. It is intended for use with values that implement fmt.Stringer.
 func Stringer(key string, value fmt.Stringer) slog.Attr {
 	return slog.Any(key, value) // can use slog.Any because value will be printer with fmt.Sprintf internally
+}
+
+type stingSlicePrinter []string
+
+func (s stingSlicePrinter) MarshalText() ([]byte, error) {
+	return []byte(strings.Join(s, ",")), nil
+}
+
+// Strings returns a slog.Attr that contains a slice of strings formatted as a comma-separated string.
+func Strings(key string, value []string) slog.Attr {
+	return textMarshaler(key, stingSlicePrinter(value))
 }

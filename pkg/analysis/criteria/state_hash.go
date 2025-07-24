@@ -1,14 +1,15 @@
 package criteria
 
 import (
+	"log/slog"
 	"strings"
 
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 const (
@@ -22,19 +23,23 @@ type StateHashCriterionOptions struct {
 }
 
 type StateHashCriterion struct {
-	opts *StateHashCriterionOptions
-	es   *events.Storage
-	zap  *zap.Logger
+	opts   *StateHashCriterionOptions
+	es     *events.Storage
+	logger *slog.Logger
 }
 
-func NewStateHashCriterion(es *events.Storage, opts *StateHashCriterionOptions, zap *zap.Logger) *StateHashCriterion {
+func NewStateHashCriterion(
+	es *events.Storage,
+	opts *StateHashCriterionOptions,
+	logger *slog.Logger,
+) *StateHashCriterion {
 	if opts == nil { // default
 		opts = &StateHashCriterionOptions{
 			MaxForkDepth:     defaultMaxForkDepth,
 			HeightBucketSize: defaultHeightBucketSize,
 		}
 	}
-	return &StateHashCriterion{opts: opts, es: es, zap: zap}
+	return &StateHashCriterion{opts: opts, es: es, logger: logger}
 }
 
 func (c *StateHashCriterion) Analyze(alerts chan<- entities.Alert, ts int64, statements entities.NodeStatements) error {
@@ -77,9 +82,10 @@ func (c *StateHashCriterion) getAllStatementsAtBucketHeight(
 						bucketHeight,
 					)
 				}
-				c.zap.Sugar().Warnf(
-					"StateHashCriterion: No full statement for node %q with height %d at bucketHeight %d: %v",
-					statement.Node, statement.Height, bucketHeight, err,
+				c.logger.Warn(
+					"StateHashCriterion: No full statement for node with height at bucketHeight",
+					slog.String("node", statement.Node), slog.Uint64("height", statement.Height),
+					slog.Uint64("bucket_height", bucketHeight), attrs.Error(err),
 				)
 				continue
 			}
@@ -138,16 +144,14 @@ func (c *StateHashCriterion) handleSamplesPair(
 	if err != nil {
 		switch {
 		case errors.Is(err, finders.ErrNoFullStatement):
-			c.zap.Sugar().Warnf(
-				"StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
-				first.Node, second.Node, err,
+			c.logger.Warn("StateHashCriterion: Failed to find last common state hash for the pair of nodes",
+				slog.String("first_node", first.Node), slog.String("second_node", second.Node), attrs.Error(err),
 			)
 			return nil
 		case errors.Is(err, finders.ErrNoCommonBlocks):
 			lastCommonStateHashExist = false
-			c.zap.Sugar().Warnf(
-				"StateHashCriterion: Failed to find last common state hash for nodes %q and %q: %v",
-				first.Node, second.Node, err,
+			c.logger.Warn("StateHashCriterion: Failed to find last common state hash for the pair of nodes",
+				slog.String("first_node", first.Node), slog.String("second_node", second.Node), attrs.Error(err),
 			)
 		default:
 			return errors.Wrapf(err, "failed to find last common state hash for nodes %q and %q",
@@ -162,19 +166,19 @@ func (c *StateHashCriterion) handleSamplesPair(
 		if forkDepth < 0 {
 			msg = "StateHashCriterion: last common StateHash height is greater than bucket height"
 		}
-		c.zap.Info(msg,
-			zap.Int64("Fork depth", forkDepth),
-			zap.Bool("Last common StateHash exist", lastCommonStateHashExist),
-			zap.Uint64("Bucket height", bucketHeight),
-			zap.Uint64("Last common StateHash height", lastCommonStateHashHeight),
-			zap.String("First group",
+		c.logger.Info(msg,
+			slog.Int64("Fork depth", forkDepth),
+			slog.Bool("Last common StateHash exist", lastCommonStateHashExist),
+			slog.Uint64("Bucket height", bucketHeight),
+			slog.Uint64("Last common StateHash height", lastCommonStateHashHeight),
+			slog.String("First group",
 				strings.Join(splitStateHash[first.StateHash.SumHash].Nodes().Sort(), ", "),
 			),
-			zap.String("First group StateHash", first.StateHash.SumHash.Hex()),
-			zap.String("Second group", strings.Join(
+			slog.String("First group StateHash", first.StateHash.SumHash.Hex()),
+			slog.String("Second group", strings.Join(
 				splitStateHash[second.StateHash.SumHash].Nodes().Sort(), ", "),
 			),
-			zap.String("Second group StateHash", second.StateHash.SumHash.Hex()))
+			slog.String("Second group StateHash", second.StateHash.SumHash.Hex()))
 	}
 
 	if forkDepth > int64(c.opts.MaxForkDepth) || forkDepth >= int64(c.opts.HeightBucketSize) {
