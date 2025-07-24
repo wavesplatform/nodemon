@@ -1,27 +1,17 @@
 package storage
 
 import (
-	"log"
 	"slices"
 	"testing"
 
 	"nodemon/pkg/entities"
 
+	"github.com/neilotoole/slogt"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func TestAlertsStorage(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
-
+	logger := slogt.New(t)
 	var (
 		alert1 = &entities.SimpleAlert{Description: "first simple alert"}
 		alert2 = &entities.SimpleAlert{Description: "second simple alert"}

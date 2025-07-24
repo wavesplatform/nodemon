@@ -2,9 +2,10 @@ package finders_test
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis/finders"
 	"nodemon/pkg/entities"
@@ -14,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 )
 
 type shInfo struct {
@@ -72,15 +72,7 @@ func mkEvents(node string, startHeight uint64, shs ...shInfo) []entities.Event {
 }
 
 func TestFindLastCommonBlock(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	forkA := generateFiveStateHashes(0)
 	forkB := generateFiveStateHashes(50)
@@ -190,15 +182,7 @@ func TestFindLastCommonBlock(t *testing.T) {
 }
 
 func TestFindLastCommonStateHash(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	forkA := generateFiveStateHashes(0)
 	forkB := generateFiveStateHashes(50)

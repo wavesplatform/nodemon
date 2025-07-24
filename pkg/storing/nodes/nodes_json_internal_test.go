@@ -7,17 +7,18 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/neilotoole/slogt"
+
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func newTestJSONStorage(t *testing.T, nodes []string) (*JSONStorage, string) {
 	t.Helper()
 	dbFilePath := filepath.Join(t.TempDir(), ".nodes")
-	storage, err := NewJSONFileStorage(dbFilePath, nodes, zap.NewNop())
+	storage, err := NewJSONFileStorage(dbFilePath, nodes, slogt.New(t))
 	require.NoError(t, err, "failed to create json nodes storage with file '%s'", dbFilePath)
 	return storage, dbFilePath
 }
@@ -69,7 +70,7 @@ func TestNewJSONStorage(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			path := filepath.Join(t.TempDir(), ".nodes")
-			storage, err := NewJSONFileStorage(path, test.nodes, zap.NewNop())
+			storage, err := NewJSONFileStorage(path, test.nodes, slogt.New(t))
 			if test.err != "" {
 				assert.EqualError(t, err, test.err)
 			} else {

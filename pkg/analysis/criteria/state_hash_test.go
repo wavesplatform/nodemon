@@ -3,9 +3,10 @@ package criteria_test
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
@@ -14,7 +15,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 )
 
 func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event) {
@@ -96,15 +96,7 @@ func mergeShInfo(slices ...[]shInfo) []shInfo {
 }
 
 func TestStateHashCriterion_Analyze(t *testing.T) {
-	logger, loggerErr := zap.NewDevelopment()
-	if loggerErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", loggerErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	var (
 		forkA             = generateFiveStateHashes(0)
