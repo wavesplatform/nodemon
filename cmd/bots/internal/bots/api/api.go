@@ -25,9 +25,9 @@ const (
 
 type mwLog struct{ *zap.Logger }
 
-func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
+func (m mwLog) Print(v ...any) { m.Sugar().Info(v...) }
 
-func (m mwLog) Println(v ...interface{}) { m.Sugar().Infoln(v...) }
+func (m mwLog) Println(v ...any) { m.Sugar().Infoln(v...) }
 
 type BotAPI struct {
 	srv          *http.Server

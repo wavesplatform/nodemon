@@ -75,15 +75,15 @@ func TestStatementKey_String(t *testing.T) {
 }
 
 func BenchmarkStatementKey_String(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = statementKey{node: "https://kek.some-node-url.com", timestamp: 500100}.String()
 	}
 }
 
 func BenchmarkNewStatementKeyFromString(b *testing.B) {
 	key := statementKey{node: "https://kek.some-node-url.com", timestamp: 500100}.String()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_, _ = newStatementKeyFromString(key)
 	}
 }
