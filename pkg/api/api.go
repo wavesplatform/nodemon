@@ -20,8 +20,8 @@ import (
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"go.uber.org/zap"
@@ -44,9 +44,9 @@ type API struct {
 
 type mwLog struct{ *zap.Logger }
 
-func (m mwLog) Print(v ...interface{}) { m.Sugar().Info(v...) }
+func (m mwLog) Print(v ...any) { m.Sugar().Info(v...) }
 
-func (m mwLog) Println(v ...interface{}) { m.Sugar().Infoln(v...) }
+func (m mwLog) Println(v ...any) { m.Sugar().Infoln(v...) }
 
 func NewAPI(
 	bind string,
