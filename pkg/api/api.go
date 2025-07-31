@@ -20,8 +20,8 @@ import (
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
 
-	"github.com/go-chi/chi"
-	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/proto"
 	"go.uber.org/zap"
