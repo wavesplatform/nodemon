@@ -4,17 +4,16 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"strings"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/tools/logging/attrs"
 )
 
 const defaultResponseTimeout = 5 * time.Second
@@ -24,18 +23,19 @@ func StartPairMessagingClient(
 	natsServerURL string,
 	requestPair <-chan pair.Request,
 	responsePair chan<- pair.Response,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	botRequestsTopic string,
 ) error {
 	nc, err := nats.Connect(natsServerURL, nats.Timeout(nats.DefaultTimeout))
 	if err != nil {
-		zap.S().Fatalf("Failed to connect to nats server: %v", err)
+		logger.Error("Failed to connect to nats server", attrs.Error(err))
 		return err
 	}
 	defer nc.Close()
 
 	done := runPairLoop(ctx, requestPair, nc, logger, responsePair, botRequestsTopic)
 
+	logger.Info("pair messaging service started", slog.String("natsServerURL", natsServerURL))
 	<-ctx.Done()
 	logger.Info("stopping pair messaging service...")
 	<-done
@@ -47,7 +47,7 @@ func runPairLoop(
 	ctx context.Context,
 	requestPair <-chan pair.Request,
 	nc *nats.Conn,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	responsePair chan<- pair.Response,
 	botRequestsTopic string,
 ) <-chan struct{} {
@@ -67,10 +67,7 @@ func runPairLoop(
 
 				err := handlePairRequest(ctx, request, nc, message, logger, responsePair, botRequestsTopic)
 				if err != nil {
-					logger.Error("failed to handle pair request",
-						zap.String("request-type", fmt.Sprintf("(%T)", request)),
-						zap.Error(err),
-					)
+					logger.Error("failed to handle pair request", attrs.Type(request), attrs.Error(err))
 				}
 			}
 		}
@@ -83,7 +80,7 @@ func handlePairRequest(
 	request pair.Request,
 	nc *nats.Conn,
 	message *bytes.Buffer,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	responsePair chan<- pair.Response,
 	botRequestsTopic string,
 ) error {
@@ -109,7 +106,7 @@ func handleNodesStatementRequest(
 	ctx context.Context,
 	url string,
 	height int,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	message *bytes.Buffer,
 	nc *nats.Conn,
 	responsePair chan<- pair.Response,
@@ -140,9 +137,9 @@ func handleNodesStatementRequest(
 		return nil
 	case <-ctx.Done():
 		logger.Error("failed to send node statement response, timeout exceeded",
-			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("node-statement-response", response.Data),
-			zap.Error(ctx.Err()),
+			slog.Duration("timeout", defaultResponseTimeout),
+			attrs.ByteString("node-statement-response", response.Data),
+			attrs.Error(ctx.Err()),
 		)
 		return ctx.Err()
 	}
@@ -153,7 +150,7 @@ func handleNodesStatementsRequest(
 	urls []string,
 	message *bytes.Buffer,
 	nc *nats.Conn,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	responsePair chan<- pair.Response,
 	botRequestsTopic string,
 ) error {
@@ -176,9 +173,9 @@ func handleNodesStatementsRequest(
 		return nil
 	case <-ctx.Done():
 		logger.Error("failed to send nodes status response, timeout exceeded",
-			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("nodes-status-response", response.Data),
-			zap.Error(ctx.Err()),
+			slog.Duration("timeout", defaultResponseTimeout),
+			attrs.ByteString("nodes-status-response", response.Data),
+			attrs.Error(ctx.Err()),
 		)
 		return ctx.Err()
 	}
@@ -223,7 +220,7 @@ func handleNodesListRequest(
 	ctx context.Context,
 	nc *nats.Conn,
 	message *bytes.Buffer,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	responsePair chan<- pair.Response,
 	botRequestsTopic string,
 ) error {
@@ -244,9 +241,9 @@ func handleNodesListRequest(
 		return nil
 	case <-ctx.Done():
 		logger.Error("failed to send nodes list response, timeout exceeded",
-			zap.Duration("timeout", defaultResponseTimeout),
-			zap.ByteString("nodes-status-response", response.Data),
-			zap.Error(ctx.Err()),
+			slog.Duration("timeout", defaultResponseTimeout),
+			attrs.ByteString("nodes-status-response", response.Data),
+			attrs.Error(ctx.Err()),
 		)
 		return ctx.Err()
 	}
