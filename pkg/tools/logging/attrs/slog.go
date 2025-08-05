@@ -47,15 +47,15 @@ func Stringer(key string, value fmt.Stringer) slog.Attr {
 	return slog.Any(key, value) // can use slog.Any because value will be printer with fmt.Sprintf internally
 }
 
-type stingSlicePrinter []string
+type stringSlicePrinter []string
 
-func (s stingSlicePrinter) MarshalText() ([]byte, error) {
+func (s stringSlicePrinter) MarshalText() ([]byte, error) {
 	return []byte(strings.Join(s, ",")), nil
 }
 
 // Strings returns a slog.Attr that contains a slice of strings formatted as a comma-separated string.
 func Strings(key string, value []string) slog.Attr {
-	return textMarshaler(key, stingSlicePrinter(value))
+	return textMarshaler(key, stringSlicePrinter(value))
 }
 
 type binaryPrinter []byte
