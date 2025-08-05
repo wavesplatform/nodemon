@@ -7,6 +7,8 @@ import (
 	gl "github.com/wavesplatform/gowaves/pkg/logging"
 )
 
+const NamespaceKey = gl.NamespaceKey
+
 type ParametersFlags struct {
 	LogLevel   string
 	LoggerType string

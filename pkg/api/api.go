@@ -21,6 +21,7 @@ import (
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
 	"nodemon/pkg/tools"
+	"nodemon/pkg/tools/logging"
 	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/go-chi/chi/v5"
@@ -53,6 +54,8 @@ func (m mwLog) Print(v ...interface{}) { m.l.Print(v...) }
 
 func (m mwLog) Println(v ...interface{}) { m.l.Println(v...) }
 
+const namespace = "API"
+
 func NewAPI(
 	bind string,
 	nodesStorage nodes.Storage,
@@ -62,10 +65,13 @@ func NewAPI(
 	privateNodesEvents specific.PrivateNodesEventsWriter,
 	development bool,
 ) (*API, error) {
+	logger = logger.With(
+		slog.String(logging.NamespaceKey, namespace),
+	)
 	a := &API{
 		nodesStorage:       nodesStorage,
 		eventsStorage:      eventsStorage,
-		logger:             logger, // TODO: use logger with namespace "api"
+		logger:             logger,
 		privateNodesEvents: privateNodesEvents,
 	}
 	r := chi.NewRouter()
@@ -95,7 +101,7 @@ func (a *API) StartCtx(ctx context.Context) error {
 	go func() {
 		err := a.srv.Serve(l)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
-			a.logger.Error("[API] Failed to serve REST API",
+			a.logger.Error("Failed to serve REST API",
 				slog.String("address", a.srv.Addr), attrs.Error(err),
 			)
 			panic(err)
@@ -109,7 +115,7 @@ func (a *API) Shutdown() {
 	defer cancel()
 
 	if err := a.srv.Shutdown(ctx); err != nil {
-		a.logger.Error("[API] Failed to shutdown REST API", attrs.Error(err))
+		a.logger.Error("Failed to shutdown REST API", attrs.Error(err))
 	}
 }
 
@@ -127,7 +133,7 @@ func (a *API) routes(logger *slog.Logger) chi.Router {
 func (a *API) health(w http.ResponseWriter, r *http.Request) {
 	enabledNodes, enErr := a.nodesStorage.EnabledNodes()
 	if enErr != nil {
-		a.logger.Error("[API] Healthcheck failed: failed get non specific nodes",
+		a.logger.Error("Healthcheck failed: failed get non specific nodes",
 			attrs.Error(enErr), slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
 		http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", enErr), http.StatusInternalServerError)
@@ -135,7 +141,7 @@ func (a *API) health(w http.ResponseWriter, r *http.Request) {
 	for _, node := range enabledNodes {
 		_, lhErr := a.eventsStorage.LatestHeight(node.URL)
 		if lhErr != nil && !errors.Is(lhErr, events.ErrNoFullStatement) {
-			a.logger.Error("[API] Healthcheck failed: failed to get latest height for node", slog.String("node", node.URL),
+			a.logger.Error("Healthcheck failed: failed to get latest height for node", slog.String("node", node.URL),
 				attrs.Error(lhErr), slog.String("request-id", middleware.GetReqID(r.Context())),
 			)
 			http.Error(w, fmt.Sprintf("Failed to get non specific nodes: %v", lhErr), http.StatusInternalServerError)
@@ -184,7 +190,7 @@ func parseStatementAndStateHash(
 	statement := &nodeShortStatement{}
 	err := json.NewDecoder(statementReader).Decode(&statement)
 	if err != nil {
-		logger.Error("[API] Failed to decode a specific nodes statement",
+		logger.Error("Failed to decode a specific nodes statement",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 			attrs.Stringer("hex-body", hexBodyStringer(body)),
@@ -195,7 +201,7 @@ func parseStatementAndStateHash(
 	statehash := &proto.StateHash{}
 	err = json.NewDecoder(stateHashReader).Decode(statehash)
 	if err != nil {
-		logger.Error("[API] Failed to decode statehash",
+		logger.Error("Failed to decode statehash",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 			attrs.Stringer("hex-body", hexBodyStringer(body)),
@@ -207,7 +213,7 @@ func parseStatementAndStateHash(
 	escapedNodeName := cleanCRLF(r.Header.Get("node-name"))
 	updatedURL, err := entities.CheckAndUpdateURL(escapedNodeName)
 	if err != nil {
-		logger.Error("[API] Failed to check and update node's url",
+		logger.Error("Failed to check and update node's url",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 			attrs.Stringer("hex-body", hexBodyStringer(body)),
@@ -216,7 +222,7 @@ func parseStatementAndStateHash(
 		return statement, statehash, false
 	}
 	statement.Node = updatedURL
-	logger.Debug("[API] Received statement",
+	logger.Debug("Received statement",
 		attrs.Stringer("statement", (*statementLogWrapper)(statement)),
 		slog.String("request-id", middleware.GetReqID(r.Context())),
 	)
@@ -226,12 +232,12 @@ func parseStatementAndStateHash(
 func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, specificNodeRequestLimit))
 	if err != nil {
-		a.logger.Error("[API] Failed to read request body", attrs.Error(err))
+		a.logger.Error("Failed to read request body", attrs.Error(err))
 		http.Error(w, fmt.Sprintf("Failed to read body: %v", err), http.StatusInternalServerError)
 		return
 	}
 	if len(body) == 0 {
-		a.logger.Error("[API] Empty request body", slog.String("request-id", middleware.GetReqID(r.Context())))
+		a.logger.Error("Empty request body", slog.String("request-id", middleware.GetReqID(r.Context())))
 		http.Error(w, "Empty request body", http.StatusBadRequest)
 		return
 	}
@@ -241,7 +247,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
 	if err != nil {
-		a.logger.Error("[API] Failed to fetch specific nodes from storage",
+		a.logger.Error("Failed to fetch specific nodes from storage",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -250,7 +256,7 @@ func (a *API) specificNodesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !specificNodeFoundInStorage(enabledSpecificNodes, statement) {
-		a.logger.Info("[API] Received a statements from the private node but it's not being monitored by the nodemon",
+		a.logger.Info("Received a statements from the private node but it's not being monitored by the nodemon",
 			slog.String("node", statement.Node),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -330,7 +336,7 @@ type nodesResponse struct {
 func (a *API) nodes(w http.ResponseWriter, r *http.Request) {
 	regularNodes, err := a.nodesStorage.Nodes(false)
 	if err != nil {
-		a.logger.Error("[API] Failed to fetch regular nodes from storage",
+		a.logger.Error("Failed to fetch regular nodes from storage",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -339,7 +345,7 @@ func (a *API) nodes(w http.ResponseWriter, r *http.Request) {
 	}
 	specificNodes, err := a.nodesStorage.Nodes(true)
 	if err != nil {
-		a.logger.Error("[API] Failed to fetch specific nodes from storage",
+		a.logger.Error("Failed to fetch specific nodes from storage",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -348,7 +354,7 @@ func (a *API) nodes(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(nodesResponse{Regular: regularNodes, Specific: specificNodes})
 	if err != nil {
-		a.logger.Error("[API] Failed to marshal nodes",
+		a.logger.Error("Failed to marshal nodes",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -360,7 +366,7 @@ func (a *API) nodes(w http.ResponseWriter, r *http.Request) {
 func (a *API) enabled(w http.ResponseWriter, r *http.Request) {
 	enabledRegularNodes, err := a.nodesStorage.EnabledNodes()
 	if err != nil {
-		a.logger.Error("[API] Failed to fetch enabled regular nodes from storage",
+		a.logger.Error("Failed to fetch enabled regular nodes from storage",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -369,7 +375,7 @@ func (a *API) enabled(w http.ResponseWriter, r *http.Request) {
 	}
 	enabledSpecificNodes, err := a.nodesStorage.EnabledSpecificNodes()
 	if err != nil {
-		a.logger.Error("[API] Failed to fetch enabled specific nodes from storage",
+		a.logger.Error("Failed to fetch enabled specific nodes from storage",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
@@ -378,7 +384,7 @@ func (a *API) enabled(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(nodesResponse{Regular: enabledRegularNodes, Specific: enabledSpecificNodes})
 	if err != nil {
-		a.logger.Error("[API] Failed to marshal nodes",
+		a.logger.Error("Failed to marshal nodes",
 			attrs.Error(err),
 			slog.String("request-id", middleware.GetReqID(r.Context())),
 		)
