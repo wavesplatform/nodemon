@@ -12,6 +12,7 @@ import (
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
+	"nodemon/pkg/tools/logging"
 	"nodemon/pkg/tools/logging/attrs"
 )
 
@@ -23,14 +24,21 @@ type Scraper struct {
 	logger   *slog.Logger
 }
 
+const namespace = "SCRAPER"
+
 func NewScraper(
 	ns nodes.Storage,
 	es *events.Storage,
 	interval, timeout time.Duration,
 	logger *slog.Logger,
 ) (*Scraper, error) {
-	// TODO: add SCRAPER nambespace to logger
-	return &Scraper{ns: ns, es: es, interval: interval, timeout: timeout, logger: logger}, nil
+	return &Scraper{
+		ns:       ns,
+		es:       es,
+		interval: interval,
+		timeout:  timeout,
+		logger:   logger.With(slog.String(logging.NamespaceKey, namespace)),
+	}, nil
 }
 
 func (s *Scraper) Start(ctx context.Context) <-chan entities.NodesGatheringNotification {
@@ -61,7 +69,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 
 	enabledNodes, storageErr := s.ns.EnabledNodes()
 	if storageErr != nil {
-		s.logger.Error("[SCRAPER] Failed to get nodes from storage", attrs.Error(storageErr))
+		s.logger.Error("Failed to get nodes from storage", attrs.Error(storageErr))
 		notifications <- entities.NewNodesGatheringError(
 			errors.Wrapf(storageErr, "scraper: failed to get nodes from storage"), now,
 		)
@@ -72,7 +80,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 	var errs []error
 	for e := range ec {
 		if err := s.es.PutEvent(e); err != nil {
-			s.logger.Error("[SCRAPER] Failed to collect event from node",
+			s.logger.Error("Failed to collect event from node",
 				attrs.Type(e), slog.String("node", e.Node()),
 				slog.Any("statement", e.Statement()), attrs.Error(err),
 			)
@@ -88,7 +96,7 @@ func (s *Scraper) poll(ctx context.Context, notifications chan<- entities.NodesG
 		notifications <- entities.NewNodesGatheringError(sumErr, now)
 		return
 	}
-	s.logger.Info("[SCRAPER] Polling of nodes completed, events saved",
+	s.logger.Info("Polling of nodes completed, events saved",
 		slog.Int("nodes_count", len(enabledNodes)), slog.Int("events_count", cnt),
 	)
 
@@ -112,7 +120,7 @@ func (s *Scraper) queryNodes(ctx context.Context, nodes []entities.Node, now int
 			go func() {
 				defer wg.Done()
 				event := s.queryNode(ctx, nodeURL, now)
-				s.logger.Info("[SCRAPER] Collected event at height for node", attrs.Type(event),
+				s.logger.Info("Collected event at height for node", attrs.Type(event),
 					slog.Uint64("height", event.Height()), slog.String("node", nodeURL),
 				)
 				ec <- event
@@ -128,29 +136,29 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 	node := newNodeClient(url, s.timeout, s.logger)
 	v, err := node.version(ctx)
 	if err != nil {
-		s.logger.Warn("[SCRAPER] Failed to get version for node", slog.String("node", url), attrs.Error(err))
+		s.logger.Warn("Failed to get version for node", slog.String("node", url), attrs.Error(err))
 		return entities.NewUnreachableEvent(url, ts)
 	}
-	s.logger.Debug("[SCRAPER] Received version from node",
+	s.logger.Debug("Received version from node",
 		slog.String("node", url), slog.String("version", v),
 	)
 
 	h, err := node.height(ctx)
 	if err != nil {
-		s.logger.Warn("[SCRAPER] Failed to get height for node", slog.String("node", url), attrs.Error(err))
+		s.logger.Warn("Failed to get height for node", slog.String("node", url), attrs.Error(err))
 		return entities.NewVersionEvent(url, ts, v) // we know a version, sending what we know about node
 	}
-	s.logger.Debug("[SCRAPER] Received node height", slog.String("node", url), slog.Uint64("height", h))
+	s.logger.Debug("Received node height", slog.String("node", url), slog.Uint64("height", h))
 
 	const minValidHeight = 2
 	if h < minValidHeight {
-		s.logger.Warn("[SCRAPER] Node has invalid height", slog.String("node", url), slog.Uint64("height", h))
+		s.logger.Warn("Node has invalid height", slog.String("node", url), slog.Uint64("height", h))
 		return entities.NewInvalidHeightEvent(url, ts, v, h)
 	}
 
 	blockHeader, err := node.blockHeader(ctx, h)
 	if err != nil {
-		s.logger.Warn("[SCRAPER] Failed to get block header for node",
+		s.logger.Warn("Failed to get block header for node",
 			slog.Uint64("height", h), slog.String("node", url), attrs.Error(err),
 		)
 		return entities.NewHeightEvent(url, ts, v, h) // we know about version and height, sending it
@@ -165,25 +173,25 @@ func (s *Scraper) queryNode(ctx context.Context, url string, ts int64) entities.
 
 	bs, err := node.baseTarget(ctx, h)
 	if err != nil {
-		s.logger.Warn("[SCRAPER] Failed to get base target for node",
+		s.logger.Warn("Failed to get base target for node",
 			slog.Uint64("height", h), slog.String("node", url), attrs.Error(err),
 		)
 		// we know version, height and block generator, sending it
 		return entities.NewBlockHeaderEvent(url, ts, v, h, &blockID, &generator, challenged)
 	}
-	s.logger.Debug("[SCRAPER] Received base target from node",
+	s.logger.Debug("Received base target from node",
 		slog.String("node", url), slog.Uint64("base_target", bs), slog.Uint64("height", h),
 	)
 
 	sh, err := node.stateHash(ctx, h)
 	if err != nil {
-		s.logger.Warn("[SCRAPER] Failed to get state hash for node",
+		s.logger.Warn("Failed to get state hash for node",
 			slog.Uint64("height", h), slog.String("node", url), attrs.Error(err),
 		)
 		// we know version, height and base target, block generator, sending it
 		return entities.NewBaseTargetEvent(url, ts, v, h, bs, &blockID, &generator, challenged)
 	}
-	s.logger.Debug("[SCRAPER] Received state hash from node",
+	s.logger.Debug("Received state hash from node",
 		slog.String("node", url), slog.String("state_hash", sh.SumHash.Hex()), slog.Uint64("height", h),
 	)
 	return entities.NewStateHashEvent(url, ts, v, h, sh, bs, &blockID, &generator, challenged) // sending full info
