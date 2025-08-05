@@ -87,7 +87,7 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
+	logger, _, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
 	if err != nil {
 		log.Printf("Failed to setup zap logger: %v", err)
 		return stderrs.Join(bots.ErrInvalidParameters, err)
@@ -128,7 +128,7 @@ func runDiscordBot() error {
 
 	if cfg.bindAddress != "" {
 		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
-			logger, atom, cfg.development,
+			logger, cfg.development,
 		)
 		if apiErr != nil {
 			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
