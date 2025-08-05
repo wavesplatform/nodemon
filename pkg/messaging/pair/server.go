@@ -3,6 +3,7 @@ package pair
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -10,10 +11,10 @@ import (
 	"nodemon/pkg/storing/events"
 	"nodemon/pkg/storing/nodes"
 	"nodemon/pkg/storing/specific"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 const okMessage = "ok"
@@ -24,12 +25,12 @@ func StartPairMessagingServer(
 	ns nodes.Storage,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	botRequestsTopic string,
 ) error {
 	nc, err := nats.Connect(natsPairURL)
 	if err != nil {
-		logger.Fatal("Failed to connect to nats server", zap.Error(err))
+		logger.Error("Failed to connect to nats server", attrs.Error(err))
 		return err
 	}
 	defer nc.Close()
@@ -41,12 +42,12 @@ func StartPairMessagingServer(
 	_, subErr := nc.Subscribe(botRequestsTopic, func(request *nats.Msg) {
 		response, handleErr := handleMessage(request.Data, ns, logger, es, pew)
 		if handleErr != nil {
-			logger.Error("failed to handle bot request", zap.Error(handleErr))
+			logger.Error("failed to handle bot request", attrs.Error(handleErr))
 			return
 		}
 		respondErr := request.Respond(response)
 		if respondErr != nil {
-			logger.Error("failed to respond to bot request", zap.Error(respondErr))
+			logger.Error("failed to respond to bot request", attrs.Error(respondErr))
 			return
 		}
 	})
@@ -60,7 +61,7 @@ func StartPairMessagingServer(
 func handleMessage(
 	rawMsg []byte,
 	ns nodes.Storage,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
 ) ([]byte, error) {
@@ -97,28 +98,28 @@ func handleMessage(
 		response := handleNodesStatementsRequest(msg, es, logger)
 		return response, nil
 	default:
-		logger.Error("Unknown request type", zap.Int("type", int(t)), zap.Binary("message", msg))
+		logger.Error("Unknown request type", slog.Int("type", int(t)), attrs.Binary("message", msg))
 	}
 	// nats considers a message delivered only if there was a not nil response
 	return []byte(okMessage), nil
 }
 
-func insertNodeIfNew(url string, ns nodes.Storage, specific bool, logger *zap.Logger) bool {
+func insertNodeIfNew(url string, ns nodes.Storage, specific bool, logger *slog.Logger) bool {
 	appended, err := ns.InsertIfNew(url, specific)
 	if err != nil {
 		logger.Error("Failed to insert a new node to storage",
-			zap.Error(err), zap.String("node", url), zap.Bool("specific", specific),
+			attrs.Error(err), slog.String("node", url), slog.Bool("specific", specific),
 		)
 	}
 	return appended
 }
 
-func insertRegularNodeIfNew(msg []byte, ns nodes.Storage, logger *zap.Logger) {
+func insertRegularNodeIfNew(msg []byte, ns nodes.Storage, logger *slog.Logger) {
 	url := string(msg)
 	_ = insertNodeIfNew(url, ns, false, logger)
 }
 
-func insertSpecificNodeIfNew(msg []byte, ns nodes.Storage, pew specific.PrivateNodesEventsWriter, logger *zap.Logger) {
+func insertSpecificNodeIfNew(msg []byte, ns nodes.Storage, pew specific.PrivateNodesEventsWriter, logger *slog.Logger) {
 	url := string(msg)
 	appended := insertNodeIfNew(url, ns, true, logger)
 	if appended { // its new specific node
@@ -127,44 +128,44 @@ func insertSpecificNodeIfNew(msg []byte, ns nodes.Storage, pew specific.PrivateN
 	}
 }
 
-func handleDeleteNodeRequest(msg []byte, ns nodes.Storage, logger *zap.Logger) {
+func handleDeleteNodeRequest(msg []byte, ns nodes.Storage, logger *slog.Logger) {
 	url := msg
 	err := ns.Delete(string(url))
 	if err != nil {
-		logger.Error("Failed to delete a node from storage", zap.Error(err))
+		logger.Error("Failed to delete a node from storage", attrs.Error(err))
 	}
 }
 
-func handleUpdateNodeRequest(msg []byte, logger *zap.Logger, ns nodes.Storage) {
+func handleUpdateNodeRequest(msg []byte, logger *slog.Logger, ns nodes.Storage) {
 	node := entities.Node{}
 	err := json.Unmarshal(msg, &node)
 	if err != nil {
-		logger.Error("Failed to update a specific node", zap.Error(err))
+		logger.Error("Failed to update a specific node", attrs.Error(err))
 	}
 	err = ns.Update(node)
 	if err != nil {
-		logger.Error("Failed to insert a new specific node to storage", zap.Error(err))
+		logger.Error("Failed to insert a new specific node to storage", attrs.Error(err))
 	}
 }
 
-func handleNodesRequest(ns nodes.Storage, specific bool, logger *zap.Logger) ([]byte, error) {
+func handleNodesRequest(ns nodes.Storage, specific bool, logger *slog.Logger) ([]byte, error) {
 	nodesList, err := ns.Nodes(specific)
 	if err != nil {
 		logger.Error("Failed to get list of nodes from storage",
-			zap.Error(err), zap.Bool("specific", specific),
+			attrs.Error(err), slog.Bool("specific", specific),
 		)
 		return nil, err
 	}
 	response := NodesListResponse{Nodes: nodesList}
 	marshaledResponse, err := json.Marshal(response)
 	if err != nil {
-		logger.Error("Failed to marshal node list to json", zap.Error(err))
+		logger.Error("Failed to marshal node list to json", attrs.Error(err))
 		return nil, errors.Wrapf(err, "Failed to marshal node list to json")
 	}
 	return marshaledResponse, nil
 }
 
-func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Logger) []byte {
+func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *slog.Logger) []byte {
 	listOfNodes := strings.Split(string(msg), ",")
 	var nodesStatusResp NodesStatementsResponse
 
@@ -176,7 +177,7 @@ func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Lo
 		nodesStatusResp.ErrMessage = events.ErrStorageIsNotReady.Error()
 	default:
 		if err != nil {
-			logger.Error("failed to find all statehashes by last height", zap.Error(err))
+			logger.Error("failed to find all statehashes by last height", attrs.Error(err))
 		}
 	}
 
@@ -193,7 +194,7 @@ func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *zap.Lo
 	}
 	response, err := json.Marshal(nodesStatusResp)
 	if err != nil {
-		logger.Error("Failed to marshal node status to json", zap.Error(err))
+		logger.Error("Failed to marshal node status to json", attrs.Error(err))
 	}
 	return response
 }

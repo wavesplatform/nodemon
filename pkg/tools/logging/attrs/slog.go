@@ -2,6 +2,7 @@ package attrs
 
 import (
 	"encoding"
+	"encoding/base64"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -53,4 +54,16 @@ func (s stingSlicePrinter) MarshalText() ([]byte, error) {
 // Strings returns a slog.Attr that contains a slice of strings formatted as a comma-separated string.
 func Strings(key string, value []string) slog.Attr {
 	return textMarshaler(key, stingSlicePrinter(value))
+}
+
+type binaryPrinter []byte
+
+func (b binaryPrinter) MarshalText() ([]byte, error) {
+	return base64.StdEncoding.AppendEncode(nil, b), nil
+}
+
+// Binary returns a slog.Attr that contains a byte slice formatted as a base64-encoded string.
+// This is useful for logging binary data in a human-readable format.
+func Binary(key string, value []byte) slog.Attr {
+	return textMarshaler(key, binaryPrinter(value))
 }

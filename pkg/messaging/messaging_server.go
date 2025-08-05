@@ -1,13 +1,11 @@
 package messaging
 
 import (
-	"fmt"
+	"log/slog"
 	"math"
 	"net"
 	"strconv"
 	"time"
-
-	"go.uber.org/zap"
 
 	"github.com/nats-io/nats-server/v2/server"
 	"github.com/pkg/errors"
@@ -15,7 +13,7 @@ import (
 
 func RunNatsMessagingServer( //nolint:nonamedreturns // needs in defer
 	serverAddress string,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	maxPayload uint64,
 	connectionTimeout time.Duration,
 ) (_ func(), runErr error) {
@@ -59,6 +57,11 @@ func RunNatsMessagingServer( //nolint:nonamedreturns // needs in defer
 	if !s.ReadyForConnections(connectionTimeout) {
 		return nil, errors.New("NATS server is not ready for connections")
 	}
-	logger.Info(fmt.Sprintf("NATS Server is running on %s:%d", host, port))
+	logger.Info("NATS Messaging Server started",
+		slog.String("host", host),
+		slog.Int("port", port),
+		slog.Duration("connection_timeout", connectionTimeout),
+		slog.Uint64("max_payload_bytes", maxPayload),
+	)
 	return s.Shutdown, nil
 }
