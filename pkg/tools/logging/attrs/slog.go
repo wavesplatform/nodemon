@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
+	"unicode/utf8"
 )
 
 // Error returns a slog.Attr that contains the error value with the key "error".
@@ -32,9 +33,16 @@ func Type(value any) slog.Attr {
 
 type byteStringPrinter []byte
 
-func (b byteStringPrinter) MarshalText() ([]byte, error) { return b, nil }
+func (b byteStringPrinter) MarshalText() ([]byte, error) {
+	if !utf8.Valid(b) { // Check if the byte slice is valid UTF-8
+		return base64.StdEncoding.AppendEncode(nil, b), nil // Encode as base64 if not valid UTF-8
+	}
+	return b, nil // Return the byte slice as a string if it is valid UTF-8
+}
 
 // ByteString returns a slog.Attr that contains the byte slice as a string.
+// If the byte slice is not valid UTF-8 string, it will be encoded as base64.
+// This is useful for logging byte slices that may contain non-printable characters.
 func ByteString(key string, value []byte) slog.Attr {
 	return textMarshaler(key, byteStringPrinter(value))
 }
