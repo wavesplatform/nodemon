@@ -10,6 +10,8 @@ import (
 	"syscall"
 	"time"
 
+	gl "github.com/wavesplatform/gowaves/pkg/logging"
+
 	"nodemon/cmd/bots/internal/bots"
 	"nodemon/cmd/bots/internal/bots/api"
 	"nodemon/cmd/bots/internal/bots/initial"
@@ -19,6 +21,7 @@ import (
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
+	"nodemon/pkg/tools/logging"
 	"nodemon/pkg/tools/logging/attrs"
 
 	"codnect.io/chrono"
@@ -43,10 +46,10 @@ type discordBotConfig struct {
 	natsMessagingURL string
 	discordBotToken  string
 	discordChatID    string
-	logLevel         string
 	development      bool
 	bindAddress      string
 	scheme           string
+	logParams        logging.ParametersFlags
 }
 
 func newDiscordBotConfigConfig() *discordBotConfig {
@@ -57,8 +60,10 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 		"", "The secret token used to authenticate the bot")
 	tools.StringVarFlagWithEnv(&c.discordChatID, "discord-chat-id",
 		"", "discord chat ID to send alerts through")
-	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
-		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.logParams.LogLevel, "log-level", "INFO",
+		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR.")
+	tools.StringVarFlagWithEnv(&c.logParams.LoggerType, "log-type", "pretty",
+		"Set the logger output format. Supported types: text, json, pretty.")
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
 		"Local network address to bind the HTTP API of the service on.")
@@ -87,9 +92,13 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug, // TODO: configure log level from flag
-	}))
+	lp, logErr := logging.ParametersFromFlags(cfg.logParams)
+	if logErr != nil {
+		return logErr
+	}
+	h := gl.NewHandler(lp.Type, lp.Level)
+	logger := slog.New(h)
+	slog.SetDefault(logger)
 
 	logger.Info("Starting discord bot", slog.String("version", internal.Version()))
 

@@ -13,7 +13,10 @@ import (
 	"syscall"
 	"time"
 
+	gl "github.com/wavesplatform/gowaves/pkg/logging"
+
 	"nodemon/pkg/messaging"
+	"nodemon/pkg/tools/logging"
 	"nodemon/pkg/tools/logging/attrs"
 
 	"nodemon/internal"
@@ -219,7 +222,7 @@ type nodemonConfig struct {
 	retention           time.Duration
 	apiReadTimeout      time.Duration
 	baseTargetThreshold uint64
-	logLevel            string
+	logParams           logging.ParametersFlags
 	development         bool
 	vault               *nodemonVaultConfig
 	l2                  *nodemonL2Config
@@ -252,8 +255,10 @@ func newNodemonConfig() *nodemonConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.BoolVarFlagWithEnv(&c.natsPairDiscord, "bot-requests-discord", false, "Should let discord bot send commands?")
 	tools.BoolVarFlagWithEnv(&c.natsPairTelegram, "bot-requests-telegram", true, "Should let telegram bot send commands?")
-	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
-		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+	tools.StringVarFlagWithEnv(&c.logParams.LogLevel, "log-level", "INFO",
+		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR.")
+	tools.StringVarFlagWithEnv(&c.logParams.LoggerType, "log-type", "pretty",
+		"Set the logger output format. Supported types: text, json, pretty.")
 	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
 		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	c.vault = newNodemonVaultConfig()
@@ -318,9 +323,13 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug, // TODO: configure log level from flag
-	}))
+	lp, logErr := logging.ParametersFromFlags(cfg.logParams)
+	if logErr != nil {
+		return logErr
+	}
+	h := gl.NewHandler(lp.Type, lp.Level)
+	logger := slog.New(h)
+	slog.SetDefault(logger)
 
 	logger.Info("Starting nodemon", slog.String("version", internal.Version()))
 
