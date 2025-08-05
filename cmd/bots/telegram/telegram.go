@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,9 +21,9 @@ import (
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"codnect.io/chrono"
-	"go.uber.org/zap"
 )
 
 const defaultAPIReadTimeout = 30 * time.Second
@@ -77,7 +78,7 @@ func newTelegramBotConfig() *telegramBotConfig {
 	return c
 }
 
-func (c *telegramBotConfig) validate(logger *zap.Logger) error {
+func (c *telegramBotConfig) validate(logger *slog.Logger) error {
 	if c.tgBotToken == "" {
 		logger.Error("telegram bot token is required")
 		return bots.ErrInvalidParameters
@@ -101,19 +102,11 @@ func runTelegramBot() error {
 	cfg := newTelegramBotConfig()
 	flag.Parse()
 
-	logger, _, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
-	if err != nil {
-		log.Printf("Failed to setup zap logger: %v", err)
-		return errors.Join(bots.ErrInvalidParameters, err)
-	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug, // TODO: configure log level from flag
+	}))
 
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
-
-	logger.Info("Starting telegram bot", zap.String("version", internal.Version()))
+	logger.Info("Starting telegram bot", slog.String("version", internal.Version()))
 
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr
@@ -128,7 +121,8 @@ func runTelegramBot() error {
 	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
 		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan, cfg.scheme)
 	if initErr != nil {
-		logger.Fatal("failed to initialize telegram bot", zap.Error(initErr))
+		logger.Error("failed to initialize telegram bot", attrs.Error(initErr))
+		return initErr
 	}
 
 	handlers.InitTgHandlers(tgBotEnv, logger, requestChan, responseChan)
@@ -140,27 +134,28 @@ func runTelegramBot() error {
 			logger, cfg.development,
 		)
 		if apiErr != nil {
-			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
+			logger.Error("Failed to initialize bot API", attrs.Error(apiErr))
 			return apiErr
 		}
 		if startErr := botAPI.StartCtx(ctx); startErr != nil {
-			logger.Error("Failed to start API", zap.Error(startErr))
+			logger.Error("Failed to start API", attrs.Error(startErr))
 			return startErr
 		}
 		defer botAPI.Shutdown()
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err = bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
+	err := bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
-		logger.Fatal("failed to schedule nodes status alert", zap.Error(err))
+		logger.Error("failed to schedule nodes status alert", attrs.Error(err))
+		return err
 	}
 	logger.Info("Nodes status alert has been scheduled successfully")
 
 	err = tgBotEnv.Start(ctx)
 	if err != nil {
-		logger.Fatal("failed to start telegram bot", zap.Error(err))
+		logger.Error("failed to start telegram bot", attrs.Error(err))
 		return err
 	}
 	<-ctx.Done()
@@ -177,14 +172,15 @@ func runMessagingClients(
 	ctx context.Context,
 	cfg *telegramBotConfig,
 	tgBotEnv *bots.TelegramBotEnvironment,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	pairRequest <-chan pair.Request,
 	pairResponse chan<- pair.Response,
 ) {
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
-			logger.Fatal("failed to start sub messaging service", zap.Error(err))
+			logger.Error("failed to start sub messaging service", attrs.Error(err))
+			panic(err)
 		}
 	}()
 
@@ -192,7 +188,8 @@ func runMessagingClients(
 		topic := generalMessaging.TelegramBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
-			logger.Fatal("failed to start pair messaging service", zap.Error(err))
+			logger.Error("failed to start pair messaging service", attrs.Error(err))
+			panic(err)
 		}
 	}()
 }

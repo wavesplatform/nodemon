@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
@@ -11,15 +12,15 @@ import (
 	"nodemon/cmd/bots/internal/telegram/messages"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging/pair"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
 
 func InitTgHandlers(
 	env *bots.TelegramBotEnvironment,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 	requestCh chan<- pair.Request,
 	responseCh <-chan pair.Response,
 ) {
@@ -74,19 +75,19 @@ func InitTgHandlers(
 
 	env.Bot.Handle("/add_alias", addAliasCmd(env, requestCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/aliases", aliasesCmd(requestCh, responseCh, zapLogger))
+	env.Bot.Handle("/aliases", aliasesCmd(requestCh, responseCh, logger))
 
 	env.Bot.Handle("/subscribe", subscribeCmd(env), isEligibleForActionMiddleware)
 
 	env.Bot.Handle("/unsubscribe", unsubscribeCmd(env), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/statement", statementCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
+	env.Bot.Handle("/statement", statementCmd(requestCh, responseCh, env.TemplatesExtension(), logger))
 
 	env.Bot.Handle(telebot.OnText, onTextMsgHandler(env, requestCh, responseCh), isEligibleForActionMiddleware)
 
-	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
+	env.Bot.Handle("/status", statusCmd(requestCh, responseCh, env.TemplatesExtension(), logger))
 
-	env.Bot.Handle("/viewchains", viewChains(requestCh, responseCh, env.TemplatesExtension(), zapLogger))
+	env.Bot.Handle("/viewchains", viewChains(requestCh, responseCh, env.TemplatesExtension(), logger))
 }
 
 func removeCmd(
@@ -119,12 +120,12 @@ func addAliasCmd(env *bots.TelegramBotEnvironment, requestType chan<- pair.Reque
 func aliasesCmd(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responseChan)
 		if err != nil {
-			zapLogger.Error("failed to request nodes list", zap.Error(err))
+			logger.Error("failed to request nodes list", attrs.Error(err))
 			return errors.Wrap(err, "failed to get nodes list")
 		}
 		var msg string
@@ -173,20 +174,20 @@ func viewChains(
 	requestChan chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	ext bots.ExpectedExtension,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		// TODO include private nodes too after they support sending Generators
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
-			zapLogger.Error("failed to get nodes list", zap.Error(err))
+			logger.Error("failed to get nodes list", attrs.Error(err))
 			return err
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatements, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
-			zapLogger.Error("failed to request status of nodes", zap.Error(err))
+			logger.Error("failed to request status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -196,7 +197,7 @@ func viewChains(
 
 		msg, err := bots.HandleNodesChains(nodesStatements, ext)
 		if err != nil {
-			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
+			logger.Error("failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -208,24 +209,24 @@ func statusCmd(
 	requestChan chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	ext bots.ExpectedExtension,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
-			zapLogger.Error("failed to get nodes list", zap.Error(err))
+			logger.Error("failed to get nodes list", attrs.Error(err))
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
-			zapLogger.Error("failed to request status of nodes", zap.Error(err))
+			logger.Error("failed to request status of nodes", attrs.Error(err))
 			return err
 		}
 
 		msg, statusCondition, err := bots.HandleNodesStatus(nodesStatus, ext, nodes)
 		if err != nil {
-			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
+			logger.Error("failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -241,7 +242,7 @@ func statementCmd(
 	requestChan chan<- pair.Request,
 	responseChan <-chan pair.Response,
 	ext bots.ExpectedExtension,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 ) func(c telebot.Context) error {
 	return func(c telebot.Context) error {
 		args := c.Args()
@@ -262,13 +263,13 @@ func statementCmd(
 		}
 		statement, err := messaging.RequestNodeStatement(requestChan, responseChan, updatedURL, height)
 		if err != nil {
-			zapLogger.Error("failed to request nodes list buttons", zap.Error(err))
+			logger.Error("failed to request nodes list buttons", attrs.Error(err))
 			return err
 		}
 
 		msg, err := bots.HandleNodeStatement(statement, ext)
 		if err != nil {
-			zapLogger.Error("failed to handle status of nodes", zap.Error(err))
+			logger.Error("failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 
