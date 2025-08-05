@@ -2,9 +2,9 @@ package main
 
 import (
 	"context"
-	stderrs "errors"
 	"flag"
 	"log"
+	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,10 +19,10 @@ import (
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/tools"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"codnect.io/chrono"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 const defaultAPIReadTimeout = 30 * time.Second
@@ -67,17 +67,17 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 	return c
 }
 
-func (c *discordBotConfig) validate(zap *zap.Logger) error {
+func (c *discordBotConfig) validate(logger *slog.Logger) error {
 	if c.discordBotToken == "" {
-		zap.Error("discord bot token is required")
+		logger.Error("discord bot token is required")
 		return bots.ErrInvalidParameters
 	}
 	if c.scheme == "" {
-		zap.Error("the blockchain scheme must be specified")
+		logger.Error("the blockchain scheme must be specified")
 		return bots.ErrInvalidParameters
 	}
 	if c.discordChatID == "" {
-		zap.Error("discord chat ID is required")
+		logger.Error("discord chat ID is required")
 		return bots.ErrInvalidParameters
 	}
 	return nil
@@ -87,19 +87,11 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	logger, _, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
-	if err != nil {
-		log.Printf("Failed to setup zap logger: %v", err)
-		return stderrs.Join(bots.ErrInvalidParameters, err)
-	}
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelDebug, // TODO: configure log level from flag
+	}))
 
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
-
-	logger.Info("Starting discord bot", zap.String("version", internal.Version()))
+	logger.Info("Starting discord bot", slog.String("version", internal.Version()))
 
 	if validationErr := cfg.validate(logger); validationErr != nil {
 		return validationErr
@@ -131,21 +123,21 @@ func runDiscordBot() error {
 			logger, cfg.development,
 		)
 		if apiErr != nil {
-			logger.Error("Failed to initialize bot API", zap.Error(apiErr))
+			logger.Error("Failed to initialize bot API", attrs.Error(apiErr))
 			return apiErr
 		}
 		if startErr := botAPI.StartCtx(ctx); startErr != nil {
-			logger.Error("Failed to start API", zap.Error(startErr))
+			logger.Error("Failed to start API", attrs.Error(startErr))
 			return startErr
 		}
 		defer botAPI.Shutdown()
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
-	err = bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
+	err := bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
-		logger.Fatal("failed to schedule nodes status", zap.Error(err))
+		logger.Error("failed to schedule nodes status", attrs.Error(err))
 		return err
 	}
 
@@ -153,12 +145,12 @@ func runDiscordBot() error {
 
 	err = discordBotEnv.Start()
 	if err != nil {
-		logger.Fatal("failed to start discord bot", zap.Error(err))
+		logger.Error("failed to start discord bot", attrs.Error(err))
 		return err
 	}
 	defer func() {
 		if closeErr := discordBotEnv.Bot.Close(); closeErr != nil {
-			logger.Error("failed to close discord bot web socket", zap.Error(closeErr))
+			logger.Error("failed to close discord bot web socket", attrs.Error(closeErr))
 		}
 	}()
 	<-ctx.Done()
@@ -168,7 +160,7 @@ func runDiscordBot() error {
 	return nil
 }
 
-func waitScheduler(taskScheduler chrono.TaskScheduler, logger *zap.Logger) {
+func waitScheduler(taskScheduler chrono.TaskScheduler, logger *slog.Logger) {
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
@@ -179,15 +171,15 @@ func runMessagingClients(
 	ctx context.Context,
 	cfg *discordBotConfig,
 	discordBotEnv *bots.DiscordBotEnvironment,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	requestChan chan pair.Request,
 	responseChan chan pair.Response,
 ) {
 	go func() {
-		clientErr := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
-		if clientErr != nil {
-			logger.Fatal("failed to start sub messaging client", zap.Error(clientErr))
-			return
+		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
+		if err != nil {
+			logger.Error("failed to start sub messaging client", attrs.Error(err))
+			panic(err)
 		}
 	}()
 
@@ -195,8 +187,8 @@ func runMessagingClients(
 		topic := generalMessaging.DiscordBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
-			logger.Fatal("failed to start pair messaging client", zap.Error(err))
-			return
+			logger.Error("failed to start pair messaging client", attrs.Error(err))
+			panic(err)
 		}
 	}()
 }
