@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	htmltmpl "html/template"
+	"log/slog"
 	"sort"
 	"strconv"
 	"strings"
@@ -18,13 +19,13 @@ import (
 	generalMessaging "nodemon/pkg/messaging"
 	"nodemon/pkg/messaging/pair"
 	"nodemon/pkg/storing/events"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"codnect.io/chrono"
 	"github.com/bwmarrin/discordgo"
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
-	"go.uber.org/zap"
 	"gopkg.in/telebot.v3"
 )
 
@@ -87,7 +88,7 @@ type DiscordBotEnvironment struct {
 	ChatID                 string
 	Bot                    *discordgo.Session
 	Subscriptions          subscriptions
-	zap                    *zap.Logger
+	logger                 *slog.Logger
 	requestType            chan<- pair.Request
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
@@ -99,7 +100,7 @@ type DiscordBotEnvironment struct {
 func NewDiscordBotEnvironment(
 	bot *discordgo.Session,
 	chatID string,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	scheme string,
@@ -111,7 +112,7 @@ func NewDiscordBotEnvironment(
 			subs: make(map[entities.AlertType]AlertSubscription),
 			mu:   new(sync.RWMutex),
 		},
-		zap:                    zap,
+		logger:                 logger,
 		requestType:            requestType,
 		responsePairType:       responsePairType,
 		unhandledAlertMessages: newUnhandledAlertMessages(),
@@ -122,10 +123,10 @@ func NewDiscordBotEnvironment(
 func (dscBot *DiscordBotEnvironment) TemplatesExtension() ExpectedExtension { return Markdown }
 
 func (dscBot *DiscordBotEnvironment) Start() error {
-	dscBot.zap.Info("Discord bot started")
+	dscBot.logger.Info("Discord bot started")
 	err := dscBot.Bot.Open()
 	if err != nil {
-		dscBot.zap.Error("failed to open discord bot", zap.Error(err))
+		dscBot.logger.Error("failed to open discord bot", attrs.Error(err))
 		return err
 	}
 	return nil
@@ -134,33 +135,34 @@ func (dscBot *DiscordBotEnvironment) Start() error {
 func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 	_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, msg)
 	if err != nil {
-		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
+		dscBot.logger.Error("failed to send a message to discord", attrs.Error(err))
 	}
 }
 
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	alertType := msg.AlertType()
 	if !alertType.Exist() {
-		dscBot.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
-			byte(alertType), errUnknownAlertType,
+		dscBot.logger.Error("failed to construct message, unknown alert type",
+			slog.Uint64("alertType", uint64(alertType)),
+			attrs.Error(errUnknownAlertType),
 		)
 		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
 
 		if err != nil {
-			dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
+			dscBot.logger.Error("failed to send a message to discord", attrs.Error(err))
 		}
 		return
 	}
 
 	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
 	if err != nil {
-		dscBot.zap.Error("failed to get nodes list", zap.Error(err))
+		dscBot.logger.Error("failed to get nodes list", attrs.Error(err))
 	}
 
 	alertJSON := msg.Data()
 	messageToBot, err := constructMessage(alertType, alertJSON, dscBot.TemplatesExtension(), nodes)
 	if err != nil {
-		dscBot.zap.Error("failed to construct message", zap.Error(err))
+		dscBot.logger.Error("failed to construct message", attrs.Error(err))
 		return
 	}
 	alertID := msg.ReferenceID()
@@ -168,28 +170,28 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	if alertType == entities.AlertFixedType {
 		messageID, ok := dscBot.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
 		if !ok {
-			dscBot.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found",
-				zap.Stringer("alertID", alertID),
+			dscBot.logger.Error("failed to get message ID by the given alertID: alertID hasn't been found",
+				attrs.Stringer("alertID", alertID),
 			)
 			return
 		}
 		msgRef := &discordgo.MessageReference{MessageID: strconv.Itoa(messageID)}
 		_, err = dscBot.Bot.ChannelMessageSendReply(dscBot.ChatID, messageToBot, msgRef)
 		if err != nil {
-			dscBot.zap.Error("failed to send a message about fixed alert to discord", zap.Error(err))
+			dscBot.logger.Error("failed to send a message about fixed alert to discord", attrs.Error(err))
 		}
 		dscBot.unhandledAlertMessages.Delete(alertID)
 		return
 	}
 	sentMessage, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, messageToBot)
 	if err != nil {
-		dscBot.zap.Error("failed to send a message to discord", zap.Error(err))
+		dscBot.logger.Error("failed to send a message to discord", attrs.Error(err))
 		return
 	}
 
 	messageID, err := strconv.Atoi(sentMessage.ID)
 	if err != nil {
-		dscBot.zap.Error("failed to parse messageID from a send message on discord", zap.Error(err))
+		dscBot.logger.Error("failed to parse messageID from a send message on discord", attrs.Error(err))
 		return
 	}
 	dscBot.unhandledAlertMessages.Add(alertID, messageID)
@@ -214,7 +216,7 @@ func (dscBot *DiscordBotEnvironment) SubscribeToAllAlerts() error {
 			return errors.Wrap(err, "failed to subscribe to alert")
 		}
 		dscBot.Subscriptions.Add(alertType, alertName, subscription)
-		dscBot.zap.Sugar().Infof("subscribed to %s", alertName)
+		dscBot.logger.Info("subscribed to alert", slog.String("alertName", string(alertName)))
 	}
 	return nil
 }
@@ -261,7 +263,7 @@ type TelegramBotEnvironment struct {
 	Bot                    *telebot.Bot
 	Mute                   bool // If it used elsewhere, should be protected by mutex.
 	subscriptions          subscriptions
-	zap                    *zap.Logger
+	logger                 *slog.Logger
 	requestType            chan<- pair.Request
 	responsePairType       <-chan pair.Response
 	unhandledAlertMessages unhandledAlertMessages
@@ -274,7 +276,7 @@ func NewTelegramBotEnvironment(
 	bot *telebot.Bot,
 	chatID int64,
 	mute bool,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	scheme string,
@@ -287,7 +289,7 @@ func NewTelegramBotEnvironment(
 			subs: make(map[entities.AlertType]AlertSubscription),
 			mu:   new(sync.RWMutex),
 		},
-		zap:                    zap,
+		logger:                 logger,
 		requestType:            requestType,
 		responsePairType:       responsePairType,
 		unhandledAlertMessages: newUnhandledAlertMessages(),
@@ -298,19 +300,19 @@ func NewTelegramBotEnvironment(
 func (tgEnv *TelegramBotEnvironment) TemplatesExtension() ExpectedExtension { return HTML }
 
 func (tgEnv *TelegramBotEnvironment) Start(ctx context.Context) error {
-	tgEnv.zap.Info("Telegram bot started")
+	tgEnv.logger.Info("Telegram bot started")
 	go func() {
 		<-ctx.Done()
 		tgEnv.Bot.Stop()
 	}()
 	tgEnv.Bot.Start() // the call is blocking
-	tgEnv.zap.Info("Telegram bot finished")
+	tgEnv.logger.Info("Telegram bot finished")
 	return nil
 }
 
 func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	if tgEnv.Mute {
-		tgEnv.zap.Info("received an alert, but asleep now")
+		tgEnv.logger.Info("received an alert, but asleep now")
 		return
 	}
 
@@ -318,8 +320,8 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 
 	alertType := msg.AlertType()
 	if !alertType.Exist() {
-		tgEnv.zap.Sugar().Errorf("failed to construct message, unknown alert type %c, %v",
-			byte(alertType), errUnknownAlertType,
+		tgEnv.logger.Error("failed to construct message, unknown alert type",
+			slog.Uint64("alertType", uint64(alertType)), attrs.Error(errUnknownAlertType),
 		)
 		_, err := tgEnv.Bot.Send(
 			chat,
@@ -327,20 +329,20 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 			&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 		)
 		if err != nil {
-			tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
+			tgEnv.logger.Error("failed to send a message to telegram", attrs.Error(err))
 		}
 		return
 	}
 
 	nodes, err := messaging.RequestAllNodes(tgEnv.requestType, tgEnv.responsePairType)
 	if err != nil {
-		tgEnv.zap.Error("failed to get nodes list", zap.Error(err))
+		tgEnv.logger.Error("failed to get nodes list", attrs.Error(err))
 	}
 
 	alertJSON := msg.Data()
 	messageToBot, err := constructMessage(alertType, alertJSON, tgEnv.TemplatesExtension(), nodes)
 	if err != nil {
-		tgEnv.zap.Error("failed to construct message", zap.Error(err))
+		tgEnv.logger.Error("failed to construct message", attrs.Error(err))
 		return
 	}
 	alertID := msg.ReferenceID()
@@ -348,15 +350,15 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	if alertType == entities.AlertFixedType {
 		messageID, ok := tgEnv.unhandledAlertMessages.GetMessageIDByAlertID(alertID)
 		if !ok {
-			tgEnv.zap.Error("failed to get message ID by the given alertID: alertID hasn't been found",
-				zap.Stringer("alertID", alertID),
+			tgEnv.logger.Error("failed to get message ID by the given alertID: alertID hasn't been found",
+				attrs.Stringer("alertID", alertID),
 			)
 			return
 		}
 		opts := &telebot.SendOptions{ReplyTo: &telebot.Message{ID: messageID}, ParseMode: telebot.ModeHTML}
 		_, sendErr := tgEnv.Bot.Send(chat, messageToBot, opts)
 		if sendErr != nil {
-			tgEnv.zap.Error("failed to send a message about fixed alert to telegram", zap.Error(sendErr))
+			tgEnv.logger.Error("failed to send a message about fixed alert to telegram", attrs.Error(sendErr))
 		}
 		tgEnv.unhandledAlertMessages.Delete(alertID)
 		return
@@ -368,7 +370,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		&telebot.SendOptions{ParseMode: telebot.ModeHTML},
 	)
 	if err != nil {
-		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
+		tgEnv.logger.Error("failed to send a message to telegram", attrs.Error(err))
 	}
 
 	tgEnv.unhandledAlertMessages.Add(alertID, sentMessage.ID)
@@ -376,7 +378,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 
 func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	if tgEnv.Mute {
-		tgEnv.zap.Info("received a message, but asleep now")
+		tgEnv.logger.Info("received a message, but asleep now")
 		return
 	}
 
@@ -389,7 +391,7 @@ func (tgEnv *TelegramBotEnvironment) SendMessage(msg string) {
 	)
 
 	if err != nil {
-		tgEnv.zap.Error("failed to send a message to telegram", zap.Error(err))
+		tgEnv.logger.Error("failed to send a message to telegram", attrs.Error(err))
 	}
 }
 
@@ -420,7 +422,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (st
 	urls := nodesToUrls(nodes)
 	tmpl, err := htmltmpl.ParseFS(templateFiles, "templates/nodes_list.html")
 	if err != nil {
-		tgEnv.zap.Error("failed to parse nodes list template", zap.Error(err))
+		tgEnv.logger.Error("failed to parse nodes list template", attrs.Error(err))
 		return "", err
 	}
 
@@ -429,7 +431,7 @@ func (tgEnv *TelegramBotEnvironment) NodesListMessage(nodes []entities.Node) (st
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, urls)
 	if err != nil {
-		tgEnv.zap.Error("failed to construct a message", zap.Error(err))
+		tgEnv.logger.Error("failed to construct a message", attrs.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -446,9 +448,8 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAllAlerts() error {
 			return errors.Wrap(err, "failed to subscribe to alert")
 		}
 		tgEnv.subscriptions.Add(alertType, alertName, subscription)
-		tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
+		tgEnv.logger.Info("Telegram bot subscribed to alert", slog.String("alertName", string(alertName)))
 	}
-
 	return nil
 }
 
@@ -468,8 +469,7 @@ func (tgEnv *TelegramBotEnvironment) SubscribeToAlert(alertType entities.AlertTy
 		return errors.Wrap(err, "failed to subscribe to alert")
 	}
 	tgEnv.subscriptions.Add(alertType, alertName, subscription)
-	tgEnv.zap.Sugar().Infof("Telegram bot subscribed to %s", alertName)
-
+	tgEnv.logger.Info("Telegram bot subscribed to alert", slog.String("alertName", string(alertName)))
 	return nil
 }
 
@@ -495,7 +495,7 @@ func (tgEnv *TelegramBotEnvironment) UnsubscribeFromAlert(alertType entities.Ale
 		return errors.New("tried to unsubscribe from alert, but still subscribed to it")
 	}
 	tgEnv.subscriptions.Delete(alertType)
-	tgEnv.zap.Sugar().Infof("Telegram bot unsubscribed from %s", alertName)
+	tgEnv.logger.Info("Telegram bot unsubscribed from alert", slog.String("alertName", string(alertName)))
 	return nil
 }
 
@@ -524,7 +524,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	tmpl, err := htmltmpl.ParseFS(templateFiles, "templates/subscriptions.html")
 
 	if err != nil {
-		tgEnv.zap.Error("failed to parse subscriptions template", zap.Error(err))
+		tgEnv.logger.Error("failed to parse subscriptions template", attrs.Error(err))
 		return "", err
 	}
 	var subscribedTo []subscribed
@@ -538,7 +538,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	var unsubscribedFrom []unsubscribed
 	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
-		if !ok { // find those alerts that are not in the subscriptions list
+		if !ok { // find those alerts that are not in the subscription list
 			u := unsubscribed{AlertName: string(alertName) + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}
@@ -549,7 +549,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	w := &bytes.Buffer{}
 	err = tmpl.Execute(w, subsList)
 	if err != nil {
-		tgEnv.zap.Error("failed to construct a message", zap.Error(err))
+		tgEnv.logger.Error("failed to construct a message", attrs.Error(err))
 		return "", err
 	}
 	return w.String(), nil
@@ -576,22 +576,22 @@ func ScheduleNodesStatus(
 	requestType chan<- pair.Request,
 	responsePairType <-chan pair.Response,
 	bot bot,
-	zapLogger *zap.Logger,
+	logger *slog.Logger,
 ) error {
 	_, err := taskScheduler.ScheduleWithCron(func(_ context.Context) {
 		nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 		if err != nil {
-			zapLogger.Error("failed to get nodes list", zap.Error(err))
+			logger.Error("failed to get nodes list", attrs.Error(err))
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatements(requestType, responsePairType, urls)
 		if err != nil {
-			zapLogger.Error("failed to get nodes status", zap.Error(err))
+			logger.Error("failed to get nodes status", attrs.Error(err))
 		}
 		handledNodesStatus, statusCondition, err := HandleNodesStatus(nodesStatus, bot.TemplatesExtension(), nodes)
 		if err != nil {
-			zapLogger.Error("failed to handle nodes status", zap.Error(err))
+			logger.Error("failed to handle nodes status", attrs.Error(err))
 		}
 
 		if statusCondition.AllNodesAreOk {
@@ -603,7 +603,7 @@ func ScheduleNodesStatus(
 			}
 			msg, err = executeTemplate("templates/nodes_status_ok_short", okNodes, bot.TemplatesExtension())
 			if err != nil {
-				zapLogger.Error("failed to construct a message", zap.Error(err))
+				logger.Error("failed to construct a message", attrs.Error(err))
 			}
 			bot.SendMessage(msg)
 			return
@@ -615,7 +615,7 @@ func ScheduleNodesStatus(
 		case *DiscordBotEnvironment:
 			msg = fmt.Sprintf("```yaml\nStatus %s\n\n%s\n```", messaging.TimerMsg, handledNodesStatus)
 		default:
-			zapLogger.Error("failed to schedule nodes status, unknown bot type")
+			logger.Error("failed to schedule nodes status, unknown bot type")
 			return
 		}
 		bot.SendMessage(msg)
