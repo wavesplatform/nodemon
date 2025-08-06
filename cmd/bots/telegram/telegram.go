@@ -133,7 +133,7 @@ func runTelegramBot() error {
 
 	handlers.InitTgHandlers(tgBotEnv, logger, requestChan, responseChan)
 
-	runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
+	ctx = runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
 
 	if cfg.bindAddress != "" {
 		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
@@ -166,12 +166,21 @@ func runTelegramBot() error {
 	}
 	<-ctx.Done()
 
+	waitScheduler(taskScheduler, logger)
+	if errCause := context.Cause(ctx); !errors.Is(errCause, context.Canceled) { // Check if the context was canceled
+		logger.Error("Telegram bot stopped with error", attrs.Error(errCause))
+		return errCause
+	}
+
+	logger.Info("Telegram bot finished")
+	return nil
+}
+
+func waitScheduler(taskScheduler chrono.TaskScheduler, logger *slog.Logger) {
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
-	logger.Info("Telegram bot finished")
-	return nil
 }
 
 func runMessagingClients(
@@ -181,21 +190,25 @@ func runMessagingClients(
 	logger *slog.Logger,
 	pairRequest <-chan pair.Request,
 	pairResponse chan<- pair.Response,
-) {
+) context.Context {
+	ctx, cancelCause := context.WithCancelCause(ctx)
 	go func() {
+		defer cancelCause(nil)
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
 			logger.Error("Failed to start sub messaging service", attrs.Error(err))
-			panic(err)
+			cancelCause(err)
 		}
 	}()
 
 	go func() {
+		defer cancelCause(nil)
 		topic := generalMessaging.TelegramBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
 			logger.Error("Failed to start pair messaging service", attrs.Error(err))
-			panic(err)
+			cancelCause(err)
 		}
 	}()
+	return ctx
 }

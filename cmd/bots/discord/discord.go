@@ -122,7 +122,7 @@ func runDiscordBot() error {
 	}
 	handlers.InitDscHandlers(discordBotEnv, requestChan, responseChan, logger)
 
-	runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
+	ctx = runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
 
 	if cfg.bindAddress != "" {
 		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
@@ -162,6 +162,11 @@ func runDiscordBot() error {
 	<-ctx.Done()
 
 	waitScheduler(taskScheduler, logger)
+	if errCause := context.Cause(ctx); !errors.Is(errCause, context.Canceled) { // Check if the context was canceled
+		logger.Error("Discord bot stopped with error", attrs.Error(errCause))
+		return errCause
+	}
+
 	logger.Info("Discord bot finished")
 	return nil
 }
@@ -180,21 +185,25 @@ func runMessagingClients(
 	logger *slog.Logger,
 	requestChan chan pair.Request,
 	responseChan chan pair.Response,
-) {
+) context.Context {
+	ctx, cancelCause := context.WithCancelCause(ctx)
 	go func() {
+		defer cancelCause(nil)
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if err != nil {
 			logger.Error("Failed to start sub messaging client", attrs.Error(err))
-			panic(err)
+			cancelCause(err)
 		}
 	}()
 
 	go func() {
+		defer cancelCause(nil)
 		topic := generalMessaging.DiscordBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
 			logger.Error("Failed to start pair messaging client", attrs.Error(err))
-			panic(err)
+			cancelCause(err)
 		}
 	}()
+	return ctx
 }
