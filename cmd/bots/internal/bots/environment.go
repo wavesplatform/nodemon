@@ -538,7 +538,7 @@ func (tgEnv *TelegramBotEnvironment) SubscriptionsList() (string, error) {
 	var unsubscribedFrom []unsubscribed
 	for alertType, alertName := range entities.GetAllAlertTypesAndNames() {
 		ok := tgEnv.IsAlreadySubscribed(alertType)
-		if !ok { // find those alerts that are not in the subscription list
+		if !ok { // find those alerts that are not in the subscriptions list
 			u := unsubscribed{AlertName: string(alertName) + "\n\n"}
 			unsubscribedFrom = append(unsubscribedFrom, u)
 		}

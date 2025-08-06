@@ -131,7 +131,7 @@ func collectL2Height(ctx context.Context, url string, logger *slog.Logger) (_ ui
 		logger.Error("Failed converting hex string to integer", attrs.Error(err),
 			slog.String("nodeURL", url), slog.String("resultHeight", res.Result),
 		)
-		return 0, fmt.Errorf("failed to convert hex string heightto integer: %w", err)
+		return 0, fmt.Errorf("failed to convert hex string height to integer: %w", err)
 	}
 	if height < 0 {
 		logger.Error("The received height is negative", slog.Int64("height", height), slog.String("nodeURL", url))
