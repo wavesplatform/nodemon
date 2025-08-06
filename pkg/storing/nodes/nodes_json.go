@@ -232,7 +232,7 @@ func (s *JSONStorage) Update(node entities.Node) error {
 	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to update node '%s'", node.URL)
 	}
-	s.logger.Info("Node was updated to %+v", slog.String("url", node.URL), slog.Any("update", node))
+	s.logger.Info("Node was updated", slog.String("url", node.URL), slog.Any("update", node))
 	return nil
 }
 
