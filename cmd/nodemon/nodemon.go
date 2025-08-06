@@ -13,8 +13,6 @@ import (
 	"syscall"
 	"time"
 
-	gl "github.com/wavesplatform/gowaves/pkg/logging"
-
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/tools/logging"
 	"nodemon/pkg/tools/logging/attrs"
@@ -222,7 +220,8 @@ type nodemonConfig struct {
 	retention           time.Duration
 	apiReadTimeout      time.Duration
 	baseTargetThreshold uint64
-	logParams           logging.ParametersFlags
+	logLevel            string
+	logType             string
 	development         bool
 	vault               *nodemonVaultConfig
 	l2                  *nodemonL2Config
@@ -255,9 +254,9 @@ func newNodemonConfig() *nodemonConfig {
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.BoolVarFlagWithEnv(&c.natsPairDiscord, "bot-requests-discord", false, "Should let discord bot send commands?")
 	tools.BoolVarFlagWithEnv(&c.natsPairTelegram, "bot-requests-telegram", true, "Should let telegram bot send commands?")
-	tools.StringVarFlagWithEnv(&c.logParams.LogLevel, "log-level", "INFO",
+	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR.")
-	tools.StringVarFlagWithEnv(&c.logParams.LoggerType, "log-type", "pretty",
+	tools.StringVarFlagWithEnv(&c.logType, "log-type", "pretty",
 		"Set the logger output format. Supported types: text, json, pretty.")
 	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
 		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
@@ -323,13 +322,10 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	lp, logErr := logging.ParametersFromFlags(cfg.logParams)
-	if logErr != nil {
-		return logErr
+	logger, lErr := logging.SetupLogger(cfg.logLevel, cfg.logType)
+	if lErr != nil {
+		return errors.Wrapf(lErr, "failed to setup logger with level %q and type %q", cfg.logLevel, cfg.logType)
 	}
-	h := gl.NewHandler(lp.Type, lp.Level)
-	logger := slog.New(h)
-	slog.SetDefault(logger)
 
 	logger.Info("Starting nodemon", slog.String("version", internal.Version()))
 

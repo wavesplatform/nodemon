@@ -3,14 +3,13 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
-
-	gl "github.com/wavesplatform/gowaves/pkg/logging"
 
 	"nodemon/cmd/bots/internal/bots"
 	"nodemon/cmd/bots/internal/bots/api"
@@ -49,7 +48,8 @@ type discordBotConfig struct {
 	development      bool
 	bindAddress      string
 	scheme           string
-	logParams        logging.ParametersFlags
+	logLevel         string
+	logType          string
 }
 
 func newDiscordBotConfigConfig() *discordBotConfig {
@@ -60,9 +60,9 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 		"", "The secret token used to authenticate the bot")
 	tools.StringVarFlagWithEnv(&c.discordChatID, "discord-chat-id",
 		"", "discord chat ID to send alerts through")
-	tools.StringVarFlagWithEnv(&c.logParams.LogLevel, "log-level", "INFO",
+	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
 		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR.")
-	tools.StringVarFlagWithEnv(&c.logParams.LoggerType, "log-type", "pretty",
+	tools.StringVarFlagWithEnv(&c.logType, "log-type", "pretty",
 		"Set the logger output format. Supported types: text, json, pretty.")
 	tools.BoolVarFlagWithEnv(&c.development, "development", false, "Development mode.")
 	tools.StringVarFlagWithEnv(&c.bindAddress, "bind", "",
@@ -92,13 +92,10 @@ func runDiscordBot() error {
 	cfg := newDiscordBotConfigConfig()
 	flag.Parse()
 
-	lp, logErr := logging.ParametersFromFlags(cfg.logParams)
-	if logErr != nil {
-		return logErr
+	logger, lErr := logging.SetupLogger(cfg.logLevel, cfg.logType)
+	if lErr != nil {
+		return fmt.Errorf("failed to setup logger with level %q and type %q: %w", cfg.logLevel, cfg.logType, lErr)
 	}
-	h := gl.NewHandler(lp.Type, lp.Level)
-	logger := slog.New(h)
-	slog.SetDefault(logger)
 
 	logger.Info("Starting discord bot", slog.String("version", internal.Version()))
 
