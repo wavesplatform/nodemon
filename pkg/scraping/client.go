@@ -62,7 +62,7 @@ func (c *nodeClient) blockHeader(ctx context.Context, height uint64) (*client.He
 	headers, _, err := c.cl.Blocks.HeadersAt(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
-		c.logger.Error("headers at request failed",
+		c.logger.Error("Headers at request failed",
 			slog.String("node", nodeURL), slog.Uint64("height", height), attrs.Error(err),
 		)
 		return nil, err

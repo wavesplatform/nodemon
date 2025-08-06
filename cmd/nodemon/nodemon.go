@@ -132,7 +132,7 @@ func (c *nodemonL2Config) validate(logger *slog.Logger) error {
 	}
 	for i, nodeName := range names {
 		if nodeName == "" {
-			logger.Error("i-th node name is empty", slog.Int("i", i+1))
+			logger.Error("I-th node name is empty", slog.Int("i", i+1))
 			return errInvalidParameters
 		}
 	}
@@ -344,13 +344,13 @@ func run() error {
 
 	scraper, err := scraping.NewScraper(ns, es, cfg.interval, cfg.timeout, logger)
 	if err != nil {
-		logger.Error("failed to initialize scraper", attrs.Error(err))
+		logger.Error("Failed to initialize scraper", attrs.Error(err))
 		return err
 	}
 
 	privateNodesHandler, err := specific.NewPrivateNodesHandlerWithUnreachableInitialState(es, ns, logger)
 	if err != nil {
-		logger.Error("failed to create private nodes handler with unreachable initial state", attrs.Error(err))
+		logger.Error("Failed to create private nodes handler with unreachable initial state", attrs.Error(err))
 		return err
 	}
 
@@ -372,13 +372,13 @@ func initializeStorages(
 ) (nodes.Storage, *events.Storage, error) {
 	ns, err := createNodesStorage(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to initialize nodes storage", attrs.Error(err))
+		logger.Error("Failed to initialize nodes storage", attrs.Error(err))
 		return nil, nil, err
 	}
 
 	es, err := events.NewStorage(cfg.retention, logger)
 	if err != nil {
-		logger.Error("failed to initialize events storage", attrs.Error(err))
+		logger.Error("Failed to initialize events storage", attrs.Error(err))
 		return nil, nil, err
 	}
 
@@ -387,10 +387,10 @@ func initializeStorages(
 
 func closeStorages(ns nodes.Storage, es *events.Storage, logger *slog.Logger) {
 	if err := ns.Close(); err != nil {
-		logger.Error("failed to close nodes storage", attrs.Error(err))
+		logger.Error("Failed to close nodes storage", attrs.Error(err))
 	}
 	if err := es.Close(); err != nil {
-		logger.Error("failed to close events storage", attrs.Error(err))
+		logger.Error("Failed to close events storage", attrs.Error(err))
 	}
 }
 
@@ -411,12 +411,12 @@ func startServices( //nolint:nonamedreturns // needs in defer
 	pew := privateNodesHandler.PrivateNodesEventsWriter()
 	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, cfg.development)
 	if err != nil {
-		logger.Error("failed to initialize API", attrs.Error(err))
+		logger.Error("Failed to initialize API", attrs.Error(err))
 		return nil, err
 	}
 
 	if apiErr := a.StartCtx(ctx); apiErr != nil {
-		logger.Error("failed to start API", attrs.Error(apiErr))
+		logger.Error("Failed to start API", attrs.Error(apiErr))
 		return nil, apiErr
 	}
 	defer func() {
@@ -434,7 +434,7 @@ func startServices( //nolint:nonamedreturns // needs in defer
 			nCfg.readyForConnectionsTimeout,
 		)
 		if nErr != nil {
-			logger.Error("failed to start NATS server", attrs.Error(nErr))
+			logger.Error("Failed to start NATS server", attrs.Error(nErr))
 			return nil, nErr
 		}
 		defer func() {
@@ -468,7 +468,7 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *slog.Lo
 	if cfg.vault.present() {
 		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
 		if clErr != nil {
-			logger.Error("failed to create vault client", attrs.Error(clErr))
+			logger.Error("Failed to create vault client", attrs.Error(clErr))
 			return nil, clErr
 		}
 		ns, err = nodes.NewJSONVaultStorage(
@@ -483,7 +483,7 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *slog.Lo
 		ns, err = nodes.NewJSONFileStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
 	}
 	if err != nil {
-		logger.Error("failed to initialize nodes storage", attrs.Error(err))
+		logger.Error("Failed to initialize nodes storage", attrs.Error(err))
 		return nil, err
 	}
 	return ns, nil
@@ -515,7 +515,7 @@ func runMessagingServices(
 	go func() {
 		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.natsMessagingURL, alerts, logger, cfg.scheme)
 		if pubSubErr != nil {
-			logger.Error("failed to start pub messaging server", attrs.Error(pubSubErr))
+			logger.Error("Failed to start pub messaging server", attrs.Error(pubSubErr))
 			panic(pubSubErr)
 		}
 	}()
@@ -525,7 +525,7 @@ func runMessagingServices(
 			telegramTopic := messaging.TelegramBotRequestsTopic(cfg.scheme)
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, telegramTopic)
 			if pairErr != nil {
-				logger.Error("failed to start pair messaging server", attrs.Error(pairErr))
+				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
 				panic(pairErr)
 			}
 		}()
@@ -536,7 +536,7 @@ func runMessagingServices(
 			discordTopic := messaging.DiscordBotRequestsTopic(cfg.scheme)
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, discordTopic)
 			if pairErr != nil {
-				logger.Error("failed to start pair messaging server", attrs.Error(pairErr))
+				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
 				panic(pairErr)
 			}
 		}()

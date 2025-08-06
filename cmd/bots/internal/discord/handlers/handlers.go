@@ -66,7 +66,7 @@ func handleRemoveCmd(
 	if url == "" {
 		_, err := s.ChannelMessageSend(environment.ChatID, "Please provide a URL to remove")
 		if err != nil {
-			logger.Error("failed to send a message to discord", attrs.Error(err))
+			logger.Error("Failed to send a message to discord", attrs.Error(err))
 		}
 		return
 	}
@@ -74,7 +74,7 @@ func handleRemoveCmd(
 	if err != nil {
 		_, sendErr := s.ChannelMessageSend(environment.ChatID, "Failed to remove a node, "+err.Error())
 		if sendErr != nil {
-			logger.Error("failed to send a message to discord", attrs.Error(sendErr))
+			logger.Error("Failed to send a message to discord", attrs.Error(sendErr))
 		}
 	}
 }
@@ -90,7 +90,7 @@ func handleAddCmd(
 	if url == "" {
 		_, err := s.ChannelMessageSend(environment.ChatID, "Please provide a URL to add")
 		if err != nil {
-			logger.Error("failed to send a message to discord", attrs.Error(err))
+			logger.Error("Failed to send a message to discord", attrs.Error(err))
 		}
 		return
 	}
@@ -98,7 +98,7 @@ func handleAddCmd(
 	if err != nil {
 		_, sendErr := s.ChannelMessageSend(environment.ChatID, "Failed to add a node, "+err.Error())
 		if sendErr != nil {
-			logger.Error("failed to send a message to discord", attrs.Error(sendErr))
+			logger.Error("Failed to send a message to discord", attrs.Error(sendErr))
 		}
 	}
 }
@@ -112,17 +112,17 @@ func handleStatusCmd(
 ) {
 	nodes, err := messaging.RequestAllNodes(requestType, responsePairType)
 	if err != nil {
-		logger.Error("failed to get nodes list", attrs.Error(err))
+		logger.Error("Failed to get nodes list", attrs.Error(err))
 	}
 	urls := messaging.NodesToUrls(nodes)
 
 	nodesStatus, err := messaging.RequestNodesStatements(requestType, responsePairType, urls)
 	if err != nil {
-		logger.Error("failed to request nodes status", attrs.Error(err))
+		logger.Error("Failed to request nodes status", attrs.Error(err))
 	}
 	msg, statusCondition, err := bots.HandleNodesStatus(nodesStatus, env.TemplatesExtension(), nodes)
 	if err != nil {
-		logger.Error("failed to handle nodes status", attrs.Error(err))
+		logger.Error("Failed to handle nodes status", attrs.Error(err))
 	}
 	if statusCondition.AllNodesAreOk {
 		msg = fmt.Sprintf("%d %s", statusCondition.NodesNumber, msg)
@@ -131,21 +131,21 @@ func handleStatusCmd(
 	msg = fmt.Sprintf("```yaml\n%s\n```", msg)
 	_, err = s.ChannelMessageSend(env.ChatID, msg)
 	if err != nil {
-		logger.Error("failed to send a message to discord", attrs.Error(err))
+		logger.Error("Failed to send a message to discord", attrs.Error(err))
 	}
 }
 
 func handleHelpCmd(s *discordgo.Session, environment *bots.DiscordBotEnvironment, logger *slog.Logger) {
 	_, err := s.ChannelMessageSend(environment.ChatID, messages.HelpInfoText)
 	if err != nil {
-		logger.Error("failed to send a message to discord", attrs.Error(err))
+		logger.Error("Failed to send a message to discord", attrs.Error(err))
 	}
 }
 
 func handlePingCmd(s *discordgo.Session, environment *bots.DiscordBotEnvironment, logger *slog.Logger) {
 	_, err := s.ChannelMessageSend(environment.ChatID, "Pong!")
 	if err != nil {
-		logger.Error("failed to send a message to discord", attrs.Error(err))
+		logger.Error("Failed to send a message to discord", attrs.Error(err))
 	}
 }
 

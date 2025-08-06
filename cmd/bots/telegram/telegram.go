@@ -85,19 +85,19 @@ func newTelegramBotConfig() *telegramBotConfig {
 
 func (c *telegramBotConfig) validate(logger *slog.Logger) error {
 	if c.tgBotToken == "" {
-		logger.Error("telegram bot token is required")
+		logger.Error("Telegram bot token is required")
 		return bots.ErrInvalidParameters
 	}
 	if c.behavior == config.WebhookMethod && c.publicURL == "" {
-		logger.Error("public url is required for webhook method")
+		logger.Error("Public url is required for webhook method")
 		return bots.ErrInvalidParameters
 	}
 	if c.scheme == "" {
-		logger.Error("the blockchain scheme must be specified")
+		logger.Error("The blockchain scheme must be specified")
 		return bots.ErrInvalidParameters
 	}
 	if c.tgChatID == 0 {
-		logger.Error("telegram chat ID is required")
+		logger.Error("Telegram chat ID is required")
 		return bots.ErrInvalidParameters
 	}
 	return nil
@@ -127,7 +127,7 @@ func runTelegramBot() error {
 	tgBotEnv, initErr := initial.InitTgBot(cfg.behavior, cfg.webhookLocalAddress, cfg.publicURL,
 		cfg.tgBotToken, cfg.tgChatID, logger, requestChan, responseChan, cfg.scheme)
 	if initErr != nil {
-		logger.Error("failed to initialize telegram bot", attrs.Error(initErr))
+		logger.Error("Failed to initialize telegram bot", attrs.Error(initErr))
 		return initErr
 	}
 
@@ -154,14 +154,14 @@ func runTelegramBot() error {
 	err := bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, tgBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
-		logger.Error("failed to schedule nodes status alert", attrs.Error(err))
+		logger.Error("Failed to schedule nodes status alert", attrs.Error(err))
 		return err
 	}
 	logger.Info("Nodes status alert has been scheduled successfully")
 
 	err = tgBotEnv.Start(ctx)
 	if err != nil {
-		logger.Error("failed to start telegram bot", attrs.Error(err))
+		logger.Error("Failed to start telegram bot", attrs.Error(err))
 		return err
 	}
 	<-ctx.Done()
@@ -185,7 +185,7 @@ func runMessagingClients(
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
-			logger.Error("failed to start sub messaging service", attrs.Error(err))
+			logger.Error("Failed to start sub messaging service", attrs.Error(err))
 			panic(err)
 		}
 	}()
@@ -194,7 +194,7 @@ func runMessagingClients(
 		topic := generalMessaging.TelegramBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
-			logger.Error("failed to start pair messaging service", attrs.Error(err))
+			logger.Error("Failed to start pair messaging service", attrs.Error(err))
 			panic(err)
 		}
 	}()

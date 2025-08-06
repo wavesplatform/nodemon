@@ -59,13 +59,13 @@ func renewToken(ctx context.Context, logger *slog.Logger, client *vault.Client, 
 		}
 		vaultLoginResp, loginErr := vaultLogin(ctx, client, user, pass)
 		if loginErr != nil && !errors.Is(loginErr, context.Canceled) {
-			logger.Error("unable to authenticate to Vault", attrs.Error(loginErr))
+			logger.Error("Unable to authenticate to Vault", attrs.Error(loginErr))
 			panic(loginErr)
 		}
 		logger.Info("Successfully authenticated to Vault", slog.String("request_id", vaultLoginResp.RequestID))
 		tokenErr := manageTokenLifecycle(ctx, logger, client, vaultLoginResp)
 		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) && !errors.Is(tokenErr, errWatcherRenewFailed) {
-			logger.Error("unable to start managing token lifecycle", attrs.Error(tokenErr))
+			logger.Error("Unable to start managing token lifecycle", attrs.Error(tokenErr))
 			panic(tokenErr)
 		}
 	}

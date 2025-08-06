@@ -23,7 +23,7 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 	alertHandlerFunc := func(msg *nats.Msg) {
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {
-			logger.Error("failed to handle received message from pubsub server", attrs.Error(hndlErr))
+			logger.Error("Failed to handle received message from pubsub server", attrs.Error(hndlErr))
 		}
 	}
 	bot.SetAlertHandlerFunc(alertHandlerFunc)
@@ -32,10 +32,10 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 		return subscrErr
 	}
 
-	logger.Info("sub messaging service started", slog.String("natsServerURL", natsServerURL))
+	logger.Info("Sub messaging service started", slog.String("natsServerURL", natsServerURL))
 	<-ctx.Done()
-	logger.Info("stopping sub messaging service...")
-	logger.Info("sub messaging service finished")
+	logger.Info("Stopping sub messaging service...")
+	logger.Info("Sub messaging service finished")
 	return nil
 }
 

@@ -42,12 +42,12 @@ func StartPairMessagingServer(
 	_, subErr := nc.Subscribe(botRequestsTopic, func(request *nats.Msg) {
 		response, handleErr := handleMessage(request.Data, ns, logger, es, pew)
 		if handleErr != nil {
-			logger.Error("failed to handle bot request", attrs.Error(handleErr))
+			logger.Error("Failed to handle bot request", attrs.Error(handleErr))
 			return
 		}
 		respondErr := request.Respond(response)
 		if respondErr != nil {
-			logger.Error("failed to respond to bot request", attrs.Error(respondErr))
+			logger.Error("Failed to respond to bot request", attrs.Error(respondErr))
 			return
 		}
 	})
@@ -66,7 +66,7 @@ func handleMessage(
 	pew specific.PrivateNodesEventsWriter,
 ) ([]byte, error) {
 	if len(rawMsg) == 0 {
-		logger.Warn("empty raw message received from pair socket")
+		logger.Warn("Empty raw message received from pair socket")
 		return nil, nil
 	}
 	var (
@@ -177,7 +177,7 @@ func handleNodesStatementsRequest(msg []byte, es *events.Storage, logger *slog.L
 		nodesStatusResp.ErrMessage = events.ErrStorageIsNotReady.Error()
 	default:
 		if err != nil {
-			logger.Error("failed to find all statehashes by last height", attrs.Error(err))
+			logger.Error("Failed to find all statehashes by last height", attrs.Error(err))
 		}
 	}
 

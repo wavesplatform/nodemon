@@ -74,15 +74,15 @@ func newDiscordBotConfigConfig() *discordBotConfig {
 
 func (c *discordBotConfig) validate(logger *slog.Logger) error {
 	if c.discordBotToken == "" {
-		logger.Error("discord bot token is required")
+		logger.Error("Discord bot token is required")
 		return bots.ErrInvalidParameters
 	}
 	if c.scheme == "" {
-		logger.Error("the blockchain scheme must be specified")
+		logger.Error("The blockchain scheme must be specified")
 		return bots.ErrInvalidParameters
 	}
 	if c.discordChatID == "" {
-		logger.Error("discord chat ID is required")
+		logger.Error("Discord chat ID is required")
 		return bots.ErrInvalidParameters
 	}
 	return nil
@@ -143,7 +143,7 @@ func runDiscordBot() error {
 	err := bots.ScheduleNodesStatus(taskScheduler, requestChan, responseChan, discordBotEnv, logger)
 	if err != nil {
 		taskScheduler.Shutdown()
-		logger.Error("failed to schedule nodes status", attrs.Error(err))
+		logger.Error("Failed to schedule nodes status", attrs.Error(err))
 		return err
 	}
 
@@ -151,12 +151,12 @@ func runDiscordBot() error {
 
 	err = discordBotEnv.Start()
 	if err != nil {
-		logger.Error("failed to start discord bot", attrs.Error(err))
+		logger.Error("Failed to start discord bot", attrs.Error(err))
 		return err
 	}
 	defer func() {
 		if closeErr := discordBotEnv.Bot.Close(); closeErr != nil {
-			logger.Error("failed to close discord bot web socket", attrs.Error(closeErr))
+			logger.Error("Failed to close discord bot web socket", attrs.Error(closeErr))
 		}
 	}()
 	<-ctx.Done()
@@ -184,7 +184,7 @@ func runMessagingClients(
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if err != nil {
-			logger.Error("failed to start sub messaging client", attrs.Error(err))
+			logger.Error("Failed to start sub messaging client", attrs.Error(err))
 			panic(err)
 		}
 	}()
@@ -193,7 +193,7 @@ func runMessagingClients(
 		topic := generalMessaging.DiscordBotRequestsTopic(cfg.scheme)
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
-			logger.Error("failed to start pair messaging client", attrs.Error(err))
+			logger.Error("Failed to start pair messaging client", attrs.Error(err))
 			panic(err)
 		}
 	}()

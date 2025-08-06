@@ -125,7 +125,7 @@ func aliasesCmd(
 	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responseChan)
 		if err != nil {
-			logger.Error("failed to request nodes list", attrs.Error(err))
+			logger.Error("Failed to request nodes list", attrs.Error(err))
 			return errors.Wrap(err, "failed to get nodes list")
 		}
 		var msg string
@@ -180,14 +180,14 @@ func viewChains(
 		// TODO include private nodes too after they support sending Generators
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
-			logger.Error("failed to get nodes list", attrs.Error(err))
+			logger.Error("Failed to get nodes list", attrs.Error(err))
 			return err
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatements, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
-			logger.Error("failed to request status of nodes", attrs.Error(err))
+			logger.Error("Failed to request status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -197,7 +197,7 @@ func viewChains(
 
 		msg, err := bots.HandleNodesChains(nodesStatements, ext)
 		if err != nil {
-			logger.Error("failed to handle status of nodes", attrs.Error(err))
+			logger.Error("Failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -214,19 +214,19 @@ func statusCmd(
 	return func(c telebot.Context) error {
 		nodes, err := messaging.RequestAllNodes(requestChan, responsePairType)
 		if err != nil {
-			logger.Error("failed to get nodes list", attrs.Error(err))
+			logger.Error("Failed to get nodes list", attrs.Error(err))
 		}
 		urls := messaging.NodesToUrls(nodes)
 
 		nodesStatus, err := messaging.RequestNodesStatements(requestChan, responsePairType, urls)
 		if err != nil {
-			logger.Error("failed to request status of nodes", attrs.Error(err))
+			logger.Error("Failed to request status of nodes", attrs.Error(err))
 			return err
 		}
 
 		msg, statusCondition, err := bots.HandleNodesStatus(nodesStatus, ext, nodes)
 		if err != nil {
-			logger.Error("failed to handle status of nodes", attrs.Error(err))
+			logger.Error("Failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 
@@ -263,13 +263,13 @@ func statementCmd(
 		}
 		statement, err := messaging.RequestNodeStatement(requestChan, responseChan, updatedURL, height)
 		if err != nil {
-			logger.Error("failed to request nodes list buttons", attrs.Error(err))
+			logger.Error("Failed to request nodes list buttons", attrs.Error(err))
 			return err
 		}
 
 		msg, err := bots.HandleNodeStatement(statement, ext)
 		if err != nil {
-			logger.Error("failed to handle status of nodes", attrs.Error(err))
+			logger.Error("Failed to handle status of nodes", attrs.Error(err))
 			return err
 		}
 

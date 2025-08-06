@@ -31,7 +31,7 @@ func InitTgBot(behavior string,
 		return nil, errors.Wrap(err, "failed to start telegram bot")
 	}
 
-	logger.Debug("telegram chat id for sending alerts is", slog.Int64("chatID", chatID))
+	logger.Debug("Telegram chat id for sending alerts is", slog.Int64("chatID", chatID))
 
 	tgBotEnv := bots.NewTelegramBotEnvironment(bot, chatID, false, logger, requestType, responsePairType, scheme)
 	return tgBotEnv, nil
@@ -49,7 +49,7 @@ func InitDiscordBot(
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to start discord bot")
 	}
-	logger.Debug("discord chat id for sending alerts is", slog.String("chatID", chatID))
+	logger.Debug("Discord chat id for sending alerts is", slog.String("chatID", chatID))
 
 	bot.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 	dscBotEnv := bots.NewDiscordBotEnvironment(bot, chatID, logger, requestType, responsePairType, scheme)

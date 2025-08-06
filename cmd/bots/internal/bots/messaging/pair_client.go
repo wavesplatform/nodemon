@@ -35,11 +35,11 @@ func StartPairMessagingClient(
 
 	done := runPairLoop(ctx, requestPair, nc, logger, responsePair, botRequestsTopic)
 
-	logger.Info("pair messaging service started", slog.String("natsServerURL", natsServerURL))
+	logger.Info("Pair messaging service started", slog.String("natsServerURL", natsServerURL))
 	<-ctx.Done()
-	logger.Info("stopping pair messaging service...")
+	logger.Info("Stopping pair messaging service...")
 	<-done
-	logger.Info("pair messaging service finished")
+	logger.Info("Pair messaging service finished")
 	return nil
 }
 
@@ -67,7 +67,7 @@ func runPairLoop(
 
 				err := handlePairRequest(ctx, request, nc, message, logger, responsePair, botRequestsTopic)
 				if err != nil {
-					logger.Error("failed to handle pair request", attrs.Type(request), attrs.Error(err))
+					logger.Error("Failed to handle pair request", attrs.Type(request), attrs.Error(err))
 				}
 			}
 		}
@@ -136,7 +136,7 @@ func handleNodesStatementRequest(
 	case responsePair <- &nodeStatementResp:
 		return nil
 	case <-ctx.Done():
-		logger.Error("failed to send node statement response, timeout exceeded",
+		logger.Error("Failed to send node statement response, timeout exceeded",
 			slog.Duration("timeout", defaultResponseTimeout),
 			attrs.ByteString("node-statement-response", response.Data),
 			attrs.Error(ctx.Err()),
@@ -172,7 +172,7 @@ func handleNodesStatementsRequest(
 	case responsePair <- &nodesStatusResp:
 		return nil
 	case <-ctx.Done():
-		logger.Error("failed to send nodes status response, timeout exceeded",
+		logger.Error("Failed to send nodes status response, timeout exceeded",
 			slog.Duration("timeout", defaultResponseTimeout),
 			attrs.ByteString("nodes-status-response", response.Data),
 			attrs.Error(ctx.Err()),
@@ -240,7 +240,7 @@ func handleNodesListRequest(
 	case responsePair <- &nodeList:
 		return nil
 	case <-ctx.Done():
-		logger.Error("failed to send nodes list response, timeout exceeded",
+		logger.Error("Failed to send nodes list response, timeout exceeded",
 			slog.Duration("timeout", defaultResponseTimeout),
 			attrs.ByteString("nodes-status-response", response.Data),
 			attrs.Error(ctx.Err()),
