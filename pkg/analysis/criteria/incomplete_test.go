@@ -2,17 +2,17 @@ package criteria_test
 
 import (
 	"fmt"
-	"log"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 func mkIncompleteEvents(node string, startHeight, count int) []entities.Event {
@@ -24,15 +24,7 @@ func mkIncompleteEvents(node string, startHeight, count int) []entities.Event {
 }
 
 func TestIncompleteCriterion_Analyze(t *testing.T) {
-	logger, loggerErr := zap.NewDevelopment()
-	if loggerErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", loggerErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	commonStateHashes := generateFiveStateHashes(250)
 	tests := []struct {

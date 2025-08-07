@@ -2,10 +2,11 @@ package events_test
 
 import (
 	"errors"
-	"log"
 	"sort"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
@@ -15,7 +16,6 @@ import (
 	"github.com/stretchr/testify/suite"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 )
 
 type EventsStorageTestSuite struct {
@@ -24,15 +24,7 @@ type EventsStorageTestSuite struct {
 }
 
 func (s *EventsStorageTestSuite) SetupTest() {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(s.T())
 	es, err := events.NewStorage(time.Minute, logger)
 	s.Require().NoError(err)
 	s.es = es
@@ -314,15 +306,7 @@ func TestEventsStorage(t *testing.T) {
 }
 
 func TestEarliestHeight(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	for _, test := range []struct {
 		node     string
@@ -373,15 +357,7 @@ func TestEarliestHeight(t *testing.T) {
 }
 
 func TestLatestHeight(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	for _, test := range []struct {
 		node     string
@@ -437,15 +413,7 @@ func TestLatestHeight(t *testing.T) {
 }
 
 func TestLastStateHashAtHeight(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("can't initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	d1 := crypto.Digest([32]byte{0x01})
 	d2 := crypto.Digest([32]byte{0x02})
@@ -537,15 +505,7 @@ func putEvents(t *testing.T, st *events.Storage, events []entities.Event) {
 }
 
 func TestStatusSameHeightInStorage(t *testing.T) {
-	logger, logErr := zap.NewDevelopment()
-	if logErr != nil {
-		log.Fatalf("failed to initialize zap logger: %v", logErr)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	d1 := crypto.Digest([32]byte{0x01})
 	d2 := crypto.Digest([32]byte{0x02})

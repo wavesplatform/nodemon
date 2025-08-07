@@ -2,16 +2,17 @@ package events
 
 import (
 	"encoding/json"
+	"log/slog"
 	"math"
 	"strconv"
 	"time"
 
 	"nodemon/pkg/entities"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 )
 
 var (
@@ -26,15 +27,15 @@ const (
 type Storage struct {
 	db                *buntdb.DB
 	retentionDuration time.Duration
-	zap               *zap.Logger
+	logger            *slog.Logger
 }
 
-func NewStorage(retentionDuration time.Duration, logger *zap.Logger) (*Storage, error) {
+func NewStorage(retentionDuration time.Duration, logger *slog.Logger) (*Storage, error) {
 	db, err := buntdb.Open(":memory:")
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to open events storage")
 	}
-	return &Storage{db: db, retentionDuration: retentionDuration, zap: logger}, nil
+	return &Storage{db: db, retentionDuration: retentionDuration, logger: logger}, nil
 }
 
 func (s *Storage) Close() error {
@@ -95,7 +96,7 @@ func (s *Storage) PutEvent(event entities.Event) error {
 	if err != nil {
 		return errors.Wrap(err, "failed to store event")
 	}
-	s.zap.Debug("New statement for node", zap.String("node", event.Node()), zap.String("statement", v))
+	s.logger.Debug("New statement for node", slog.String("node", event.Node()), slog.String("statement", v))
 	return nil
 }
 
@@ -311,8 +312,8 @@ func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height uint6
 				return nil,
 					errors.Wrapf(storErr, "failed to find statement at height %d for node '%s'", height, node)
 			}
-			s.zap.Error("failed to find statement at height",
-				zap.Uint64("height", height), zap.String("node", node), zap.Error(storErr),
+			s.logger.Error("Failed to find statement at height",
+				slog.Uint64("height", height), slog.String("node", node), attrs.Error(storErr),
 			)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
 				Node:   node,
@@ -323,8 +324,9 @@ func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height uint6
 		if statement.Height == height {
 			statementsOnHeight = append(statementsOnHeight, statement)
 		} else {
-			s.zap.Sugar().Errorf("wrong height in statement for node %s on min height %d, received %d",
-				node, height, statement.Height,
+			s.logger.Error("Wrong height in statement for node",
+				slog.String("node", node), slog.Uint64("min_height", height),
+				slog.Uint64("received_height", statement.Height),
 			)
 			statementsOnHeight = append(statementsOnHeight, entities.NodeStatement{
 				Node:   node,

@@ -3,6 +3,7 @@ package analysis
 import (
 	"context"
 	"iter"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -10,9 +11,9 @@ import (
 	"nodemon/pkg/analysis/storage"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/storing/events"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type AnalyzerOptions struct {
@@ -28,17 +29,17 @@ type AnalyzerOptions struct {
 }
 
 type Analyzer struct {
-	es   *events.Storage
-	as   *storage.AlertsStorage
-	opts *AnalyzerOptions
-	zap  *zap.Logger
+	es     *events.Storage
+	as     *storage.AlertsStorage
+	opts   *AnalyzerOptions
+	logger *slog.Logger
 }
 
 const (
 	heightAlertConfirmationsDefault = 2
 )
 
-func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) *Analyzer {
+func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *slog.Logger) *Analyzer {
 	if opts == nil {
 		opts = &AnalyzerOptions{}
 	}
@@ -62,7 +63,7 @@ func NewAnalyzer(es *events.Storage, opts *AnalyzerOptions, logger *zap.Logger) 
 		storage.AlertVacuumQuota(opts.AlertVacuumQuota),
 		storage.AlertConfirmations(opts.AlertConfirmations...),
 	)
-	return &Analyzer{es: es, as: as, opts: opts, zap: logger}
+	return &Analyzer{es: es, as: as, opts: opts, logger: logger}
 }
 
 func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.NodesGatheringNotification) error {
@@ -94,7 +95,7 @@ func (a *Analyzer) analyze(alerts chan<- entities.Alert, pollingResult entities.
 		go func(f func(in chan<- entities.Alert) error) {
 			defer wg.Done()
 			if routineErr := f(criteriaOut); routineErr != nil {
-				a.zap.Error("Error occurred on criterion routine", zap.Error(routineErr))
+				a.logger.Error("Error occurred on criterion routine", attrs.Error(routineErr))
 				criteriaOut <- entities.NewInternalErrorAlert(pollingResult.Timestamp(), routineErr)
 			}
 		}(f)
@@ -153,7 +154,7 @@ func (a *Analyzer) criteriaRoutines(
 	}
 	return []func(in chan<- entities.Alert) error{
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewIncompleteCriterion(a.es, a.opts.IncompleteCriteriaOpts, a.zap)
+			criterion := criteria.NewIncompleteCriterion(a.es, a.opts.IncompleteCriteriaOpts, a.logger)
 			return criterion.Analyze(in, statusSplit[entities.Incomplete])
 		},
 		func(in chan<- entities.Alert) error {
@@ -163,22 +164,22 @@ func (a *Analyzer) criteriaRoutines(
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewChallengedBlockCriterion(a.opts.ChallengeCriterionOpts, a.zap)
+			criterion := criteria.NewChallengedBlockCriterion(a.opts.ChallengeCriterionOpts, a.logger)
 			statementsToAnalyze := joinSlicesSeq2(statusSplit[entities.Incomplete], statusSplit[entities.OK])
 			criterion.Analyze(in, timestamp, statementsToAnalyze)
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts, a.zap)
+			criterion := criteria.NewUnreachableCriterion(a.es, a.opts.UnreachableCriteriaOpts, a.logger)
 			return criterion.Analyze(in, timestamp, statusSplit[entities.Unreachable])
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts, a.zap)
+			criterion := criteria.NewHeightCriterion(a.opts.HeightCriteriaOpts, a.logger)
 			criterion.Analyze(in, timestamp, statusSplit[entities.OK])
 			return nil
 		},
 		func(in chan<- entities.Alert) error {
-			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.zap)
+			criterion := criteria.NewStateHashCriterion(a.es, a.opts.StateHashCriteriaOpts, a.logger)
 			return criterion.Analyze(in, timestamp, statusSplit[entities.OK])
 		},
 		func(in chan<- entities.Alert) error {
@@ -199,7 +200,7 @@ func (a *Analyzer) Start(notifications <-chan entities.NodesGatheringNotificatio
 		for n := range notifications {
 			err := a.processNotification(alerts, n)
 			if err != nil {
-				a.zap.Error("Failed to process notification", zap.Error(err))
+				a.logger.Error("Failed to process notification", attrs.Error(err))
 				ts := time.Now().Unix()
 				ia := entities.NewInternalErrorAlert(ts, errors.Wrap(err, "analyzer: failed to process notification"))
 				alerts <- ia
@@ -217,12 +218,12 @@ func (a *Analyzer) processNotification(alerts chan<- entities.Alert, n entities.
 	if nodesCount == 0 { // nothing to analyze
 		return nil
 	}
-	a.zap.Sugar().Infof("Statements gathering completed with %d nodes", nodesCount)
+	a.logger.Info("Statements gathering completed", slog.Int("nodes_count", nodesCount))
 	cnt, err := a.es.StatementsCount()
 	if err != nil {
 		return errors.Wrap(err, "failed to get statements count")
 	}
-	a.zap.Sugar().Infof("Total statements count: %d", cnt)
+	a.logger.Info("Total statements count", slog.Int("count", cnt))
 	if analyzeErr := a.analyze(alerts, n); analyzeErr != nil {
 		return errors.Wrap(analyzeErr, "failed to analyze nodes statements")
 	}

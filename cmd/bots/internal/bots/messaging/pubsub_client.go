@@ -2,19 +2,20 @@ package messaging
 
 import (
 	"context"
+	"log/slog"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 
 	"nodemon/pkg/messaging"
+	"nodemon/pkg/tools/logging/attrs"
 )
 
-func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot, logger *zap.Logger) error {
+func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot, logger *slog.Logger) error {
 	// Connect to a NATS server
 	nc, err := nats.Connect(natsServerURL, nats.Timeout(nats.DefaultTimeout))
 	if err != nil {
-		zap.S().Fatalf("Failed to connect to nats server: %v", err)
+		logger.Error("Failed to connect to nats server", attrs.Error(err))
 		return err
 	}
 	defer nc.Close()
@@ -22,7 +23,7 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 	alertHandlerFunc := func(msg *nats.Msg) {
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {
-			zap.S().Errorf("failed to handle received message from pubsub server %v", hndlErr)
+			logger.Error("Failed to handle received message from pubsub server", attrs.Error(hndlErr))
 		}
 	}
 	bot.SetAlertHandlerFunc(alertHandlerFunc)
@@ -31,9 +32,10 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 		return subscrErr
 	}
 
+	logger.Info("Sub messaging service started", slog.String("natsServerURL", natsServerURL))
 	<-ctx.Done()
-	logger.Info("stopping sub messaging service...")
-	logger.Info("sub messaging service finished")
+	logger.Info("Stopping sub messaging service...")
+	logger.Info("Sub messaging service finished")
 	return nil
 }
 

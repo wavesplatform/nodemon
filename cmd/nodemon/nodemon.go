@@ -5,6 +5,7 @@ import (
 	stderrs "errors"
 	"flag"
 	"log"
+	"log/slog"
 	"net/url"
 	"os"
 	"os/signal"
@@ -13,8 +14,8 @@ import (
 	"time"
 
 	"nodemon/pkg/messaging"
-
-	"go.uber.org/zap"
+	"nodemon/pkg/tools/logging"
+	"nodemon/pkg/tools/logging/attrs"
 
 	"nodemon/internal"
 	"nodemon/pkg/analysis"
@@ -111,7 +112,7 @@ func validateURLs(urls []string) error {
 	return stderrs.Join(errs...)
 }
 
-func (c *nodemonL2Config) validate(logger *zap.Logger) error {
+func (c *nodemonL2Config) validate(logger *slog.Logger) error {
 	if !c.present() {
 		return nil
 	}
@@ -120,18 +121,18 @@ func (c *nodemonL2Config) validate(logger *zap.Logger) error {
 		names = strings.Fields(c.L2nodeNames)
 	)
 	if len(names) != 0 && len(urls) != len(names) {
-		logger.Sugar().Errorf("L2 node URLs and names should have the same length: names=%d, URLs=%d",
-			len(names), len(urls),
+		logger.Error("L2 node URLs and names should have the same length",
+			slog.Int("names", len(names)), slog.Int("urls", len(urls)),
 		)
 		return errInvalidParameters
 	}
 	if err := validateURLs(urls); err != nil {
-		logger.Error("Invalid L2 node URL", zap.Error(err))
+		logger.Error("Invalid L2 node URL", attrs.Error(err))
 		return stderrs.Join(errInvalidParameters, err)
 	}
 	for i, nodeName := range names {
 		if nodeName == "" {
-			logger.Sugar().Errorf("%d-th node name is empty", i+1)
+			logger.Error("I-th node name is empty", slog.Int("i", i+1))
 			return errInvalidParameters
 		}
 	}
@@ -181,7 +182,7 @@ func (n *nodemonVaultConfig) present() bool {
 	return n.address != ""
 }
 
-func (n *nodemonVaultConfig) validate(logger *zap.Logger) error {
+func (n *nodemonVaultConfig) validate(logger *slog.Logger) error {
 	if n.address == "" { // skip further validation
 		return nil
 	}
@@ -220,6 +221,7 @@ type nodemonConfig struct {
 	apiReadTimeout      time.Duration
 	baseTargetThreshold uint64
 	logLevel            string
+	logType             string
 	development         bool
 	vault               *nodemonVaultConfig
 	l2                  *nodemonL2Config
@@ -253,7 +255,9 @@ func newNodemonConfig() *nodemonConfig {
 	tools.BoolVarFlagWithEnv(&c.natsPairDiscord, "bot-requests-discord", false, "Should let discord bot send commands?")
 	tools.BoolVarFlagWithEnv(&c.natsPairTelegram, "bot-requests-telegram", true, "Should let telegram bot send commands?")
 	tools.StringVarFlagWithEnv(&c.logLevel, "log-level", "INFO",
-		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR, FATAL. Default logging level INFO.")
+		"Logging level. Supported levels: DEBUG, INFO, WARN, ERROR.")
+	tools.StringVarFlagWithEnv(&c.logType, "log-type", "pretty",
+		"Set the logger output format. Supported types: text, json, pretty.")
 	tools.StringVarFlagWithEnv(&c.scheme, "scheme",
 		"", "Blockchain scheme i.e. mainnet, testnet, stagenet")
 	c.vault = newNodemonVaultConfig()
@@ -262,31 +266,31 @@ func newNodemonConfig() *nodemonConfig {
 	return c
 }
 
-func (c *nodemonConfig) validate(logger *zap.Logger) error {
+func (c *nodemonConfig) validate(logger *slog.Logger) error {
 	if !c.vault.present() {
 		if len(c.storage) == 0 || len(strings.Fields(c.storage)) > 1 {
-			logger.Error("Invalid storage path", zap.String("path", c.storage))
+			logger.Error("Invalid storage path", slog.String("path", c.storage))
 			return errInvalidParameters
 		}
 	}
 	if c.interval <= 0 {
-		logger.Error("Invalid polling interval", zap.Stringer("interval", c.interval))
+		logger.Error("Invalid polling interval", attrs.Stringer("interval", c.interval))
 		return errInvalidParameters
 	}
 	if c.scheme == "" {
-		logger.Error("Empty blockchain scheme", zap.String("scheme", c.scheme))
+		logger.Error("Empty blockchain scheme", slog.String("scheme", c.scheme))
 		return errInvalidParameters
 	}
 	if c.timeout <= 0 {
-		logger.Error("Invalid network timeout", zap.Stringer("timeout", c.timeout))
+		logger.Error("Invalid network timeout", attrs.Stringer("timeout", c.timeout))
 		return errInvalidParameters
 	}
 	if c.retention <= 0 {
-		logger.Error("Invalid retention duration", zap.Stringer("retention", c.retention))
+		logger.Error("Invalid retention duration", attrs.Stringer("retention", c.retention))
 		return errInvalidParameters
 	}
 	if c.baseTargetThreshold == 0 {
-		logger.Error("Invalid base target threshold", zap.Uint64("threshold", c.baseTargetThreshold))
+		logger.Error("Invalid base target threshold", slog.Uint64("threshold", c.baseTargetThreshold))
 		return errInvalidParameters
 	}
 	return stderrs.Join(c.vault.validate(logger), c.l2.validate(logger))
@@ -300,7 +304,7 @@ func (c *nodemonConfig) runAnalyzers(
 	ctx context.Context,
 	cfg *nodemonConfig,
 	es *events.Storage,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
 ) <-chan entities.Alert {
 	alerts := runAnalyzer(cfg, es, logger, notifications)
@@ -318,18 +322,12 @@ func run() error {
 	cfg := newNodemonConfig()
 	flag.Parse()
 
-	logger, atom, err := tools.SetupZapLogger(cfg.logLevel, cfg.development)
-	if err != nil {
-		log.Printf("Failed to setup zap logger: %v", err)
-		return stderrs.Join(errInvalidParameters, err)
+	logger, lErr := logging.SetupLogger(cfg.logLevel, cfg.logType)
+	if lErr != nil {
+		return errors.Wrapf(lErr, "failed to setup logger with level %q and type %q", cfg.logLevel, cfg.logType)
 	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
 
-	logger.Info("Starting nodemon", zap.String("version", internal.Version()))
+	logger.Info("Starting nodemon", slog.String("version", internal.Version()))
 
 	if validateErr := cfg.validate(logger); validateErr != nil {
 		return validateErr
@@ -346,17 +344,17 @@ func run() error {
 
 	scraper, err := scraping.NewScraper(ns, es, cfg.interval, cfg.timeout, logger)
 	if err != nil {
-		logger.Error("failed to initialize scraper", zap.Error(err))
+		logger.Error("Failed to initialize scraper", attrs.Error(err))
 		return err
 	}
 
 	privateNodesHandler, err := specific.NewPrivateNodesHandlerWithUnreachableInitialState(es, ns, logger)
 	if err != nil {
-		logger.Error("failed to create private nodes handler with unreachable initial state", zap.Error(err))
+		logger.Error("Failed to create private nodes handler with unreachable initial state", attrs.Error(err))
 		return err
 	}
 
-	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, atom, logger)
+	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, logger)
 	if serviceErr != nil {
 		return serviceErr
 	}
@@ -367,29 +365,32 @@ func run() error {
 	return nil
 }
 
-func initializeStorages(ctx context.Context, cfg *nodemonConfig,
-	logger *zap.Logger) (nodes.Storage, *events.Storage, error) {
+func initializeStorages(
+	ctx context.Context,
+	cfg *nodemonConfig,
+	logger *slog.Logger,
+) (nodes.Storage, *events.Storage, error) {
 	ns, err := createNodesStorage(ctx, cfg, logger)
 	if err != nil {
-		logger.Error("failed to initialize nodes storage", zap.Error(err))
+		logger.Error("Failed to initialize nodes storage", attrs.Error(err))
 		return nil, nil, err
 	}
 
 	es, err := events.NewStorage(cfg.retention, logger)
 	if err != nil {
-		logger.Error("failed to initialize events storage", zap.Error(err))
+		logger.Error("Failed to initialize events storage", attrs.Error(err))
 		return nil, nil, err
 	}
 
 	return ns, es, nil
 }
 
-func closeStorages(ns nodes.Storage, es *events.Storage, logger *zap.Logger) {
+func closeStorages(ns nodes.Storage, es *events.Storage, logger *slog.Logger) {
 	if err := ns.Close(); err != nil {
-		logger.Error("failed to close nodes storage", zap.Error(err))
+		logger.Error("Failed to close nodes storage", attrs.Error(err))
 	}
 	if err := es.Close(); err != nil {
-		logger.Error("failed to close events storage", zap.Error(err))
+		logger.Error("Failed to close events storage", attrs.Error(err))
 	}
 }
 
@@ -402,21 +403,20 @@ func startServices( //nolint:nonamedreturns // needs in defer
 	es *events.Storage,
 	scraper *scraping.Scraper,
 	privateNodesHandler *specific.PrivateNodesHandler,
-	atom *zap.AtomicLevel,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) (_ shutdownFunc, runErr error) {
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scraper's notifications
 
 	pew := privateNodesHandler.PrivateNodesEventsWriter()
-	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, atom, cfg.development)
+	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, cfg.development)
 	if err != nil {
-		logger.Error("failed to initialize API", zap.Error(err))
+		logger.Error("Failed to initialize API", attrs.Error(err))
 		return nil, err
 	}
 
 	if apiErr := a.StartCtx(ctx); apiErr != nil {
-		logger.Error("failed to start API", zap.Error(apiErr))
+		logger.Error("Failed to start API", attrs.Error(apiErr))
 		return nil, apiErr
 	}
 	defer func() {
@@ -434,7 +434,7 @@ func startServices( //nolint:nonamedreturns // needs in defer
 			nCfg.readyForConnectionsTimeout,
 		)
 		if nErr != nil {
-			logger.Error("failed to start NATS server", zap.Error(nErr))
+			logger.Error("Failed to start NATS server", attrs.Error(nErr))
 			return nil, nErr
 		}
 		defer func() {
@@ -460,7 +460,7 @@ func chainShutdownFuncs(fns ...shutdownFunc) shutdownFunc {
 	}
 }
 
-func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Logger) (nodes.Storage, error) {
+func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *slog.Logger) (nodes.Storage, error) {
 	var (
 		ns  nodes.Storage
 		err error
@@ -468,7 +468,7 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Log
 	if cfg.vault.present() {
 		cl, clErr := clients.NewVaultSimpleClient(ctx, logger, cfg.vault.address, cfg.vault.user, cfg.vault.password)
 		if clErr != nil {
-			logger.Error("failed to create vault client", zap.Error(clErr))
+			logger.Error("Failed to create vault client", attrs.Error(clErr))
 			return nil, clErr
 		}
 		ns, err = nodes.NewJSONVaultStorage(
@@ -483,7 +483,7 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Log
 		ns, err = nodes.NewJSONFileStorage(cfg.storage, strings.Fields(cfg.nodes), logger)
 	}
 	if err != nil {
-		logger.Error("failed to initialize nodes storage", zap.Error(err))
+		logger.Error("Failed to initialize nodes storage", attrs.Error(err))
 		return nil, err
 	}
 	return ns, nil
@@ -492,13 +492,13 @@ func createNodesStorage(ctx context.Context, cfg *nodemonConfig, logger *zap.Log
 func runAnalyzer(
 	cfg *nodemonConfig,
 	es *events.Storage,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	notifications <-chan entities.NodesGatheringNotification,
 ) <-chan entities.Alert {
 	opts := &analysis.AnalyzerOptions{
 		BaseTargetCriterionOpts: &criteria.BaseTargetCriterionOptions{Threshold: cfg.baseTargetThreshold},
 	}
-	analyzer := analysis.NewAnalyzer(es, opts, zap)
+	analyzer := analysis.NewAnalyzer(es, opts, logger)
 	alerts := analyzer.Start(notifications)
 	return alerts
 }
@@ -507,7 +507,7 @@ func runMessagingServices(
 	ctx context.Context,
 	cfg *nodemonConfig,
 	alerts <-chan entities.Alert,
-	logger *zap.Logger,
+	logger *slog.Logger,
 	ns nodes.Storage,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
@@ -515,7 +515,8 @@ func runMessagingServices(
 	go func() {
 		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.natsMessagingURL, alerts, logger, cfg.scheme)
 		if pubSubErr != nil {
-			logger.Fatal("failed to start pub messaging server", zap.Error(pubSubErr))
+			logger.Error("Failed to start pub messaging server", attrs.Error(pubSubErr))
+			panic(pubSubErr)
 		}
 	}()
 
@@ -524,7 +525,8 @@ func runMessagingServices(
 			telegramTopic := messaging.TelegramBotRequestsTopic(cfg.scheme)
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, telegramTopic)
 			if pairErr != nil {
-				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
+				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
+				panic(pairErr)
 			}
 		}()
 	}
@@ -534,7 +536,8 @@ func runMessagingServices(
 			discordTopic := messaging.DiscordBotRequestsTopic(cfg.scheme)
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, discordTopic)
 			if pairErr != nil {
-				logger.Fatal("failed to start pair messaging server", zap.Error(pairErr))
+				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
+				panic(pairErr)
 			}
 		}()
 	}

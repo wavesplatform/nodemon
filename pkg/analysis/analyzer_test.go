@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/binary"
 	"fmt"
-	"log"
+	"log/slog"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis"
 	"nodemon/pkg/analysis/criteria"
@@ -16,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/wavesplatform/gowaves/pkg/crypto"
 	"github.com/wavesplatform/gowaves/pkg/proto"
-	"go.uber.org/zap"
 )
 
 func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event) {
@@ -97,15 +98,7 @@ type testCase struct {
 }
 
 func TestAnalyzer_analyzeStateHash(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	var (
 		forkA             = generateStateHashes(0, 5)
@@ -149,9 +142,9 @@ func TestAnalyzer_analyzeStateHash(t *testing.T) {
 	}
 }
 
-func runTestCase(zap *zap.Logger, test testCase) func(t *testing.T) {
+func runTestCase(logger *slog.Logger, test testCase) func(t *testing.T) {
 	return func(t *testing.T) {
-		es, err := events.NewStorage(time.Minute, zap)
+		es, err := events.NewStorage(time.Minute, logger)
 		require.NoError(t, err)
 		done := make(chan struct{})
 		defer func() {
@@ -170,7 +163,7 @@ func runTestCase(zap *zap.Logger, test testCase) func(t *testing.T) {
 		alerts := make(chan entities.Alert)
 		go func() {
 			defer close(done)
-			analyzer := analysis.NewAnalyzer(es, test.opts, zap)
+			analyzer := analysis.NewAnalyzer(es, test.opts, logger)
 			event := entities.NewNodesGatheringComplete(test.nodes, mkTimestamp(test.height))
 			notifications := make(chan entities.NodesGatheringNotification)
 			analyzerOut := analyzer.Start(notifications)

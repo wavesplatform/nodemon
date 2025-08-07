@@ -3,18 +3,20 @@ package clients
 import (
 	"context"
 	stderrs "errors"
+	"log/slog"
 
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/userpass"
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
+
+	"nodemon/pkg/tools/logging/attrs"
 )
 
 const (
 	vaultTokenTTLIncrement = 3600 // in seconds
 )
 
-func NewVaultSimpleClient(ctx context.Context, logger *zap.Logger, addr, user, pass string) (*vault.Client, error) {
+func NewVaultSimpleClient(ctx context.Context, logger *slog.Logger, addr, user, pass string) (*vault.Client, error) {
 	config := vault.DefaultConfig()
 	if _, err := config.ParseAddress(addr); err != nil { // change and check the vault address
 		return nil, errors.Wrap(err, "failed to parse vault address")
@@ -50,26 +52,28 @@ var errWatcherRenewFailed = errors.New("token renewal failed")
 // performance standbys or performance replication, despite the client having
 // a freshly renewed token. See https://www.vaultproject.io/docs/enterprise/consistency#vault-1-7-mitigations
 // for several ways to mitigate this which are outside the scope of this code sample.
-func renewToken(ctx context.Context, logger *zap.Logger, client *vault.Client, user, pass string) {
+func renewToken(ctx context.Context, logger *slog.Logger, client *vault.Client, user, pass string) {
 	for {
 		if ctx.Err() != nil { // context done
 			return
 		}
 		vaultLoginResp, loginErr := vaultLogin(ctx, client, user, pass)
 		if loginErr != nil && !errors.Is(loginErr, context.Canceled) {
-			logger.Fatal("unable to authenticate to Vault", zap.Error(loginErr))
+			logger.Error("Unable to authenticate to Vault", attrs.Error(loginErr))
+			panic(loginErr)
 		}
-		logger.Info("Successfully authenticated to Vault", zap.String("request_id", vaultLoginResp.RequestID))
+		logger.Info("Successfully authenticated to Vault", slog.String("request_id", vaultLoginResp.RequestID))
 		tokenErr := manageTokenLifecycle(ctx, logger, client, vaultLoginResp)
 		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) && !errors.Is(tokenErr, errWatcherRenewFailed) {
-			logger.Fatal("unable to start managing token lifecycle", zap.Error(tokenErr))
+			logger.Error("Unable to start managing token lifecycle", attrs.Error(tokenErr))
+			panic(tokenErr)
 		}
 	}
 }
 
 // Starts token lifecycle management. Returns only fatal errors as errors,
 // otherwise returns nil, so we can attempt login again.
-func manageTokenLifecycle(ctx context.Context, logger *zap.Logger, client *vault.Client, token *vault.Secret) error {
+func manageTokenLifecycle(ctx context.Context, logger *slog.Logger, client *vault.Client, token *vault.Secret) error {
 	// You may notice a different top-level field called Renewable.
 	// That one is used for dynamic secrets renewal, not token renewal.
 	if renew := token.Auth.Renewable; !renew {
@@ -101,7 +105,7 @@ func manageTokenLifecycle(ctx context.Context, logger *zap.Logger, client *vault
 		// needs to attempt to log in again.
 		case renewErr := <-watcher.DoneCh():
 			if renewErr != nil {
-				logger.Error("Failed to renew vault token. Re-attempting login.", zap.Error(renewErr))
+				logger.Error("Failed to renew vault token. Re-attempting login.", attrs.Error(renewErr))
 				return stderrs.Join(errWatcherRenewFailed, renewErr)
 			}
 			// This occurs once the token has reached max TTL.
@@ -110,7 +114,7 @@ func manageTokenLifecycle(ctx context.Context, logger *zap.Logger, client *vault
 
 		// Successfully completed renewal
 		case renewal := <-watcher.RenewCh():
-			logger.Info("Vault token successfully renewed", zap.String("request_id", renewal.Secret.RequestID))
+			logger.Info("Vault token successfully renewed", slog.String("request_id", renewal.Secret.RequestID))
 		}
 	}
 }

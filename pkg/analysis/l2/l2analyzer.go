@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	urlPackage "net/url"
 	"strconv"
@@ -17,8 +18,7 @@ import (
 	"nodemon/pkg/analysis/storage"
 	"nodemon/pkg/entities"
 	"nodemon/pkg/tools"
-
-	"go.uber.org/zap"
+	"nodemon/pkg/tools/logging/attrs"
 )
 
 const (
@@ -50,10 +50,10 @@ func setHeaders(req *http.Request, userAgent, requestID, timeSend, timeoutStr st
 	req.Header.Set("X-Request-Timeout", timeoutStr)
 }
 
-func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uint64, runErr error) {
+func collectL2Height(ctx context.Context, url string, logger *slog.Logger) (_ uint64, runErr error) {
 	// Validate the URL
 	if _, err := urlPackage.ParseRequestURI(url); err != nil {
-		logger.Error("Invalid node URL", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Invalid node URL", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("invalid node URL: %w", err)
 	}
 
@@ -64,12 +64,12 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 		"params":  []any{},
 	})
 	if err != nil {
-		logger.Error("Failed to build a request body for l2 node", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed to build a request body for l2 node", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to build a request body for l2 node: %w", err)
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(requestBody))
 	if err != nil {
-		logger.Error("Failed to create a HTTP request to l2 node", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed to create a HTTP request to l2 node", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to build a HTTP request to l2 node: %w", err)
 	}
 	userAgent := fmt.Sprintf("nodemon/%s", internal.Version())
@@ -89,7 +89,7 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		logger.Error("Failed to send a request to l2 node", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed to send a request to l2 node", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to send request to l2 node: %w", err)
 	}
 	defer func() {
@@ -99,42 +99,42 @@ func collectL2Height(ctx context.Context, url string, logger *zap.Logger) (_ uin
 	}()
 
 	if resp.ContentLength > maxResponseSize { // Content length can be -1 if not set, so use limited reader below
-		logger.Error("Response body from l2 node is too large", zap.Int64("contentLength", resp.ContentLength),
-			zap.Int("maxResponseSize", maxResponseSize), zap.String("nodeURL", url),
+		logger.Error("Response body from l2 node is too large", slog.Int64("contentLength", resp.ContentLength),
+			slog.Int("maxResponseSize", maxResponseSize), slog.String("nodeURL", url),
 		)
 		return 0, fmt.Errorf("response body is too large (%d bytes, max is %d)", resp.ContentLength, maxResponseSize)
 	}
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseSize)) // Read the body, limit to maxResponseSize
 	if err != nil {
-		logger.Error("Failed to read response body from l2 node", zap.Error(err), zap.String("nodeURL", url))
+		logger.Error("Failed to read response body from l2 node", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		logger.Error("Received non-200 response from l2 node", zap.Int("statusCode", resp.StatusCode),
-			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		logger.Error("Received non-200 response from l2 node", slog.Int("statusCode", resp.StatusCode),
+			slog.String("nodeURL", url), attrs.ByteString("responseBody", body),
 		)
 		return 0, fmt.Errorf("received non-200 response, body=%q", body)
 	}
 
 	var res response
 	if uErr := json.Unmarshal(body, &res); uErr != nil {
-		logger.Error("Failed unmarshalling response", zap.Error(uErr),
-			zap.String("nodeURL", url), zap.ByteString("responseBody", body),
+		logger.Error("Failed unmarshalling response", attrs.Error(uErr),
+			slog.String("nodeURL", url), attrs.ByteString("responseBody", body),
 		)
 		return 0, fmt.Errorf("failed to unmarshal response: %w", uErr)
 	}
 
 	height, err := hexStringToInt(res.Result)
 	if err != nil {
-		logger.Error("Failed converting hex string to integer", zap.Error(err),
-			zap.String("nodeURL", url), zap.String("resultHeight", res.Result),
+		logger.Error("Failed converting hex string to integer", attrs.Error(err),
+			slog.String("nodeURL", url), slog.String("resultHeight", res.Result),
 		)
-		return 0, fmt.Errorf("failed to convert hex string heightto integer: %w", err)
+		return 0, fmt.Errorf("failed to convert hex string height to integer: %w", err)
 	}
 	if height < 0 {
-		logger.Error("The received height is negative", zap.Int64("height", height), zap.String("nodeURL", url))
+		logger.Error("The received height is negative", slog.Int64("height", height), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("the received height is negative: %d", height)
 	}
 	return uint64(height), nil
@@ -150,7 +150,7 @@ type heightCollectorResponse struct {
 	err    error
 }
 
-func runCollector(ctx context.Context, nodeURL string, logger *zap.Logger) <-chan heightCollectorResponse {
+func runCollector(ctx context.Context, nodeURL string, logger *slog.Logger) <-chan heightCollectorResponse {
 	collectAndSend := func(heightCh chan<- heightCollectorResponse) {
 		height, err := collectL2Height(ctx, nodeURL, logger)
 		select {
@@ -160,7 +160,7 @@ func runCollector(ctx context.Context, nodeURL string, logger *zap.Logger) <-cha
 		if err != nil {
 			return // failed to collect height
 		}
-		logger.Info("L2 height collected", zap.Uint64("height", height), zap.String("nodeURL", nodeURL))
+		logger.Info("L2 height collected", slog.Uint64("height", height), slog.String("nodeURL", nodeURL))
 	}
 	collector := func(heightCh chan<- heightCollectorResponse) {
 		defer close(heightCh)
@@ -229,7 +229,7 @@ const collectorErrorAlertConfirmations = 3
 
 func analyzerLoop(
 	ctx context.Context,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	node Node,
 	alertsL2 chan<- entities.Alert,
 	heightCh <-chan heightCollectorResponse,
@@ -237,7 +237,7 @@ func analyzerLoop(
 	defer close(alertsL2)
 	alertTimer := time.NewTimer(l2NodesSameHeightTimerDuration)
 	defer alertTimer.Stop()
-	s := storage.NewAlertsStorage(zap,
+	s := storage.NewAlertsStorage(logger,
 		storage.AlertVacuumQuota(defaultAlertVacuumQuota),
 		storage.AlertConfirmations(storage.AlertConfirmationsValue{
 			AlertType:     entities.SimpleAlertType,
@@ -264,8 +264,8 @@ func analyzerLoop(
 				alertTimer.Reset(l2NodesSameHeightTimerDuration)
 			}
 		case <-alertTimer.C:
-			zap.Sugar().Infof("Alert: Height of an l2 node %s didn't change in 5 minutes, node url:%s",
-				node.Name, node.URL,
+			logger.Info("Alert: Height of an L2 node didn't change in 5 minutes",
+				slog.String("node", node.Name), slog.String("url", node.URL),
 			)
 			alert := entities.NewL2StuckAlert(time.Now().Unix(), lastHeight, node.Name)
 			putAndSendAlert(ctx, s, alertsL2, alert)
@@ -277,26 +277,26 @@ func analyzerLoop(
 	}
 }
 
-func RunL2Analyzer(ctx context.Context, zap *zap.Logger, node Node) <-chan entities.Alert {
-	heightCh := runCollector(ctx, node.URL, zap)
+func RunL2Analyzer(ctx context.Context, logger *slog.Logger, node Node) <-chan entities.Alert {
+	heightCh := runCollector(ctx, node.URL, logger)
 	alertsL2 := make(chan entities.Alert)
-	go analyzerLoop(ctx, zap, node, alertsL2, heightCh)
+	go analyzerLoop(ctx, logger, node, alertsL2, heightCh)
 	return alertsL2
 }
 
 func RunL2Analyzers(
 	ctx context.Context,
-	zap *zap.Logger,
+	logger *slog.Logger,
 	nodes []Node,
 ) <-chan entities.Alert {
 	// intentionally not using tools.FanInSeqCtx to avoid context propagation
 	return tools.FanInSeq(func(yield func(<-chan entities.Alert) bool) {
 		if len(nodes) == 0 {
-			zap.Warn("No l2 nodes to analyze")
+			logger.Warn("No l2 nodes to analyze")
 			return
 		}
 		for _, node := range nodes {
-			alertsL2 := RunL2Analyzer(ctx, zap, node)
+			alertsL2 := RunL2Analyzer(ctx, logger, node)
 			if !yield(alertsL2) {
 				return
 			}

@@ -2,15 +2,15 @@ package criteria_test
 
 import (
 	"fmt"
-	"log"
 	"testing"
 	"time"
+
+	"github.com/neilotoole/slogt"
 
 	"nodemon/pkg/analysis/criteria"
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 )
 
 type heightInfo struct {
@@ -30,15 +30,7 @@ func mkHeightStatements(heightInfos []heightInfo) entities.NodeStatements {
 }
 
 func TestHeightCriterion_Analyze(t *testing.T) {
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		log.Fatalf("can't initialize zap logger: %v", err)
-	}
-	defer func(zap *zap.Logger) {
-		if syncErr := zap.Sync(); syncErr != nil {
-			log.Println(syncErr)
-		}
-	}(logger)
+	logger := slogt.New(t)
 
 	tests := []struct {
 		opts           *criteria.HeightCriterionOptions

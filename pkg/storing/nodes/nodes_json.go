@@ -3,6 +3,7 @@ package nodes
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"sync"
@@ -12,7 +13,6 @@ import (
 	"nodemon/pkg/entities"
 
 	"github.com/pkg/errors"
-	"go.uber.org/zap"
 )
 
 type nodes []entities.Node
@@ -131,11 +131,11 @@ func createDBFileIfNotExist(path string) error {
 type JSONStorage struct {
 	mu           *sync.RWMutex
 	db           *dbStruct
-	zap          *zap.Logger
+	logger       *slog.Logger
 	syncDBStruct syncDBStructFn
 }
 
-func NewJSONFileStorage(path string, nodes []string, logger *zap.Logger) (*JSONStorage, error) {
+func NewJSONFileStorage(path string, nodes []string, logger *slog.Logger) (*JSONStorage, error) {
 	path = filepath.Clean(path)
 	if err := createDBFileIfNotExist(path); err != nil {
 		return nil, errors.Wrapf(err, "failed to create and init nodes db file '%s'", path)
@@ -150,9 +150,9 @@ func NewJSONFileStorage(path string, nodes []string, logger *zap.Logger) (*JSONS
 		return nil, errors.Wrapf(err, "failed to create new db struct from JSON data")
 	}
 	s := &JSONStorage{
-		mu:  new(sync.RWMutex),
-		db:  db,
-		zap: logger,
+		mu:     new(sync.RWMutex),
+		db:     db,
+		logger: logger,
 		syncDBStruct: func(db *dbStruct) error {
 			return syncToFile(db, path)
 		},
@@ -167,7 +167,7 @@ func NewJSONVaultStorage(
 	ctx context.Context,
 	client *vault.Client, mountPath, secretPath string,
 	nodes []string,
-	logger *zap.Logger,
+	logger *slog.Logger,
 ) (*JSONStorage, error) {
 	vaultStor := newNodesJSONVaultStorage(client, mountPath, secretPath)
 	db, err := vaultStor.getNodes(ctx)
@@ -175,9 +175,9 @@ func NewJSONVaultStorage(
 		return nil, err
 	}
 	s := &JSONStorage{
-		mu:  new(sync.RWMutex),
-		db:  db,
-		zap: logger,
+		mu:     new(sync.RWMutex),
+		db:     db,
+		logger: logger,
 		syncDBStruct: func(db *dbStruct) error {
 			return vaultStor.putNodes(ctx, db)
 		},
@@ -232,7 +232,7 @@ func (s *JSONStorage) Update(node entities.Node) error {
 	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to update node '%s'", node.URL)
 	}
-	s.zap.Sugar().Infof("Node '%s' was updated to %+v", node.URL, node)
+	s.logger.Info("Node was updated", slog.String("url", node.URL), slog.Any("update", node))
 	return nil
 }
 
@@ -253,7 +253,7 @@ func (s *JSONStorage) InsertIfNew(url string, specific bool) (bool, error) {
 	if err := s.syncDB(); err != nil {
 		return false, errors.Wrapf(err, "failed to insert new node '%s' (specific=%t)", url, specific)
 	}
-	s.zap.Sugar().Infof("New node '%s' (specific=%t) was stored", url, specific)
+	s.logger.Info("New node was stored", slog.String("url", url), slog.Bool("specific", specific))
 	return appended, nil
 }
 
@@ -273,7 +273,7 @@ func (s *JSONStorage) Delete(url string) error {
 	if err := s.syncDB(); err != nil {
 		return errors.Wrapf(err, "failed to delete node '%s'", url)
 	}
-	s.zap.Sugar().Infof("Node '%s' was deleted", url)
+	s.logger.Info("Node was deleted", slog.String("url", url))
 	return nil
 }
 
