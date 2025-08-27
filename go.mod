@@ -14,7 +14,7 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.0
 	github.com/stoewer/go-strcase v1.3.1
-	github.com/stretchr/testify v1.11.0
+	github.com/stretchr/testify v1.11.1
 	github.com/tidwall/buntdb v1.3.2
 	github.com/wavesplatform/gowaves v0.10.7-0.20250805082919-1975b5804079
 	gopkg.in/telebot.v3 v3.3.8
