@@ -50,9 +50,9 @@ func newMWLog(logger *slog.Logger) mwLog {
 	return mwLog{l: slog.NewLogLogger(logger.Handler(), slog.LevelInfo)}
 }
 
-func (m mwLog) Print(v ...interface{}) { m.l.Print(v...) }
+func (m mwLog) Print(v ...any) { m.l.Print(v...) }
 
-func (m mwLog) Println(v ...interface{}) { m.l.Println(v...) }
+func (m mwLog) Println(v ...any) { m.l.Println(v...) }
 
 const namespace = "API"
 
