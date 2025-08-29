@@ -28,6 +28,9 @@ jobs:
         with:
           version: latest
           args: -c .golangci.yml
+      # Check for modern Go code patterns
+      - name: modernize check
+        run: go run golang.org/x/tools/gopls/internal/analysis/modernize/cmd/modernize@latest ./...
 
   build:
     name: ubuntu
