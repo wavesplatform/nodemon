@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/vault/api v1.21.0
 	github.com/hashicorp/vault/api/auth/userpass v0.10.0
 	github.com/nats-io/nats-server/v2 v2.11.9
-	github.com/nats-io/nats.go v1.45.0
+	github.com/nats-io/nats.go v1.46.0
 	github.com/neilotoole/slogt v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
