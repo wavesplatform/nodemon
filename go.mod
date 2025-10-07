@@ -97,3 +97,5 @@ require (
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/mitchellh/mapstructure v1.5.0 => github.com/go-viper/mapstructure v1.6.0

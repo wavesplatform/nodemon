@@ -155,6 +155,9 @@ linters:
         - github.com/jmoiron/sqlx
     usetesting:
       os-setenv: true
+    gomoddirectives:
+      replace-allow-list:
+        - github.com/mitchellh/mapstructure # because of CVE-2025-11065
   exclusions:
     generated: lax
     presets:
