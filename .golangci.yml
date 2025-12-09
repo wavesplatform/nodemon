@@ -184,6 +184,9 @@ linters:
       - text: "(slog)\\.\\w+"
         linters:
           - noctx
+      - linters:
+          - revive
+        source: "^package api$" # fixes "var-naming: avoid meaningless package names" for 'package api'
     paths:
       - third_party$
       - builtin$
