@@ -1,4 +1,4 @@
-FROM golang:1.26rc2-alpine3.22@sha256:43583f46bf6dfe7c90fd1f0ac7b37ea9c2803686cc5c3a919b1a34109a3127ab AS builder
+FROM golang:1.26rc2-alpine3.22@sha256:c03b7573b9514bb3f147104e02cf6680ba714f98fc603a38f460f7a590863417 AS builder
 ARG APP=/app
 WORKDIR ${APP}
 
