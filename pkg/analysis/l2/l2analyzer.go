@@ -87,7 +87,7 @@ func collectL2Height(ctx context.Context, url string, logger *slog.Logger) (_ ui
 	setHeaders(req, userAgent, requestID, timeSend, timeoutStr)
 
 	httpClient := http.Client{Timeout: l2HeightRequestTimeout}
-	resp, err := httpClient.Do(req)
+	resp, err := httpClient.Do(req) //#nosec: G704 is not valid here because we control all data
 	if err != nil {
 		logger.Error("Failed to send a request to l2 node", attrs.Error(err), slog.String("nodeURL", url))
 		return 0, fmt.Errorf("failed to send request to l2 node: %w", err)
