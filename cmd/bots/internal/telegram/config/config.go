@@ -66,7 +66,7 @@ func tryRemoveWebhookIfExists(botToken string) (err error) {
 	}
 
 	cl := &http.Client{Timeout: telegramRemoveWebhookTimeout}
-	resp, err := cl.Do(req)
+	resp, err := cl.Do(req) //#nosec: G704 is not valid here because we control all data
 	if err != nil {
 		return errors.Wrap(err, "failed to remove webhook")
 	}
