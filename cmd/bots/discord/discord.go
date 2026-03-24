@@ -188,7 +188,7 @@ func runMessagingClients(
 	requestChan chan pair.Request,
 	responseChan chan pair.Response,
 ) <-chan error {
-	errCh := make(chan error, 2) //nolint:mnd // two goroutines
+	errCh := make(chan error, 2) // two goroutines
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if err != nil {

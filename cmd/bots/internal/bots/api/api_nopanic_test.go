@@ -1,7 +1,6 @@
 package api_test
 
 import (
-	"io"
 	"log/slog"
 	"testing"
 
@@ -12,7 +11,7 @@ import (
 
 func TestBotAPIServeErrChannel(t *testing.T) {
 	t.Parallel()
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := slog.New(slog.DiscardHandler)
 	a, err := api.NewBotAPI(":0", nil, nil, 0, logger, false)
 	require.NoError(t, err)
 	ch := a.ServeErr()

@@ -189,7 +189,7 @@ func runMessagingClients(
 	pairRequest <-chan pair.Request,
 	pairResponse chan<- pair.Response,
 ) <-chan error {
-	errCh := make(chan error, 2) //nolint:mnd // two goroutines
+	errCh := make(chan error, 2) // two goroutines
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
