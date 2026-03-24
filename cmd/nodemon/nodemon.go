@@ -354,15 +354,19 @@ func run() error {
 		return err
 	}
 
-	shutdownFn, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, logger)
+	shutdownFn, svcErrCh, serviceErr := startServices(ctx, cfg, ns, es, scraper, privateNodesHandler, logger)
 	if serviceErr != nil {
 		return serviceErr
 	}
 	defer shutdownFn()
 
-	<-ctx.Done()
-	logger.Info("Shutting down")
-	return nil
+	select {
+	case <-ctx.Done():
+		logger.Info("Shutting down")
+	case err = <-svcErrCh:
+		logger.Error("Shutting down due to service failure", attrs.Error(err))
+	}
+	return err
 }
 
 func initializeStorages(
@@ -404,7 +408,7 @@ func startServices( //nolint:nonamedreturns // needs in defer
 	scraper *scraping.Scraper,
 	privateNodesHandler *specific.PrivateNodesHandler,
 	logger *slog.Logger,
-) (_ shutdownFunc, runErr error) {
+) (_ shutdownFunc, _ <-chan error, runErr error) {
 	notifications := scraper.Start(ctx)
 	notifications = privateNodesHandler.Run(notifications) // wraps scraper's notifications
 
@@ -412,12 +416,12 @@ func startServices( //nolint:nonamedreturns // needs in defer
 	a, err := api.NewAPI(cfg.bindAddress, ns, es, cfg.apiReadTimeout, logger, pew, cfg.development)
 	if err != nil {
 		logger.Error("Failed to initialize API", attrs.Error(err))
-		return nil, err
+		return nil, nil, err
 	}
 
 	if apiErr := a.StartCtx(ctx); apiErr != nil {
 		logger.Error("Failed to start API", attrs.Error(apiErr))
-		return nil, apiErr
+		return nil, nil, apiErr
 	}
 	defer func() {
 		if runErr != nil { // stop API if any error occurred
@@ -435,7 +439,7 @@ func startServices( //nolint:nonamedreturns // needs in defer
 		)
 		if nErr != nil {
 			logger.Error("Failed to start NATS server", attrs.Error(nErr))
-			return nil, nErr
+			return nil, nil, nErr
 		}
 		defer func() {
 			if runErr != nil { // stop NATS server if any error occurred
@@ -447,9 +451,10 @@ func startServices( //nolint:nonamedreturns // needs in defer
 
 	alerts := cfg.runAnalyzers(ctx, cfg, es, logger, notifications)
 
-	runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
+	msgErrCh := runMessagingServices(ctx, cfg, alerts, logger, ns, es, pew)
+	svcErrCh := tools.FanInCtx(ctx, a.ServeErr(), msgErrCh)
 
-	return shutdownFn, err
+	return shutdownFn, svcErrCh, err
 }
 
 func chainShutdownFuncs(fns ...shutdownFunc) shutdownFunc {
@@ -511,12 +516,13 @@ func runMessagingServices(
 	ns nodes.Storage,
 	es *events.Storage,
 	pew specific.PrivateNodesEventsWriter,
-) {
+) <-chan error {
+	errCh := make(chan error, 3) //nolint:mnd // up to three goroutines
 	go func() {
 		pubSubErr := pubsub.StartPubMessagingServer(ctx, cfg.natsMessagingURL, alerts, logger, cfg.scheme)
 		if pubSubErr != nil {
 			logger.Error("Failed to start pub messaging server", attrs.Error(pubSubErr))
-			panic(pubSubErr)
+			errCh <- pubSubErr
 		}
 	}()
 
@@ -526,7 +532,7 @@ func runMessagingServices(
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, telegramTopic)
 			if pairErr != nil {
 				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
-				panic(pairErr)
+				errCh <- pairErr
 			}
 		}()
 	}
@@ -537,8 +543,9 @@ func runMessagingServices(
 			pairErr := pair.StartPairMessagingServer(ctx, cfg.natsMessagingURL, ns, es, pew, logger, discordTopic)
 			if pairErr != nil {
 				logger.Error("Failed to start pair messaging server", attrs.Error(pairErr))
-				panic(pairErr)
+				errCh <- pairErr
 			}
 		}()
 	}
+	return errCh
 }

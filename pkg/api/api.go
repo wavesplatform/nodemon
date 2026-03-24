@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/hex"
 	"encoding/json"
-	stderrs "errors"
 	"fmt"
 	"io"
 	"log"
@@ -42,6 +41,7 @@ type API struct {
 	eventsStorage      *events.Storage
 	logger             *slog.Logger
 	privateNodesEvents specific.PrivateNodesEventsWriter
+	serveErrCh         chan error
 }
 
 type mwLog struct{ l *log.Logger }
@@ -73,6 +73,7 @@ func NewAPI(
 		eventsStorage:      eventsStorage,
 		logger:             logger,
 		privateNodesEvents: privateNodesEvents,
+		serveErrCh:         make(chan error, 1),
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -104,11 +105,17 @@ func (a *API) StartCtx(ctx context.Context) error {
 			a.logger.Error("Failed to serve REST API",
 				slog.String("address", a.srv.Addr), attrs.Error(err),
 			)
-			panic(err)
+			select {
+			case a.serveErrCh <- err:
+			default:
+			}
 		}
 	}()
 	return nil
 }
+
+// ServeErr returns a channel that receives an error if the HTTP server fails.
+func (a *API) ServeErr() <-chan error { return a.serveErrCh }
 
 func (a *API) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), apiShutdownTimeout)
@@ -161,14 +168,7 @@ type statementLogWrapper nodeShortStatement
 func (s statementLogWrapper) String() string {
 	data, err := json.Marshal(s)
 	if err != nil {
-		type jsonErr struct {
-			Error string `json:"error"`
-		}
-		errData, mErr := json.Marshal(jsonErr{Error: err.Error()})
-		if mErr != nil { // must never happen
-			panic(stderrs.Join(err, mErr))
-		}
-		return string(errData)
+		return fmt.Sprintf(`{"error":%q}`, err.Error())
 	}
 	return string(data)
 }

@@ -545,17 +545,11 @@ func (a *BaseTargetAlert) ID() crypto.Digest {
 
 func (a *BaseTargetAlert) Message() string {
 	var sb strings.Builder
-	_, err := fmt.Fprintf(&sb,
+	fmt.Fprintf(&sb,
 		"Base target is greater than the threshold value. The threshold value is %d\n\n", a.Threshold,
 	)
-	if err != nil {
-		panic(fmt.Errorf("failed to format threshold value: %w", err)) // should not happen
-	}
 	for _, baseTarget := range a.BaseTargetValues {
-		_, err = fmt.Fprintf(&sb, "Node %s\nBase target: %d\n\n", baseTarget.Node, baseTarget.BaseTarget)
-		if err != nil {
-			panic(fmt.Errorf("failed to format base target value: %w", err)) // should not happen
-		}
+		fmt.Fprintf(&sb, "Node %s\nBase target: %d\n\n", baseTarget.Node, baseTarget.BaseTarget)
 	}
 	return sb.String()
 }

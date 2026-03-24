@@ -40,6 +40,7 @@ type BotAPI struct {
 	requestChan  chan<- pair.Request
 	responseChan <-chan pair.Response
 	logger       *slog.Logger
+	serveErrCh   chan error
 }
 
 func NewBotAPI(
@@ -54,6 +55,7 @@ func NewBotAPI(
 		logger:       logger,
 		requestChan:  requestChan,
 		responseChan: responseChan,
+		serveErrCh:   make(chan error, 1),
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -100,11 +102,17 @@ func (a *BotAPI) StartCtx(ctx context.Context) error {
 		err := a.srv.Serve(l)
 		if err != nil && !errors.Is(err, http.ErrServerClosed) {
 			a.logger.Error("Failed to serve REST API", slog.String("address", a.srv.Addr), attrs.Error(err))
-			panic(err)
+			select {
+			case a.serveErrCh <- err:
+			default:
+			}
 		}
 	}()
 	return nil
 }
+
+// ServeErr returns a channel that receives an error if the HTTP server fails.
+func (a *BotAPI) ServeErr() <-chan error { return a.serveErrCh }
 
 func (a *BotAPI) Shutdown() {
 	ctx, cancel := context.WithTimeout(context.Background(), botAPIShutdownTimeout)
