@@ -6,7 +6,7 @@ require (
 	codnect.io/chrono v1.1.3
 	github.com/bwmarrin/discordgo v0.29.0
 	github.com/go-chi/chi/v5 v5.2.5
-	github.com/hashicorp/vault/api v1.22.0
+	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/userpass v0.11.0
 	github.com/nats-io/nats-server/v2 v2.12.5
 	github.com/nats-io/nats.go v1.49.0
