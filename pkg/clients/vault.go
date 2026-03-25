@@ -4,6 +4,7 @@ import (
 	"context"
 	stderrs "errors"
 	"log/slog"
+	"time"
 
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/userpass"
@@ -14,6 +15,8 @@ import (
 
 const (
 	vaultTokenTTLIncrement = 3600 // in seconds
+	vaultInitialBackoff    = 1 * time.Second
+	vaultMaxBackoff        = 5 * time.Minute
 )
 
 func NewVaultSimpleClient(ctx context.Context, logger *slog.Logger, addr, user, pass string) (*vault.Client, error) {
@@ -53,24 +56,57 @@ var errWatcherRenewFailed = errors.New("token renewal failed")
 // a freshly renewed token. See https://www.vaultproject.io/docs/enterprise/consistency#vault-1-7-mitigations
 // for several ways to mitigate this which are outside the scope of this code sample.
 func renewToken(ctx context.Context, logger *slog.Logger, client *vault.Client, user, pass string) {
+	backoff := vaultInitialBackoff
 	for {
 		if ctx.Err() != nil { // context done
 			return
 		}
 		vaultLoginResp, loginErr := vaultLogin(ctx, client, user, pass)
 		if loginErr != nil {
-			if !errors.Is(loginErr, context.Canceled) {
-				logger.Error("Unable to authenticate to Vault, stopping token renewal", attrs.Error(loginErr))
+			if errors.Is(loginErr, context.Canceled) {
+				return
 			}
-			return
+			logger.Error("Unable to authenticate to Vault, retrying",
+				attrs.Error(loginErr), slog.Duration("backoff", backoff))
+			if !waitBackoff(ctx, backoff) {
+				return
+			}
+			backoff = nextBackoff(backoff)
+			continue
 		}
+		backoff = vaultInitialBackoff // reset on success
 		logger.Info("Successfully authenticated to Vault", slog.String("request_id", vaultLoginResp.RequestID))
 		tokenErr := manageTokenLifecycle(ctx, logger, client, vaultLoginResp)
 		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) && !errors.Is(tokenErr, errWatcherRenewFailed) {
-			logger.Error("Unable to start managing token lifecycle, stopping token renewal", attrs.Error(tokenErr))
-			return
+			logger.Error("Unable to start managing token lifecycle, retrying",
+				attrs.Error(tokenErr), slog.Duration("backoff", backoff))
+			if !waitBackoff(ctx, backoff) {
+				return
+			}
+			backoff = nextBackoff(backoff)
 		}
 	}
+}
+
+// waitBackoff blocks until the duration elapses or the context is cancelled.
+// Returns true if the wait completed, false if the context was cancelled.
+func waitBackoff(ctx context.Context, d time.Duration) bool {
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+		return false
+	case <-t.C:
+		return true
+	}
+}
+
+func nextBackoff(current time.Duration) time.Duration {
+	next := current * 2
+	if next > vaultMaxBackoff {
+		return vaultMaxBackoff
+	}
+	return next
 }
 
 // Starts token lifecycle management. Returns only fatal errors as errors,
