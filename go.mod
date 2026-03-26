@@ -9,7 +9,7 @@ require (
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/userpass v0.12.0
 	github.com/nats-io/nats-server/v2 v2.12.6
-	github.com/nats-io/nats.go v1.49.0
+	github.com/nats-io/nats.go v1.50.0
 	github.com/neilotoole/slogt v1.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.23.2
@@ -52,7 +52,7 @@ require (
 	github.com/hashicorp/hcl v1.0.1-vault-7 // indirect
 	github.com/ingonyama-zk/icicle-gnark/v3 v3.2.2 // indirect
 	github.com/jinzhu/copier v0.4.0 // indirect
-	github.com/klauspost/compress v1.18.4 // indirect
+	github.com/klauspost/compress v1.18.5 // indirect
 	github.com/lmittmann/tint v1.1.2 // indirect
 	github.com/mattn/go-colorable v0.1.14 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
