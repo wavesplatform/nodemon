@@ -122,8 +122,9 @@ func runDiscordBot() error {
 	}
 	handlers.InitDscHandlers(discordBotEnv, requestChan, responseChan, logger)
 
-	runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
+	msgErrCh := runMessagingClients(ctx, cfg, discordBotEnv, logger, requestChan, responseChan)
 
+	var apiServeErrCh <-chan error // nil channel blocks forever in select, which is desired
 	if cfg.bindAddress != "" {
 		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
 			logger, cfg.development,
@@ -137,6 +138,7 @@ func runDiscordBot() error {
 			return startErr
 		}
 		defer botAPI.Shutdown()
+		apiServeErrCh = botAPI.ServeErr()
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
@@ -159,11 +161,16 @@ func runDiscordBot() error {
 			logger.Error("Failed to close discord bot web socket", attrs.Error(closeErr))
 		}
 	}()
-	<-ctx.Done()
+
+	select {
+	case <-ctx.Done():
+	case err = <-msgErrCh:
+	case err = <-apiServeErrCh:
+	}
 
 	waitScheduler(taskScheduler, logger)
 	logger.Info("Discord bot finished")
-	return nil
+	return err
 }
 
 func waitScheduler(taskScheduler chrono.TaskScheduler, logger *slog.Logger) {
@@ -180,12 +187,13 @@ func runMessagingClients(
 	logger *slog.Logger,
 	requestChan chan pair.Request,
 	responseChan chan pair.Response,
-) {
+) <-chan error {
+	errCh := make(chan error, 2) // two goroutines
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, discordBotEnv, logger)
 		if err != nil {
 			logger.Error("Failed to start sub messaging client", attrs.Error(err))
-			panic(err)
+			errCh <- err
 		}
 	}()
 
@@ -194,7 +202,8 @@ func runMessagingClients(
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, requestChan, responseChan, logger, topic)
 		if err != nil {
 			logger.Error("Failed to start pair messaging client", attrs.Error(err))
-			panic(err)
+			errCh <- err
 		}
 	}()
+	return errCh
 }

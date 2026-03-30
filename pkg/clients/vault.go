@@ -4,7 +4,9 @@ import (
 	"context"
 	stderrs "errors"
 	"log/slog"
+	"time"
 
+	"github.com/cenkalti/backoff/v4"
 	vault "github.com/hashicorp/vault/api"
 	auth "github.com/hashicorp/vault/api/auth/userpass"
 	"github.com/pkg/errors"
@@ -13,7 +15,10 @@ import (
 )
 
 const (
-	vaultTokenTTLIncrement = 3600 // in seconds
+	vaultTokenTTLIncrement  = 3600 // in seconds
+	vaultInitialBackoff     = 1 * time.Second
+	vaultMaxBackoffInterval = 5 * time.Minute
+	vaultMaxElapsedTime     = 60 * time.Minute
 )
 
 func NewVaultSimpleClient(ctx context.Context, logger *slog.Logger, addr, user, pass string) (*vault.Client, error) {
@@ -54,19 +59,43 @@ var errWatcherRenewFailed = errors.New("token renewal failed")
 // for several ways to mitigate this which are outside the scope of this code sample.
 func renewToken(ctx context.Context, logger *slog.Logger, client *vault.Client, user, pass string) {
 	for {
-		if ctx.Err() != nil { // context done
+		if ctx.Err() != nil {
 			return
 		}
-		vaultLoginResp, loginErr := vaultLogin(ctx, client, user, pass)
-		if loginErr != nil && !errors.Is(loginErr, context.Canceled) {
-			logger.Error("Unable to authenticate to Vault", attrs.Error(loginErr))
-			panic(loginErr)
+		b := backoff.NewExponentialBackOff(
+			backoff.WithInitialInterval(vaultInitialBackoff),
+			backoff.WithMaxInterval(vaultMaxBackoffInterval),
+			backoff.WithMaxElapsedTime(vaultMaxElapsedTime),
+		)
+
+		var vaultLoginResp *vault.Secret
+		loginOp := func() error {
+			resp, loginErr := vaultLogin(ctx, client, user, pass)
+			if loginErr != nil {
+				if errors.Is(loginErr, context.Canceled) {
+					return backoff.Permanent(loginErr)
+				}
+				return loginErr
+			}
+			vaultLoginResp = resp
+			return nil
 		}
+		loginNotify := func(err error, d time.Duration) {
+			logger.Error("Unable to authenticate to Vault, retrying",
+				attrs.Error(err), slog.Duration("backoff", d))
+		}
+
+		if err := backoff.RetryNotify(loginOp, backoff.WithContext(b, ctx), loginNotify); err != nil {
+			if !errors.Is(err, context.Canceled) {
+				logger.Error("Vault authentication failed after max elapsed time", attrs.Error(err))
+			}
+			return
+		}
+
 		logger.Info("Successfully authenticated to Vault", slog.String("request_id", vaultLoginResp.RequestID))
 		tokenErr := manageTokenLifecycle(ctx, logger, client, vaultLoginResp)
 		if tokenErr != nil && !errors.Is(tokenErr, context.Canceled) && !errors.Is(tokenErr, errWatcherRenewFailed) {
 			logger.Error("Unable to start managing token lifecycle", attrs.Error(tokenErr))
-			panic(tokenErr)
 		}
 	}
 }

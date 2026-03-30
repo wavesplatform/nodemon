@@ -133,8 +133,9 @@ func runTelegramBot() error {
 
 	handlers.InitTgHandlers(tgBotEnv, logger, requestChan, responseChan)
 
-	runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
+	msgErrCh := runMessagingClients(ctx, cfg, tgBotEnv, logger, requestChan, responseChan)
 
+	var apiServeErrCh <-chan error // nil channel blocks forever in select, which is desired
 	if cfg.bindAddress != "" {
 		botAPI, apiErr := api.NewBotAPI(cfg.bindAddress, requestChan, responseChan, defaultAPIReadTimeout,
 			logger, cfg.development,
@@ -148,6 +149,7 @@ func runTelegramBot() error {
 			return startErr
 		}
 		defer botAPI.Shutdown()
+		apiServeErrCh = botAPI.ServeErr()
 	}
 
 	taskScheduler := chrono.NewDefaultTaskScheduler()
@@ -164,14 +166,19 @@ func runTelegramBot() error {
 		logger.Error("Failed to start telegram bot", attrs.Error(err))
 		return err
 	}
-	<-ctx.Done()
+
+	select {
+	case <-ctx.Done():
+	case err = <-msgErrCh:
+	case err = <-apiServeErrCh:
+	}
 
 	if !taskScheduler.IsShutdown() {
 		<-taskScheduler.Shutdown()
 		logger.Info("Task scheduler has been shutdown successfully")
 	}
 	logger.Info("Telegram bot finished")
-	return nil
+	return err
 }
 
 func runMessagingClients(
@@ -181,12 +188,13 @@ func runMessagingClients(
 	logger *slog.Logger,
 	pairRequest <-chan pair.Request,
 	pairResponse chan<- pair.Response,
-) {
+) <-chan error {
+	errCh := make(chan error, 2) // two goroutines
 	go func() {
 		err := messaging.StartSubMessagingClient(ctx, cfg.natsMessagingURL, tgBotEnv, logger)
 		if err != nil {
 			logger.Error("Failed to start sub messaging service", attrs.Error(err))
-			panic(err)
+			errCh <- err
 		}
 	}()
 
@@ -195,7 +203,8 @@ func runMessagingClients(
 		err := messaging.StartPairMessagingClient(ctx, cfg.natsMessagingURL, pairRequest, pairResponse, logger, topic)
 		if err != nil {
 			logger.Error("Failed to start pair messaging service", attrs.Error(err))
-			panic(err)
+			errCh <- err
 		}
 	}()
+	return errCh
 }
