@@ -82,7 +82,7 @@ func tryRemoveWebhookIfExists(botToken string) (err error) {
 		}
 	}()
 	if resp.StatusCode == http.StatusInternalServerError {
-		return errors.Wrap(err, "failed to remove webhook")
+		return errors.Errorf("failed to remove webhook: %s", resp.Status)
 	}
 	return nil
 }
