@@ -58,3 +58,14 @@ func TestFixedAlertJSON(t *testing.T) {
 		require.Equal(t, expectedFixedAlert, alert)
 	})
 }
+
+func TestEmptyStateHashAlertJSONRoundTrip(t *testing.T) {
+	data, err := json.Marshal(entities.StateHashAlert{})
+	require.NoError(t, err)
+
+	var alert entities.StateHashAlert
+	err = json.Unmarshal(data, &alert)
+	require.NoError(t, err)
+
+	require.Equal(t, entities.StateHashAlert{}, alert)
+}

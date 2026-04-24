@@ -1,6 +1,7 @@
 package entities
 
 import (
+	"encoding/json"
 	"math"
 	"sort"
 
@@ -17,13 +18,43 @@ const (
 	InvalidHeight NodeStatus = "invalid_height"
 )
 
+type StateHash struct {
+	BlockID proto.BlockID
+	SumHash crypto.Digest
+}
+
+type stateHashJSON struct {
+	BlockID proto.BlockID       `json:"blockId"`
+	SumHash proto.DigestWrapped `json:"stateHash"`
+}
+
+func (s *StateHash) UnmarshalJSON(bytes []byte) error {
+	var js stateHashJSON
+	if err := json.Unmarshal(bytes, &js); err != nil {
+		return err
+	}
+	*s = StateHash{
+		BlockID: js.BlockID,
+		SumHash: crypto.Digest(js.SumHash),
+	}
+	return nil
+}
+
+func (s StateHash) MarshalJSON() ([]byte, error) {
+	js := stateHashJSON{
+		BlockID: s.BlockID,
+		SumHash: proto.DigestWrapped(s.SumHash),
+	}
+	return json.Marshal(&js)
+}
+
 type NodeStatement struct {
 	Node       string              `json:"node"`
 	Timestamp  int64               `json:"timestamp"`
 	Status     NodeStatus          `json:"status"`
 	Version    string              `json:"version,omitempty"`
 	Height     uint64              `json:"height,omitempty"`
-	StateHash  *proto.StateHash    `json:"state_hash,omitempty"`
+	StateHash  *StateHash          `json:"state_hash,omitempty"`
 	BaseTarget uint64              `json:"base_target,omitempty"`
 	BlockID    *proto.BlockID      `json:"block_id,omitempty"`
 	Generator  *proto.WavesAddress `json:"generator,omitempty"`

@@ -421,15 +421,15 @@ func TestLastStateHashAtHeight(t *testing.T) {
 	b1 := proto.NewBlockIDFromDigest(d1)
 	b2 := proto.NewBlockIDFromDigest(d2)
 	b3 := proto.NewBlockIDFromDigest(d3)
-	sh1 := &proto.StateHash{BlockID: b1, SumHash: d1}
-	sh2 := &proto.StateHash{BlockID: b2, SumHash: d2}
-	sh3 := &proto.StateHash{BlockID: b3, SumHash: d3}
+	sh1 := &entities.StateHash{BlockID: b1, SumHash: d1}
+	sh2 := &entities.StateHash{BlockID: b2, SumHash: d2}
+	sh3 := &entities.StateHash{BlockID: b3, SumHash: d3}
 	for _, test := range []struct {
 		node     string
 		events   []entities.Event
 		height   uint64
 		error    bool
-		expected proto.StateHash
+		expected entities.StateHash
 	}{
 		{"A",
 			genEvents(
@@ -454,13 +454,13 @@ func TestLastStateHashAtHeight(t *testing.T) {
 			genEvents(he("A", 1, 100),
 				he("A", 1, 110),
 				he("A", 2, 200),
-			), 1, true, proto.StateHash{}},
+			), 1, true, entities.StateHash{}},
 		{"C",
 			genEvents(
 				he("C", 1, 100),
 				he("C", 1, 110),
 				he("C", 2, 200),
-			), 2, true, proto.StateHash{}},
+			), 2, true, entities.StateHash{}},
 		{"A",
 			genEvents(
 				fshe("A", 1, 100, sh1),
@@ -486,10 +486,10 @@ func genEvents(es ...entities.Event) []entities.Event {
 }
 
 func she(n string, h uint64, ts int64) entities.Event {
-	return fshe(n, h, ts, &proto.StateHash{BlockID: proto.NewBlockIDFromDigest(crypto.Digest{88})})
+	return fshe(n, h, ts, &entities.StateHash{BlockID: proto.NewBlockIDFromDigest(crypto.Digest{88})})
 }
 
-func fshe(n string, h uint64, ts int64, sh *proto.StateHash) entities.Event {
+func fshe(n string, h uint64, ts int64, sh *entities.StateHash) entities.Event {
 	return entities.NewStateHashEvent(n, ts, "", h, sh, 1, &sh.BlockID, nil, false)
 }
 
@@ -513,15 +513,15 @@ func TestStatusSameHeightInStorage(t *testing.T) {
 	b1 := proto.NewBlockIDFromDigest(d1)
 	b2 := proto.NewBlockIDFromDigest(d2)
 	b3 := proto.NewBlockIDFromDigest(d3)
-	sh1 := &proto.StateHash{BlockID: b1, SumHash: d1}
-	sh2 := &proto.StateHash{BlockID: b2, SumHash: d2}
-	sh3 := &proto.StateHash{BlockID: b3, SumHash: d3}
+	sh1 := &entities.StateHash{BlockID: b1, SumHash: d1}
+	sh2 := &entities.StateHash{BlockID: b2, SumHash: d2}
+	sh3 := &entities.StateHash{BlockID: b3, SumHash: d3}
 	for _, test := range []struct {
 		testcase       string
 		events         []entities.Event
 		expectedError  bool
 		expectedHeight uint64
-		expectedSH     *proto.StateHash
+		expectedSH     *entities.StateHash
 	}{
 		// node 1 - 1000; node 2 - 1000; node 3 - 1000, 1001. Expected height 1000
 		{"testcase 1",

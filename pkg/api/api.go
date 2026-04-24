@@ -182,7 +182,7 @@ func parseStatementAndStateHash(
 	r *http.Request,
 	body []byte,
 	logger *slog.Logger,
-) (*nodeShortStatement, *proto.StateHash, bool) {
+) (*nodeShortStatement, *entities.StateHash, bool) {
 	statementReader := io.Reader(bytes.NewBuffer(body))
 	// TODO remove these readers after implementing proper statehash structure
 	stateHashReader := io.Reader(bytes.NewBuffer(body))
@@ -198,7 +198,7 @@ func parseStatementAndStateHash(
 		http.Error(w, fmt.Sprintf("Failed to decode statements: %v", err), http.StatusBadRequest)
 		return nil, nil, false
 	}
-	statehash := &proto.StateHash{}
+	statehash := &entities.StateHash{}
 	err = json.NewDecoder(stateHashReader).Decode(statehash)
 	if err != nil {
 		logger.Error("Failed to decode statehash",

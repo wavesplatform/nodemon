@@ -30,7 +30,7 @@ func (nl *NodeStatementResponse) responseMarker() {}
 
 type NodeStatement struct {
 	URL       string              `json:"url"`
-	StateHash *proto.StateHash    `json:"statehash"`
+	StateHash *entities.StateHash `json:"statehash"`
 	Height    uint64              `json:"height"`
 	Status    entities.NodeStatus `json:"status"`
 	BlockID   *proto.BlockID      `json:"block_id"`

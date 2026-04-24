@@ -158,7 +158,7 @@ func TestHeightTemplate(t *testing.T) {
 
 type shInfo struct {
 	id proto.BlockID
-	sh proto.StateHash
+	sh entities.StateHash
 }
 
 func sequentialBlockID(i int) proto.BlockID {
@@ -167,13 +167,12 @@ func sequentialBlockID(i int) proto.BlockID {
 	return proto.NewBlockIDFromDigest(d)
 }
 
-func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
+func sequentialStateHash(blockID proto.BlockID, i int) entities.StateHash {
 	d := crypto.Digest{}
 	binary.BigEndian.PutUint64(d[:8], uint64(i))
-	return proto.StateHash{
-		BlockID:      blockID,
-		SumHash:      d,
-		FieldsHashes: proto.FieldsHashes{},
+	return entities.StateHash{
+		BlockID: blockID,
+		SumHash: d,
 	}
 }
 
