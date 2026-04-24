@@ -9,7 +9,7 @@ require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/userpass v0.12.0
-	github.com/nats-io/nats-server/v2 v2.12.6
+	github.com/nats-io/nats-server/v2 v2.12.7
 	github.com/nats-io/nats.go v1.50.0
 	github.com/neilotoole/slogt v1.1.0
 	github.com/pkg/errors v0.9.1
