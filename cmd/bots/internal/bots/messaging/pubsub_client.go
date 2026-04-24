@@ -3,10 +3,12 @@ package messaging
 import (
 	"context"
 	"log/slog"
+	"time"
 
 	"github.com/nats-io/nats.go"
 	"github.com/pkg/errors"
 
+	"nodemon/pkg/entities"
 	"nodemon/pkg/messaging"
 	"nodemon/pkg/tools/logging/attrs"
 )
@@ -24,6 +26,13 @@ func StartSubMessagingClient(ctx context.Context, natsServerURL string, bot Bot,
 		hndlErr := handleReceivedMessage(msg.Data, bot)
 		if hndlErr != nil {
 			logger.Error("Failed to handle received message from pubsub server", attrs.Error(hndlErr))
+			internalAlert := entities.NewInternalErrorAlert(time.Now().Unix(), hndlErr)
+			alertMsg, iErr := messaging.NewAlertMessageFromAlert(internalAlert)
+			if iErr != nil { // must never happen
+				logger.Error("Failed to create alert message for internal alert", attrs.Error(iErr))
+				return
+			}
+			bot.SendAlertMessage(alertMsg) // send alert about something not working in the messaging service
 		}
 	}
 	bot.SetAlertHandlerFunc(alertHandlerFunc)
