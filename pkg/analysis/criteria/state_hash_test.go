@@ -26,7 +26,7 @@ func fillEventsStorage(t *testing.T, es *events.Storage, events []entities.Event
 
 type shInfo struct {
 	id proto.BlockID
-	sh proto.StateHash
+	sh entities.StateHash
 }
 
 func sequentialBlockID(i int) proto.BlockID {
@@ -35,13 +35,12 @@ func sequentialBlockID(i int) proto.BlockID {
 	return proto.NewBlockIDFromDigest(d)
 }
 
-func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
+func sequentialStateHash(blockID proto.BlockID, i int) entities.StateHash {
 	d := crypto.Digest{}
 	binary.BigEndian.PutUint64(d[:8], uint64(i))
-	return proto.StateHash{
-		BlockID:      blockID,
-		SumHash:      d,
-		FieldsHashes: proto.FieldsHashes{},
+	return entities.StateHash{
+		BlockID: blockID,
+		SumHash: d,
 	}
 }
 
@@ -198,7 +197,7 @@ func TestStateHashCriterion_Analyze(t *testing.T) {
 					CurrentGroupsBucketHeight: 2,
 					LastCommonStateHashExist:  false,
 					LastCommonStateHashHeight: 0,
-					LastCommonStateHash:       proto.StateHash{},
+					LastCommonStateHash:       entities.StateHash{},
 					FirstGroup: entities.StateHashGroup{
 						Nodes:     entities.Nodes{"a"},
 						StateHash: forkA[1].sh,
