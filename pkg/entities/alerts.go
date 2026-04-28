@@ -342,8 +342,8 @@ func (a *HeightAlert) Level() string {
 }
 
 type StateHashGroup struct {
-	Nodes     Nodes           `json:"nodes"`
-	StateHash proto.StateHash `json:"state_hash"`
+	Nodes     Nodes     `json:"nodes"`
+	StateHash StateHash `json:"state_hash"`
 }
 
 type StateHashAlert struct {
@@ -353,9 +353,9 @@ type StateHashAlert struct {
 	// LastCommonStateHashHeight can be empty if LastCommonStateHashExist == false
 	LastCommonStateHashHeight uint64 `json:"last_common_state_hash_height"`
 	// LastCommonStateHash can be empty if LastCommonStateHashExist == false
-	LastCommonStateHash proto.StateHash `json:"last_common_state_hash"`
-	FirstGroup          StateHashGroup  `json:"first_group"`
-	SecondGroup         StateHashGroup  `json:"second_group"`
+	LastCommonStateHash StateHash      `json:"last_common_state_hash"`
+	FirstGroup          StateHashGroup `json:"first_group"`
+	SecondGroup         StateHashGroup `json:"second_group"`
 }
 
 func (a *StateHashAlert) Name() AlertName {

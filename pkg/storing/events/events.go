@@ -12,7 +12,6 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/tidwall/buntdb"
-	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
 var (
@@ -338,10 +337,10 @@ func (s *Storage) findStatementsOnHeight(nodesList map[string]bool, height uint6
 	return statementsOnHeight, nil
 }
 
-func (s *Storage) StateHashAtHeight(node string, height uint64) (proto.StateHash, error) {
+func (s *Storage) StateHashAtHeight(node string, height uint64) (entities.StateHash, error) {
 	st, err := s.GetFullStatementAtHeight(node, height)
 	if err != nil {
-		return proto.StateHash{},
+		return entities.StateHash{},
 			errors.Wrapf(err, "failed to get state hash for node '%s' at height %d", node, height)
 	}
 	return *st.StateHash, nil

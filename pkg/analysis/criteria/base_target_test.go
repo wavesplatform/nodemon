@@ -8,7 +8,6 @@ import (
 	"nodemon/pkg/entities"
 
 	"github.com/stretchr/testify/require"
-	"github.com/wavesplatform/gowaves/pkg/proto"
 )
 
 type baseTargetInfo struct {
@@ -16,7 +15,7 @@ type baseTargetInfo struct {
 	ts         int64
 	v          string
 	h          uint64
-	sh         *proto.StateHash
+	sh         *entities.StateHash
 	baseTarget uint64
 }
 

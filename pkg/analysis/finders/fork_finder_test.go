@@ -19,7 +19,7 @@ import (
 
 type shInfo struct {
 	id proto.BlockID
-	sh proto.StateHash
+	sh entities.StateHash
 }
 
 func sequentialBlockID(i int) proto.BlockID {
@@ -28,13 +28,12 @@ func sequentialBlockID(i int) proto.BlockID {
 	return proto.NewBlockIDFromDigest(d)
 }
 
-func sequentialStateHash(blockID proto.BlockID, i int) proto.StateHash {
+func sequentialStateHash(blockID proto.BlockID, i int) entities.StateHash {
 	d := crypto.Digest{}
 	d[0] = byte(i)
-	return proto.StateHash{
-		BlockID:      blockID,
-		SumHash:      d,
-		FieldsHashes: proto.FieldsHashes{},
+	return entities.StateHash{
+		BlockID: blockID,
+		SumHash: d,
 	}
 }
 
@@ -191,7 +190,7 @@ func TestFindLastCommonStateHash(t *testing.T) {
 		eventsB           []entities.Event
 		error             bool
 		expectedHeight    uint64
-		expectedStateHash proto.StateHash
+		expectedStateHash entities.StateHash
 		linearSearchDepth uint64
 	}{
 		{

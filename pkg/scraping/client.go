@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/wavesplatform/gowaves/pkg/client"
-	"github.com/wavesplatform/gowaves/pkg/proto"
 
+	"nodemon/pkg/entities"
 	"nodemon/pkg/tools/logging/attrs"
 )
 
@@ -48,14 +48,17 @@ func (c *nodeClient) height(ctx context.Context) (uint64, error) {
 	return height.Height, nil
 }
 
-func (c *nodeClient) stateHash(ctx context.Context, height uint64) (*proto.StateHash, error) {
+func (c *nodeClient) stateHash(ctx context.Context, height uint64) (*entities.StateHash, error) {
 	sh, _, err := c.cl.Debug.StateHash(ctx, height)
 	if err != nil {
 		nodeURL := c.cl.GetOptions().BaseUrl
 		c.logger.Error("State hash request failed", slog.String("node", nodeURL), attrs.Error(err))
 		return nil, err
 	}
-	return sh, nil
+	return &entities.StateHash{
+		BlockID: sh.GetBlockID(),
+		SumHash: sh.GetSumHash(),
+	}, nil
 }
 
 func (c *nodeClient) blockHeader(ctx context.Context, height uint64) (*client.Headers, error) {
