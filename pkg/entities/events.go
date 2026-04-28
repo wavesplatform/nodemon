@@ -234,7 +234,7 @@ func (e *BaseTargetEvent) WithTimestamp(ts int64) Event {
 
 type StateHashEvent struct {
 	BaseTargetEvent
-	sh *proto.StateHash
+	sh *StateHash
 }
 
 func NewStateHashEvent(
@@ -242,7 +242,7 @@ func NewStateHashEvent(
 	ts int64,
 	v string,
 	h uint64,
-	sh *proto.StateHash,
+	sh *StateHash,
 	bt uint64,
 	blockID *proto.BlockID,
 	generator *proto.WavesAddress,
@@ -254,7 +254,7 @@ func NewStateHashEvent(
 	}
 }
 
-func (e *StateHashEvent) StateHash() *proto.StateHash {
+func (e *StateHashEvent) StateHash() *StateHash {
 	return e.sh
 }
 
