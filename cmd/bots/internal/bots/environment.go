@@ -139,6 +139,11 @@ func (dscBot *DiscordBotEnvironment) SendMessage(msg string) {
 	}
 }
 
+func (dscBot *DiscordBotEnvironment) sendErrMsg(msg string, err error) {
+	errMsg := fmt.Sprintf("Bot Error - %s: %v", msg, err)
+	dscBot.SendMessage(errMsg)
+}
+
 func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.AlertMessage) {
 	alertType := msg.AlertType()
 	if !alertType.Exist() {
@@ -146,23 +151,21 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 			slog.Uint64("alertType", uint64(alertType)),
 			attrs.Error(errUnknownAlertType),
 		)
-		_, err := dscBot.Bot.ChannelMessageSend(dscBot.ChatID, errUnknownAlertType.Error())
-
-		if err != nil {
-			dscBot.logger.Error("Failed to send a message to discord", attrs.Error(err))
-		}
+		dscBot.sendErrMsg("Failed to construct message, unknown alert type", errUnknownAlertType)
 		return
 	}
 
 	nodes, err := messaging.RequestAllNodes(dscBot.requestType, dscBot.responsePairType)
 	if err != nil {
 		dscBot.logger.Error("Failed to get nodes list", attrs.Error(err))
+		dscBot.sendErrMsg("Failed to get nodes list", err)
 	}
 
 	alertJSON := msg.Data()
 	messageToBot, err := constructMessage(alertType, alertJSON, dscBot.TemplatesExtension(), nodes)
 	if err != nil {
 		dscBot.logger.Error("Failed to construct message", attrs.Error(err))
+		dscBot.sendErrMsg("Failed to construct message", err)
 		return
 	}
 	alertID := msg.ReferenceID()
@@ -172,6 +175,10 @@ func (dscBot *DiscordBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		if !ok {
 			dscBot.logger.Error("Failed to get message ID by the given alertID: alertID hasn't been found",
 				attrs.Stringer("alertID", alertID),
+			)
+			dscBot.sendErrMsg(
+				"Failed to get message ID by the given alertID",
+				errors.Errorf("alertID %s hasn't been found", alertID),
 			)
 			return
 		}
@@ -297,6 +304,11 @@ func NewTelegramBotEnvironment(
 	}
 }
 
+func (tgEnv *TelegramBotEnvironment) sendErrMsg(msg string, err error) {
+	errMsg := fmt.Sprintf("Bot Error - %s: %v", msg, err)
+	tgEnv.SendMessage(errMsg)
+}
+
 func (tgEnv *TelegramBotEnvironment) TemplatesExtension() ExpectedExtension { return HTML }
 
 func (tgEnv *TelegramBotEnvironment) Start(ctx context.Context) error {
@@ -323,14 +335,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		tgEnv.logger.Error("Failed to construct message, unknown alert type",
 			slog.Uint64("alertType", uint64(alertType)), attrs.Error(errUnknownAlertType),
 		)
-		_, err := tgEnv.Bot.Send(
-			chat,
-			errUnknownAlertType.Error(),
-			&telebot.SendOptions{ParseMode: telebot.ModeHTML},
-		)
-		if err != nil {
-			tgEnv.logger.Error("Failed to send a message to telegram", attrs.Error(err))
-		}
+		tgEnv.sendErrMsg("Failed to construct message, unknown alert type", errUnknownAlertType)
 		return
 	}
 
@@ -343,6 +348,7 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 	messageToBot, err := constructMessage(alertType, alertJSON, tgEnv.TemplatesExtension(), nodes)
 	if err != nil {
 		tgEnv.logger.Error("Failed to construct message", attrs.Error(err))
+		tgEnv.sendErrMsg("Failed to construct message", err)
 		return
 	}
 	alertID := msg.ReferenceID()
@@ -352,6 +358,10 @@ func (tgEnv *TelegramBotEnvironment) SendAlertMessage(msg generalMessaging.Alert
 		if !ok {
 			tgEnv.logger.Error("Failed to get message ID by the given alertID: alertID hasn't been found",
 				attrs.Stringer("alertID", alertID),
+			)
+			tgEnv.sendErrMsg(
+				"Failed to get message ID by the given alertID",
+				errors.Errorf("alertID %s hasn't been found", alertID),
 			)
 			return
 		}

@@ -37,7 +37,7 @@ func NewAlertMessageFromAlert(alert entities.Alert) (AlertMessage, error) {
 func NewAlertMessageFromBytes(msgData []byte) (AlertMessage, error) {
 	const minMsgSize = 1 + crypto.DigestSize
 	if l := len(msgData); l < minMsgSize {
-		return AlertMessage{}, errors.Errorf("message has inssufficient length: want at least %d, got %d", minMsgSize, l)
+		return AlertMessage{}, errors.Errorf("message has insufficient length: want at least %d, got %d", minMsgSize, l)
 	}
 	referenceID, err := crypto.NewDigestFromBytes(msgData[1 : 1+crypto.DigestSize])
 	if err != nil {
