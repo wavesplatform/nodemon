@@ -61,7 +61,7 @@ jobs:
           IMAGE_ARG_APP: ${{ env.IMAGE_ARG_APP }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
         run: |
-          echo "IMAGE_TAG" | grep -E '^[a-zA-Z0-9._-]+$' || exit 1 # check if the docker tag is valid
+          echo "$IMAGE_TAG" | grep -E '^[a-zA-Z0-9._-]+$' || exit 1 # check if the docker tag is valid
           echo "$IMAGE_ARG_APP" | grep -E '^(nodemon|nodemon-telegram|nodemon-discord)$' || exit 1 # check if the container name is valid
 
       - name: Check out code into the Go module directory
