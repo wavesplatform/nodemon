@@ -1,0 +1,108 @@
+name: Publish Docker Image to GitHub Container Registry
+run-name: Publish branch ${{ github.ref_name }} to tag ${{ inputs.dockerTag }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      dockerTag:
+        description: 'Docker Tag'
+        required: true
+        type: string
+        default: 'latest'
+      container:
+        type: choice
+        description: 'Container to build and publish.'
+        required: true
+        options:
+          - nodemon
+          - nodemon-telegram
+          - nodemon-discord
+  workflow_call:
+    inputs:
+      dockerTag:
+        description: 'Docker Tag'
+        required: true
+        type: string
+        default: 'latest'
+      container:
+        type: string
+        description: 'Container to build and publish (nodemon, nodemon-telegram, nodemon-discord).'
+        required: true
+        default: 'nodemon'
+
+env:
+  IMAGE_TAG: ${{ inputs.dockerTag }}
+  IMAGE_ARG_APP: ${{ inputs.container }}
+  IMAGE_NAME: |-
+    ghcr.io/${{ github.repository }}${{
+      case(
+        inputs.container == 'nodemon', '',
+        inputs.container == 'nodemon-telegram', '-telegram',
+        inputs.container == 'nodemon-discord', '-discord',
+        ''
+      )
+    }}
+
+permissions: { }
+
+jobs:
+  build:
+    name: Build and Push Docker Image to GitHub Container Registry
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: Check inputs
+        env:
+          IMAGE_ARG_APP: ${{ env.IMAGE_ARG_APP }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          echo "$IMAGE_TAG" | grep -E '^[a-zA-Z0-9._-]+$' || exit 1 # check if the docker tag is valid
+          echo "$IMAGE_ARG_APP" | grep -E '^(nodemon|nodemon-telegram|nodemon-discord)$' || exit 1 # check if the container name is valid
+
+      - name: Check out code into the Go module directory
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v5
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker BuildX
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4.0.0
+
+      - name: Docker Metadata
+        id: meta
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6.0.0
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: latest=false
+          tags: |
+            type=sha
+            type=raw,value=${{ env.IMAGE_TAG }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.licenses=MIT
+            org.opencontainers.image.description="Nodemonitoring and alerting tools for Waves Nodes"
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v5
+        id: push
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          pull: true
+          build-args: 'APP=${{ env.IMAGE_ARG_APP }}'
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
