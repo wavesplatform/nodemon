@@ -36,10 +36,9 @@ env:
   IMAGE_NAME: |-
     ghcr.io/${{ github.repository }}${{
       case(
-        inputs.container,
-        'nodemon', '',
-        'nodemon-telegram', '-telegram',
-        'nodemon-discord', '-discord',
+        inputs.container == 'nodemon', '',
+        inputs.container == 'nodemon-telegram', '-telegram',
+        inputs.container == 'nodemon-discord', '-discord',
         ''
       )
     }}
