@@ -77,7 +77,9 @@ func NewAPI(
 	}
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	// For nginx/cloudflare specific headers.
+	r.Use(middleware.ClientIPFromHeader("X-Real-IP"))        // Nginx with ngx_http_realip_module.
+	r.Use(middleware.ClientIPFromHeader("CF-Connecting-IP")) // Cloudflare.
 	r.Use(middleware.RequestLogger(&middleware.DefaultLogFormatter{
 		Logger:  newMWLog(logger),
 		NoColor: !development,
