@@ -9,7 +9,7 @@ require (
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/hashicorp/vault/api v1.23.0
 	github.com/hashicorp/vault/api/auth/userpass v0.12.0
-	github.com/nats-io/nats-server/v2 v2.14.3
+	github.com/nats-io/nats-server/v2 v2.14.4
 	github.com/nats-io/nats.go v1.52.0
 	github.com/neilotoole/slogt v1.1.0
 	github.com/pkg/errors v0.9.1
@@ -23,7 +23,7 @@ require (
 
 require (
 	filippo.io/edwards25519 v1.2.0 // indirect
-	github.com/antithesishq/antithesis-sdk-go v0.7.0 // indirect
+	github.com/antithesishq/antithesis-sdk-go v0.7.2-default-no-op // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bits-and-blooms/bitset v1.24.4 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
