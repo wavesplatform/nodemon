@@ -11,7 +11,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func RunNatsMessagingServer( //nolint:nonamedreturns // needs in defer
+func RunNatsMessagingServer(
 	serverAddress string,
 	logger *slog.Logger,
 	maxPayload uint64,
