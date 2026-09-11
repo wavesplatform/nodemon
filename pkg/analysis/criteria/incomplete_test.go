@@ -46,7 +46,7 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			),
 			data: entities.NodeStatements{{Node: "a", Version: "a-node"}, {Node: "b", Version: "b-node"}},
 			expectedAlerts: []entities.IncompleteAlert{
-				{NodeStatement: entities.NodeStatement{Node: "a", Version: "a-node"}},
+				{Node: "a", Version: "a-node"},
 			},
 		},
 		{
@@ -62,7 +62,7 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			),
 			data: entities.NodeStatements{{Node: "a", Version: "a-node"}, {Node: "b", Version: "b-node"}},
 			expectedAlerts: []entities.IncompleteAlert{
-				{NodeStatement: entities.NodeStatement{Node: "a", Version: "a-node"}},
+				{Node: "a", Version: "a-node"},
 			},
 		},
 		{
@@ -77,8 +77,8 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			),
 			data: entities.NodeStatements{{Node: "a", Version: "a-node"}, {Node: "b", Version: "b-node"}},
 			expectedAlerts: []entities.IncompleteAlert{
-				{NodeStatement: entities.NodeStatement{Node: "a", Version: "a-node"}},
-				{NodeStatement: entities.NodeStatement{Node: "b", Version: "b-node"}},
+				{Node: "a", Version: "a-node"},
+				{Node: "b", Version: "b-node"},
 			},
 		},
 		{
@@ -94,7 +94,7 @@ func TestIncompleteCriterion_Analyze(t *testing.T) {
 			),
 			data: entities.NodeStatements{{Node: "a", Version: "a-node"}, {Node: "b", Version: "b-node"}},
 			expectedAlerts: []entities.IncompleteAlert{
-				{NodeStatement: entities.NodeStatement{Node: "b", Version: "b-node"}},
+				{Node: "b", Version: "b-node"},
 			},
 		},
 	}
