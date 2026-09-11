@@ -276,7 +276,7 @@ func TestDifferentChainsTemplate(t *testing.T) {
 
 func TestIncompleteTemplate(t *testing.T) {
 	data := &entities.IncompleteAlert{
-		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
+		Node: "a", Version: "1", Height: 1,
 	}
 	for _, f := range expectedFormats() {
 		const template = "templates/alerts/incomplete_alert"
@@ -302,7 +302,7 @@ func TestInternalErrorTemplate(t *testing.T) {
 
 func TestInvalidHeightTemplate(t *testing.T) {
 	data := &entities.InvalidHeightAlert{
-		NodeStatement: entities.NodeStatement{Node: "a", Version: "1", Height: 1},
+		Node: "a", Version: "1", Height: 1,
 	}
 	for _, f := range expectedFormats() {
 		const template = "templates/alerts/invalid_height_alert"
