@@ -22,7 +22,7 @@ To do the same as environment variable form use _**UPPER_SNAKE_CASE**_ option na
 ## Build requirements
 
 - `Make` utility
-- `Golang` toolchain
+- Go 1.27 or later
 
 ## Docker
 
