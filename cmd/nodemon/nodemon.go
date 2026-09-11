@@ -400,7 +400,7 @@ func closeStorages(ns nodes.Storage, es *events.Storage, logger *slog.Logger) {
 
 type shutdownFunc func()
 
-func startServices( //nolint:nonamedreturns // needs in defer
+func startServices(
 	ctx context.Context,
 	cfg *nodemonConfig,
 	ns nodes.Storage,
